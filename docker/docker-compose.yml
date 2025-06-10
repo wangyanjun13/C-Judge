@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # 数据库服务
+  db:
+    image: postgres:14-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=cjudge
+      - POSTGRES_DB=cjudge
+    ports:
+      - "5432:5432"
+
+  # Redis缓存
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --save 60 1 --loglevel warning
+
+  # 后端API服务
+  backend:
+    image: python:3.9
+    working_dir: /app
+    volumes:
+      - ../backend:/app
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+    dns:
+      - 223.5.5.5  # 阿里云DNS
+      - 223.6.6.6  # 阿里云DNS备用
+    environment:
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - DATABASE_URL=postgresql://cjudge:password@db:5432/cjudge
+      - REDIS_URL=redis://redis:6379/0
+      - JUDGE_SERVER_URL=http://oj-judge:8080
+      - JUDGE_SERVER_TOKEN=12345678
+      - PYTHONPATH=/app
+    depends_on:
+      - db
+      - redis
+    command: >
+      sh -c "
+        pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --trusted-host pypi.tuna.tsinghua.edu.cn fastapi uvicorn sqlalchemy pydantic==1.10.13 psycopg2-binary python-jose passlib bcrypt python-multipart aiohttp redis alembic python-dotenv &&
+        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  # 前端服务
+  frontend:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+    ports:
+      - "3000:3000"
+    dns:
+      - 223.5.5.5  # 阿里云DNS
+      - 223.6.6.6  # 阿里云DNS备用
+    environment:
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+    depends_on:
+      - backend
+    command: sh -c "npm config set registry https://registry.npmmirror.com && npm install && npm run dev -- --host"
+
+  # 评测服务
+  oj-judge:
+    image: registry.cn-hongkong.aliyuncs.com/oj-image/judge:1.6.1
+    restart: always
+    read_only: true
+    cap_drop:
+      - SETPCAP
+      - MKNOD
+      - NET_BIND_SERVICE
+      - SYS_CHROOT
+      - SETFCAP
+      - FSETID
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./data/test_case:/test_case:ro
+      - ./data/judge/log:/log
+      - ./data/judge/run:/judger
+    environment:
+      - SERVICE_URL=http://oj-judge:8080
+      - BACKEND_URL=http://backend:8000/api/judge_server_heartbeat/
+      - TOKEN=12345678
+      - DISABLE_HEARTBEAT=1
+      # - judger_debug=1
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+  redis_data:

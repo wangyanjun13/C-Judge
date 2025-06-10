@@ -1,0 +1,48 @@
+# 前端相关
+/frontend/node_modules
+/frontend/dist
+/frontend/.env.local
+/frontend/.env.*.local
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+
+# 后端相关
+/backend/venv
+/backend/__pycache__/
+/backend/**/__pycache__/
+/backend/**/**/__pycache__/
+/backend/logs
+/backend/uploads
+/backend/uploads/*
+/backend/.env
+/backend/*.db
+/backend/*.sqlite3
+
+# 编辑器相关
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+.project
+.classpath
+.settings/
+
+# Docker相关
+/docker/data/
+/docker/data/*
+!/docker/data/.gitkeep
+
+# 临时文件
+*.log
+*.tmp
+*.temp
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+

@@ -1,0 +1,15 @@
+--index-url https://pypi.tuna.tsinghua.edu.cn/simple
+--trusted-host pypi.tuna.tsinghua.edu.cn
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+psycopg2-binary
+python-jose
+passlib
+bcrypt
+python-multipart
+aiohttp
+redis
+alembic
+python-dotenv

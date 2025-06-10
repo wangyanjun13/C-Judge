@@ -1,0 +1,1354 @@
+<template>
+  <div class="management-container">
+    <div class="page-header">
+      <h2>系统管理</h2>
+    </div>
+
+    <div class="tabs">
+      <div 
+        v-for="tab in tabs" 
+        :key="tab.value" 
+        :class="['tab-item', { active: activeTab === tab.value }]"
+        @click="switchTab(tab.value)"
+      >
+        {{ tab.label }}
+      </div>
+    </div>
+
+    <!-- 班级管理 -->
+    <div v-if="activeTab === 'classes'" class="tab-content">
+      <div class="content-header">
+        <h3>班级管理</h3>
+        <button class="btn btn-primary" @click="showClassModal">添加班级</button>
+      </div>
+
+      <div v-if="loading.classes" class="loading">加载中...</div>
+      <div v-else-if="classes.length === 0" class="empty-data">
+        暂无班级数据，请添加
+      </div>
+      <div v-else class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>班级名称</th>
+              <th>学生数量</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="classItem in classes" :key="classItem.id">
+              <td>{{ classItem.name }}</td>
+              <td>{{ classItem.student_count || 0 }}</td>
+              <td>{{ formatDate(classItem.created_at) }}</td>
+              <td>
+                <button class="btn btn-sm btn-edit" @click="editClass(classItem)">修改</button>
+                <button class="btn btn-sm btn-danger" @click="confirmDeleteClass(classItem)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 教师管理 -->
+    <div v-else-if="activeTab === 'teachers'" class="tab-content">
+      <div class="content-header">
+        <h3>教师管理</h3>
+        <button class="btn btn-primary" @click="showTeacherModal">添加教师</button>
+      </div>
+      
+      <div v-if="loading.teachers" class="loading">加载中...</div>
+      <div v-else-if="teachers.length === 0" class="empty-data">
+        暂无教师数据，请添加
+      </div>
+      <div v-else class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>用户名</th>
+              <th>真实姓名</th>
+              <th>是否在线</th>
+              <th>注册时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="teacher in teachers" :key="teacher.id">
+              <td>{{ teacher.username }}</td>
+              <td>{{ teacher.real_name }}</td>
+              <td>
+                <span :class="['status-badge', teacher.is_online ? 'online' : 'offline']">
+                  {{ teacher.is_online ? '在线' : '离线' }}
+                </span>
+              </td>
+              <td>{{ formatDate(teacher.register_time) }}</td>
+              <td>
+                <button class="btn btn-sm btn-edit" @click="editTeacher(teacher)">修改</button>
+                <button class="btn btn-sm btn-danger" @click="confirmDeleteTeacher(teacher)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 课程管理 -->
+    <div v-else-if="activeTab === 'courses'" class="tab-content">
+      <div class="content-header">
+        <h3>课程竞赛</h3>
+        <button class="btn btn-primary" @click="showCourseModal">添加课程</button>
+      </div>
+      
+      <div v-if="loading.courses" class="loading">加载中...</div>
+      <div v-else-if="courses.length === 0" class="empty-data">
+        暂无课程数据，请添加
+      </div>
+      <div v-else class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>课程名称</th>
+              <th>教师</th>
+              <th>班级</th>
+              <th>课程类别</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="course in courses" :key="course.id">
+              <td>{{ course.name }}</td>
+              <td>{{ course.teacher_name }}</td>
+              <td>{{ formatClassList(course.classes) }}</td>
+              <td>{{ course.category || '未分类' }}</td>
+              <td>{{ formatDate(course.created_at) }}</td>
+              <td>
+                <button class="btn btn-sm btn-edit" @click="editCourse(course)">修改</button>
+                <button class="btn btn-sm btn-danger" @click="confirmDeleteCourse(course)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 学生管理 -->
+    <div v-else-if="activeTab === 'students'" class="tab-content">
+      <div class="content-header">
+        <h3>学生管理</h3>
+        <div class="action-buttons">
+          <button class="btn btn-primary" @click="showStudentModal">添加学生</button>
+          <button class="btn btn-secondary" @click="showImportModal">批量导入</button>
+          <button class="btn btn-secondary" @click="exportStudents">导出</button>
+          <button class="btn btn-danger" @click="confirmClearStudents">清空</button>
+        </div>
+      </div>
+      
+      <div class="filter-section">
+        <div class="filter-item">
+          <label for="class-filter">班级筛选：</label>
+          <select id="class-filter" v-model="studentFilters.classId">
+            <option value="">全部班级</option>
+            <option v-for="classItem in classes" :key="classItem.id" :value="classItem.id">
+              {{ classItem.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+      
+      <div v-if="loading.students" class="loading">加载中...</div>
+      <div v-else-if="filteredStudents.length === 0" class="empty-data">
+        暂无学生数据，请添加
+      </div>
+      <div v-else class="data-table">
+        <table>
+          <thead>
+            <tr>
+              <th>序号</th>
+              <th>学生名称</th>
+              <th>班级</th>
+              <th>是否在线</th>
+              <th>注册时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(student, index) in filteredStudents" :key="student.id">
+              <td>{{ index + 1 }}</td>
+              <td>{{ student.username }} ({{ student.real_name }})</td>
+              <td>{{ formatClassList(student.classes) }}</td>
+              <td>
+                <span :class="['status-badge', student.is_online ? 'online' : 'offline']">
+                  {{ student.is_online ? '在线' : '离线' }}
+                </span>
+              </td>
+              <td>{{ formatDate(student.register_time) }}</td>
+              <td>
+                <button class="btn btn-sm btn-edit" @click="editStudent(student)">修改</button>
+                <button class="btn btn-sm btn-danger" @click="confirmDeleteStudent(student)">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 班级添加/编辑对话框 -->
+    <div v-if="classModalVisible" class="modal-overlay" @click="classModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>{{ isEditing ? '编辑班级' : '添加班级' }}</h3>
+        <form @submit.prevent="submitClassForm">
+          <div class="form-group">
+            <label for="class-name">班级名称</label>
+            <input
+              type="text"
+              id="class-name"
+              v-model="classForm.name"
+              required
+            />
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" @click="classModalVisible = false">取消</button>
+            <button type="submit" class="btn-primary">{{ isEditing ? '保存' : '添加' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 教师添加/编辑对话框 -->
+    <div v-if="teacherModalVisible" class="modal-overlay" @click="teacherModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>{{ isEditing ? '编辑教师' : '添加教师' }}</h3>
+        <form @submit.prevent="submitTeacherForm">
+          <div class="form-group">
+            <label for="teacher-username">用户名</label>
+            <input
+              type="text"
+              id="teacher-username"
+              v-model="teacherForm.username"
+              :disabled="isEditing"
+              required
+            />
+          </div>
+          
+          <div class="form-group" v-if="!isEditing">
+            <label for="teacher-password">密码</label>
+            <input
+              type="password"
+              id="teacher-password"
+              v-model="teacherForm.password"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="teacher-realname">真实姓名</label>
+            <input
+              type="text"
+              id="teacher-realname"
+              v-model="teacherForm.real_name"
+              required
+            />
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" @click="teacherModalVisible = false">取消</button>
+            <button type="submit" class="btn-primary">{{ isEditing ? '保存' : '添加' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 课程添加/编辑对话框 -->
+    <div v-if="courseModalVisible" class="modal-overlay" @click="courseModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>{{ isEditing ? '编辑课程' : '添加课程' }}</h3>
+        <form @submit.prevent="submitCourseForm">
+          <div class="form-group">
+            <label for="course-name">课程名称</label>
+            <input
+              type="text"
+              id="course-name"
+              v-model="courseForm.name"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="course-teacher">授课教师</label>
+            <select
+              id="course-teacher"
+              v-model="courseForm.teacher_id"
+              required
+            >
+              <option value="">选择教师</option>
+              <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
+                {{ teacher.real_name }} ({{ teacher.username }})
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="course-category">课程类别</label>
+            <input
+              type="text"
+              id="course-category"
+              v-model="courseForm.category"
+              placeholder="选填"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label>选择班级</label>
+            <div class="checkbox-group">
+              <div v-for="classItem in classes" :key="classItem.id" class="checkbox-item">
+                <input
+                  type="checkbox"
+                  :id="`class-${classItem.id}`"
+                  :value="classItem.id"
+                  v-model="courseForm.class_ids"
+                />
+                <label :for="`class-${classItem.id}`">{{ classItem.name }}</label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" @click="courseModalVisible = false">取消</button>
+            <button type="submit" class="btn-primary">{{ isEditing ? '保存' : '添加' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 确认删除对话框 -->
+    <div v-if="deleteModalVisible" class="modal-overlay" @click="deleteModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>确认删除</h3>
+        <p>您确定要删除{{ deleteType === 'class' ? '班级' : deleteType === 'teacher' ? '教师' : deleteType === 'course' ? '课程' : '' }} "{{ deleteItem?.name }}" 吗？此操作不可撤销。</p>
+        <div class="form-actions">
+          <button @click="deleteModalVisible = false">取消</button>
+          <button class="btn-danger" @click="confirmDelete">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 学生添加/编辑对话框 -->
+    <div v-if="studentModalVisible" class="modal-overlay" @click="studentModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>{{ isEditing ? '编辑学生' : '添加学生' }}</h3>
+        <form @submit.prevent="submitStudentForm">
+          <div class="form-group">
+            <label for="student-username">用户名（学号）</label>
+            <input
+              type="text"
+              id="student-username"
+              v-model="studentForm.username"
+              :disabled="isEditing"
+              required
+            />
+          </div>
+          
+          <div class="form-group" v-if="!isEditing">
+            <label for="student-password">密码</label>
+            <input
+              type="password"
+              id="student-password"
+              v-model="studentForm.password"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="student-realname">真实姓名</label>
+            <input
+              type="text"
+              id="student-realname"
+              v-model="studentForm.real_name"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label>选择班级</label>
+            <div class="checkbox-group">
+              <div v-for="classItem in classes" :key="classItem.id" class="checkbox-item">
+                <input
+                  type="checkbox"
+                  :id="`student-class-${classItem.id}`"
+                  :value="classItem.id"
+                  v-model="studentForm.class_ids"
+                />
+                <label :for="`student-class-${classItem.id}`">{{ classItem.name }}</label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" @click="studentModalVisible = false">取消</button>
+            <button type="submit" class="btn-primary">{{ isEditing ? '保存' : '添加' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- 批量导入学生对话框 -->
+    <div v-if="importModalVisible" class="modal-overlay" @click="importModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>批量导入学生</h3>
+        <div class="import-instructions">
+          <p>请选择包含学生信息的TXT文件，每行一条记录，格式为：</p>
+          <pre>学号,密码,真实姓名</pre>
+          <p>例如：</p>
+          <pre>20210001,password123,张三
+20210002,password456,李四
+20210003,password789,王五</pre>
+        </div>
+        
+        <div class="form-group">
+          <label for="import-class">选择班级</label>
+          <select id="import-class" v-model="importForm.class_id" required>
+            <option value="">请选择班级</option>
+            <option v-for="classItem in classes" :key="classItem.id" :value="classItem.id">
+              {{ classItem.name }}
+            </option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="import-file">选择文件</label>
+          <input type="file" id="import-file" @change="handleFileChange" accept=".txt" required />
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" @click="importModalVisible = false">取消</button>
+          <button type="button" class="btn-primary" @click="importStudents">导入</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 确认清空对话框 -->
+    <div v-if="clearModalVisible" class="modal-overlay" @click="clearModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>确认清空</h3>
+        <p>您确定要清空所有学生数据吗？此操作不可撤销。</p>
+        <div class="form-actions">
+          <button @click="clearModalVisible = false">取消</button>
+          <button class="btn-danger" @click="clearStudents">清空</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import axios from '@/utils/axios';  // 修正导入路径
+
+// 获取路由参数
+const route = useRoute();
+const router = useRouter();
+
+// 标签页配置
+const tabs = [
+  { label: '班级管理', value: 'classes' },
+  { label: '教师管理', value: 'teachers' },
+  { label: '课程竞赛', value: 'courses' },
+  { label: '学生管理', value: 'students' }
+];
+
+// 当前活动标签
+const activeTab = ref(route.query.tab || 'classes');
+
+// 加载状态
+const loading = ref({
+  classes: false,
+  teachers: false,
+  courses: false,
+  students: false
+});
+
+// 数据
+const classes = ref([]);
+const teachers = ref([]);
+const courses = ref([]);
+const students = ref([]);
+
+// 模态框状态
+const classModalVisible = ref(false);
+const deleteModalVisible = ref(false);
+const isEditing = ref(false);
+const deleteType = ref('');
+const deleteItem = ref(null);
+
+// 表单数据
+const classForm = ref({
+  id: null,
+  name: ''
+});
+
+// 教师相关表单数据
+const teacherModalVisible = ref(false);
+const teacherForm = ref({
+  id: null,
+  username: '',
+  password: '',
+  real_name: '',
+  role: 'teacher'
+});
+
+// 课程相关表单数据
+const courseModalVisible = ref(false);
+const courseForm = ref({
+  id: null,
+  name: '',
+  teacher_id: '',
+  category: '',
+  class_ids: []
+});
+
+// 学生相关表单数据
+const studentModalVisible = ref(false);
+const importModalVisible = ref(false);
+const clearModalVisible = ref(false);
+const selectedFile = ref(null);
+
+const studentFilters = ref({
+  classId: ''
+});
+
+const studentForm = ref({
+  id: null,
+  username: '',
+  password: '',
+  real_name: '',
+  role: 'student',
+  class_ids: []
+});
+
+const importForm = ref({
+  class_id: '',
+  file: null
+});
+
+// 切换标签
+const switchTab = (tab) => {
+  activeTab.value = tab;
+  // 更新URL参数，但不重新加载页面
+  router.push({ 
+    path: route.path,
+    query: { ...route.query, tab }
+  });
+
+  // 根据标签加载相应数据
+  loadTabData(tab);
+};
+
+// 加载标签数据
+const loadTabData = (tab) => {
+  switch (tab) {
+    case 'classes':
+      fetchClasses();
+      break;
+    case 'teachers':
+      fetchTeachers();
+      break;
+    case 'courses':
+      fetchCourses();
+      break;
+    case 'students':
+      fetchStudents();
+      break;
+  }
+};
+
+// 格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return '无';
+  const date = new Date(dateString);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
+// ========== 班级管理相关 ==========
+
+// 获取班级列表
+const fetchClasses = async () => {
+  loading.value.classes = true;
+  try {
+    console.log('开始获取班级列表...请求URL:', '/api/classes/');
+    
+    // 尝试先测试API连接
+    try {
+      const testResponse = await fetch('/api/test');
+      console.log('API连接测试结果:', await testResponse.json());
+    } catch (testError) {
+      console.error('API连接测试失败:', testError);
+    }
+    
+    // 使用相对路径避免代理问题，确保URL末尾有斜杠
+    const res = await axios.get('/api/classes/');
+    console.log('班级列表返回数据:', res);
+    classes.value = res.data || [];
+    console.log('处理后的班级数据:', classes.value);
+  } catch (error) {
+    console.error('获取班级列表失败', error);
+    console.error('错误详情:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: {
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        method: error.config?.method
+      }
+    });
+    ElMessage.error(`获取班级列表失败: ${error.message}`);
+    // 如果是401错误，可能是未登录或token过期
+    if (error.response?.status === 401) {
+      // 跳转到登录页
+      router.push('/login');
+    }
+  } finally {
+    loading.value.classes = false;
+  }
+};
+
+// 显示班级添加对话框
+const showClassModal = () => {
+  isEditing.value = false;
+  classForm.value = {
+    id: null,
+    name: ''
+  };
+  classModalVisible.value = true;
+};
+
+// 显示班级编辑对话框
+const editClass = (classItem) => {
+  isEditing.value = true;
+  classForm.value = {
+    id: classItem.id,
+    name: classItem.name
+  };
+  classModalVisible.value = true;
+};
+
+// 确认删除班级
+const confirmDeleteClass = (classItem) => {
+  deleteType.value = 'class';
+  deleteItem.value = classItem;
+  deleteModalVisible.value = true;
+};
+
+// 提交班级表单
+const submitClassForm = async () => {
+  try {
+    if (isEditing.value) {
+      // 更新班级
+      await axios.put(`/api/classes/${classForm.value.id}`, classForm.value);
+      ElMessage.success('班级更新成功');
+    } else {
+      // 创建班级
+      const res = await axios.post('/api/classes/', classForm.value);
+      ElMessage.success('班级创建成功');
+    }
+    classModalVisible.value = false;
+    fetchClasses(); // 刷新班级列表
+  } catch (error) {
+    console.error('提交班级失败', error);
+    ElMessage.error(isEditing.value ? '更新班级失败' : '创建班级失败');
+  }
+};
+
+// ========== 教师管理相关 ==========
+
+// 获取教师列表
+const fetchTeachers = async () => {
+  loading.value.teachers = true;
+  try {
+    const res = await axios.get('/api/users/teachers');
+    teachers.value = res.data;
+  } catch (error) {
+    console.error('获取教师列表失败', error);
+    ElMessage.error('获取教师列表失败');
+  } finally {
+    loading.value.teachers = false;
+  }
+};
+
+// 显示教师添加对话框
+const showTeacherModal = () => {
+  isEditing.value = false;
+  teacherForm.value = {
+    id: null,
+    username: '',
+    password: '',
+    real_name: '',
+    role: 'teacher'
+  };
+  teacherModalVisible.value = true;
+};
+
+// 显示教师编辑对话框
+const editTeacher = (teacher) => {
+  isEditing.value = true;
+  teacherForm.value = {
+    id: teacher.id,
+    username: teacher.username,
+    real_name: teacher.real_name,
+    role: 'teacher'
+  };
+  teacherModalVisible.value = true;
+};
+
+// 确认删除教师
+const confirmDeleteTeacher = (teacher) => {
+  deleteType.value = 'teacher';
+  deleteItem.value = teacher;
+  deleteModalVisible.value = true;
+};
+
+// 提交教师表单
+const submitTeacherForm = async () => {
+  try {
+    if (isEditing.value) {
+      // 更新教师
+      await axios.put(`/api/users/teacher/${teacherForm.value.id}`, teacherForm.value);
+      ElMessage.success('教师信息更新成功');
+    } else {
+      // 创建教师
+      await axios.post('/api/users/teacher', teacherForm.value);
+      ElMessage.success('教师创建成功');
+    }
+    teacherModalVisible.value = false;
+    fetchTeachers(); // 刷新教师列表
+  } catch (error) {
+    console.error('提交教师失败', error);
+    ElMessage.error(isEditing.value ? '更新教师失败' : '创建教师失败');
+  }
+};
+
+// ========== 课程管理相关 ==========
+
+// 格式化班级列表
+const formatClassList = (classList) => {
+  if (!classList || classList.length === 0) return '无';
+  return classList.map(cls => cls.name).join(', ');
+};
+
+// 获取课程列表
+const fetchCourses = async () => {
+  loading.value.courses = true;
+  try {
+    const res = await axios.get('/api/courses/');
+    courses.value = res.data;
+  } catch (error) {
+    console.error('获取课程列表失败', error);
+    ElMessage.error('获取课程列表失败');
+  } finally {
+    loading.value.courses = false;
+  }
+};
+
+const showCourseModal = () => {
+  isEditing.value = false;
+  courseForm.value = {
+    id: null,
+    name: '',
+    teacher_id: '',
+    category: '',
+    class_ids: []
+  };
+  courseModalVisible.value = true;
+  
+  // 确保已加载教师和班级数据
+  if (teachers.value.length === 0) {
+    fetchTeachers();
+  }
+  if (classes.value.length === 0) {
+    fetchClasses();
+  }
+};
+
+const editCourse = (course) => {
+  isEditing.value = true;
+  courseForm.value = {
+    id: course.id,
+    name: course.name,
+    teacher_id: course.teacher_id,
+    category: course.category,
+    class_ids: course.classes.map(cls => cls.id)
+  };
+  courseModalVisible.value = true;
+  
+  // 确保已加载教师和班级数据
+  if (teachers.value.length === 0) {
+    fetchTeachers();
+  }
+  if (classes.value.length === 0) {
+    fetchClasses();
+  }
+};
+
+const confirmDeleteCourse = (course) => {
+  deleteType.value = 'course';
+  deleteItem.value = course;
+  deleteModalVisible.value = true;
+};
+
+const submitCourseForm = async () => {
+  try {
+    if (isEditing.value) {
+      // 更新课程
+      await axios.put(`/api/courses/${courseForm.value.id}`, courseForm.value);
+      ElMessage.success('课程更新成功');
+    } else {
+      // 创建课程
+      await axios.post('/api/courses/', courseForm.value);
+      ElMessage.success('课程创建成功');
+    }
+    courseModalVisible.value = false;
+    fetchCourses(); // 刷新课程列表
+  } catch (error) {
+    console.error('提交课程失败', error);
+    ElMessage.error(isEditing.value ? '更新课程失败' : '创建课程失败');
+  }
+};
+
+// 更新确认删除函数以支持删除课程
+const confirmDelete = async () => {
+  try {
+    if (deleteType.value === 'class') {
+      // 删除班级
+      await axios.delete(`/api/classes/${deleteItem.value.id}`);
+      ElMessage.success('班级删除成功');
+      fetchClasses(); // 刷新班级列表
+    } else if (deleteType.value === 'teacher') {
+      // 删除教师
+      await axios.delete(`/api/users/teacher/${deleteItem.value.id}`);
+      ElMessage.success('教师删除成功');
+      fetchTeachers(); // 刷新教师列表
+    } else if (deleteType.value === 'course') {
+      // 删除课程
+      await axios.delete(`/api/courses/${deleteItem.value.id}`);
+      ElMessage.success('课程删除成功');
+      fetchCourses(); // 刷新课程列表
+    } else if (deleteType.value === 'student') {
+      // 删除学生
+      await axios.delete(`/api/users/student/${deleteItem.value.id}`);
+      ElMessage.success('学生删除成功');
+      fetchStudents(); // 刷新学生列表
+    }
+    deleteModalVisible.value = false;
+  } catch (error) {
+    console.error('删除失败', error);
+    ElMessage.error('删除失败');
+  }
+};
+
+// ========== 学生管理相关 ==========
+
+// 筛选后的学生列表
+const filteredStudents = computed(() => {
+  if (!studentFilters.value.classId) {
+    return students.value;
+  }
+  return students.value.filter(student => 
+    student.classes.some(cls => cls.id === studentFilters.value.classId)
+  );
+});
+
+// 获取学生列表
+const fetchStudents = async () => {
+  loading.value.students = true;
+  try {
+    let url = '/api/users/students';
+    if (studentFilters.value.classId) {
+      url += `?class_id=${studentFilters.value.classId}`;
+    }
+    const res = await axios.get(url);
+    students.value = res.data;
+  } catch (error) {
+    console.error('获取学生列表失败', error);
+    ElMessage.error('获取学生列表失败');
+  } finally {
+    loading.value.students = false;
+  }
+};
+
+const showStudentModal = () => {
+  isEditing.value = false;
+  studentForm.value = {
+    id: null,
+    username: '',
+    password: '',
+    real_name: '',
+    role: 'student',
+    class_ids: []
+  };
+  studentModalVisible.value = true;
+  
+  // 确保已加载班级数据
+  if (classes.value.length === 0) {
+    fetchClasses();
+  }
+};
+
+const editStudent = (student) => {
+  isEditing.value = true;
+  studentForm.value = {
+    id: student.id,
+    username: student.username,
+    real_name: student.real_name,
+    role: 'student',
+    class_ids: student.classes.map(cls => cls.id)
+  };
+  studentModalVisible.value = true;
+  
+  // 确保已加载班级数据
+  if (classes.value.length === 0) {
+    fetchClasses();
+  }
+};
+
+const confirmDeleteStudent = (student) => {
+  deleteType.value = 'student';
+  deleteItem.value = student;
+  deleteModalVisible.value = true;
+};
+
+const submitStudentForm = async () => {
+  try {
+    if (isEditing.value) {
+      // 更新学生
+      await axios.put(`/api/users/student/${studentForm.value.id}`, {
+        ...studentForm.value,
+        class_ids: studentForm.value.class_ids
+      });
+      ElMessage.success('学生信息更新成功');
+    } else {
+      // 创建学生
+      await axios.post('/api/users/student', {
+        ...studentForm.value,
+        class_ids: studentForm.value.class_ids
+      });
+      ElMessage.success('学生创建成功');
+    }
+    studentModalVisible.value = false;
+    fetchStudents(); // 刷新学生列表
+  } catch (error) {
+    console.error('提交学生失败', error);
+    ElMessage.error(isEditing.value ? '更新学生失败' : '创建学生失败');
+  }
+};
+
+const showImportModal = () => {
+  importForm.value = {
+    class_id: '',
+    file: null
+  };
+  importModalVisible.value = true;
+  
+  // 确保已加载班级数据
+  if (classes.value.length === 0) {
+    fetchClasses();
+  }
+};
+
+const handleFileChange = (event) => {
+  importForm.value.file = event.target.files[0];
+};
+
+const importStudents = async () => {
+  if (!importForm.value.class_id) {
+    ElMessage.warning('请选择班级');
+    return;
+  }
+  
+  if (!importForm.value.file) {
+    ElMessage.warning('请选择文件');
+    return;
+  }
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', importForm.value.file);
+    formData.append('class_id', importForm.value.class_id);
+    await axios.post('/api/users/import', formData);
+    
+    ElMessage.success('学生导入成功');
+    importModalVisible.value = false;
+    fetchStudents(); // 刷新学生列表
+  } catch (error) {
+    console.error('导入学生失败', error);
+    ElMessage.error('导入学生失败');
+  }
+};
+
+const exportStudents = async () => {
+  try {
+    let url = '/api/users/export';
+    if (studentFilters.value.classId) {
+      url += `?class_id=${studentFilters.value.classId}`;
+    }
+    
+    const res = await axios.get(url);
+    
+    // 创建一个Blob对象
+    const blob = new Blob([res.data.content], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = res.data.filename;
+    link.click();
+    
+    ElMessage.success('学生数据导出成功');
+  } catch (error) {
+    console.error('导出学生失败', error);
+    ElMessage.error('导出学生失败');
+  }
+};
+
+const confirmClearStudents = () => {
+  clearModalVisible.value = true;
+};
+
+const clearStudents = async () => {
+  try {
+    let url = '/api/users/clear';
+    if (studentFilters.value.classId) {
+      url += `?class_id=${studentFilters.value.classId}`;
+    }
+    
+    await axios.delete(url);
+    
+    ElMessage.success('学生数据已清空');
+    clearModalVisible.value = false;
+    fetchStudents(); // 刷新学生列表
+  } catch (error) {
+    console.error('清空学生失败', error);
+    ElMessage.error('清空学生失败');
+  }
+};
+
+// 初始化
+onMounted(() => {
+  // 检查用户是否已登录
+  const token = localStorage.getItem('token');
+  if (!token) {
+    // 未登录，重定向到登录页
+    router.push('/login');
+    return;
+  }
+  
+  // 根据URL参数初始化当前标签
+  if (route.query.tab && tabs.some(tab => tab.value === route.query.tab)) {
+    activeTab.value = route.query.tab;
+  }
+  
+  // 加载当前标签数据
+  loadTabData(activeTab.value);
+});
+
+// 监听路由变化，切换标签
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && tabs.some(tab => tab.value === newTab)) {
+    activeTab.value = newTab;
+    loadTabData(newTab);
+  }
+}, { immediate: true });
+</script>
+
+<style scoped>
+.management-container {
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.page-header {
+  margin-bottom: 20px;
+}
+
+.page-header h2 {
+  margin: 0;
+  color: #303133;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e4e7ed;
+  margin-bottom: 20px;
+}
+
+.tab-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.3s;
+}
+
+.tab-item:hover {
+  color: #409eff;
+}
+
+.tab-item.active {
+  color: #409eff;
+  border-bottom-color: #409eff;
+}
+
+.tab-content {
+  min-height: 400px;
+}
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.content-header h3 {
+  margin: 0;
+  color: #303133;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.loading, .empty-data {
+  text-align: center;
+  padding: 40px;
+  color: #909399;
+}
+
+.data-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ebeef5;
+}
+
+th {
+  background-color: #f5f7fa;
+  color: #606266;
+  font-weight: 500;
+}
+
+.btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn-primary {
+  background-color: #409eff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #66b1ff;
+}
+
+.btn-secondary {
+  background-color: #909399;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #a6a9ad;
+}
+
+.btn-edit {
+  background-color: #67c23a;
+  color: white;
+}
+
+.btn-edit:hover {
+  background-color: #85ce61;
+}
+
+.btn-danger {
+  background-color: #f56c6c;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #f78989;
+}
+
+/* 模态对话框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.modal {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal h3 {
+  margin-top: 0;
+  color: #303133;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.form-actions button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.form-actions button:first-child {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.form-actions .btn-primary {
+  background-color: #409eff;
+  color: white;
+}
+
+.form-actions .btn-danger {
+  background-color: #f56c6c;
+  color: white;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.online {
+  background-color: #67c23a;
+  color: white;
+}
+
+.offline {
+  background-color: #909399;
+  color: white;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  min-width: 150px;
+}
+
+.checkbox-item input[type="checkbox"] {
+  margin-right: 5px;
+  width: auto;
+}
+
+.filter-section {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 20px;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+}
+
+.filter-item label {
+  margin-right: 10px;
+  font-weight: 500;
+}
+
+.filter-item select {
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  min-width: 200px;
+}
+
+.import-instructions {
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f8f8f8;
+  border-radius: 4px;
+}
+
+.import-instructions pre {
+  background-color: #eee;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  margin: 10px 0;
+}
+</style> 
