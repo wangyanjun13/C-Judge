@@ -106,22 +106,31 @@ const fetchExercises = async () => {
   loading.value = true;
   try {
     const result = await getStudentExercises();
-    exercises.value = result;
+    
+    // 确保返回结果是数组
+    exercises.value = Array.isArray(result) ? result : [];
     
     // 提取不重复的课程列表
     const courseMap = new Map();
-    exercises.value.forEach(exercise => {
-      if (!courseMap.has(exercise.course_id)) {
-        courseMap.set(exercise.course_id, {
-          id: exercise.course_id,
-          name: exercise.course_name
-        });
-      }
-    });
+    
+    if (exercises.value.length > 0) {
+      exercises.value.forEach(exercise => {
+        if (!courseMap.has(exercise.course_id)) {
+          courseMap.set(exercise.course_id, {
+            id: exercise.course_id,
+            name: exercise.course_name
+          });
+        }
+      });
+    }
+    
     courses.value = Array.from(courseMap.values());
   } catch (error) {
     console.error('获取练习列表失败', error);
     ElMessage.error('获取练习列表失败');
+    // 确保在出错时初始化为空数组
+    exercises.value = [];
+    courses.value = [];
   } finally {
     loading.value = false;
   }

@@ -23,10 +23,11 @@
       </div>
 
       <div v-if="loading.classes" class="loading">加载中...</div>
-      <div v-else-if="classes.length === 0" class="empty-data">
+      <div v-else-if="!classes || classes.length === 0" class="empty-data">
         暂无班级数据，请添加
       </div>
       <div v-else class="data-table">
+        <p>找到 {{ classes.length }} 个班级</p>
         <table>
           <thead>
             <tr>
@@ -59,10 +60,11 @@
       </div>
       
       <div v-if="loading.teachers" class="loading">加载中...</div>
-      <div v-else-if="teachers.length === 0" class="empty-data">
+      <div v-else-if="!teachers || teachers.length === 0" class="empty-data">
         暂无教师数据，请添加
       </div>
       <div v-else class="data-table">
+        <p>找到 {{ teachers.length }} 个教师</p>
         <table>
           <thead>
             <tr>
@@ -101,10 +103,11 @@
       </div>
       
       <div v-if="loading.courses" class="loading">加载中...</div>
-      <div v-else-if="courses.length === 0" class="empty-data">
+      <div v-else-if="!courses || courses.length === 0" class="empty-data">
         暂无课程数据，请添加
       </div>
       <div v-else class="data-table">
+        <p>找到 {{ courses.length }} 个课程</p>
         <table>
           <thead>
             <tr>
@@ -119,7 +122,7 @@
           <tbody>
             <tr v-for="course in courses" :key="course.id">
               <td>{{ course.name }}</td>
-              <td>{{ course.teacher_name }}</td>
+              <td>{{ course.teacher_name || (course.teacher && course.teacher.real_name) || '未分配' }}</td>
               <td>{{ formatClassList(course.classes) }}</td>
               <td>{{ course.category || '未分类' }}</td>
               <td>{{ formatDate(course.created_at) }}</td>
@@ -158,10 +161,11 @@
       </div>
       
       <div v-if="loading.students" class="loading">加载中...</div>
-      <div v-else-if="filteredStudents.length === 0" class="empty-data">
+      <div v-else-if="!filteredStudents || filteredStudents.length === 0" class="empty-data">
         暂无学生数据，请添加
       </div>
       <div v-else class="data-table">
+        <p>找到 {{ filteredStudents.length }} 个学生</p>
         <table>
           <thead>
             <tr>
@@ -444,7 +448,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import axios from '@/utils/axios';  // 修正导入路径
@@ -536,32 +540,30 @@ const importForm = ref({
 });
 
 // 切换标签
-const switchTab = (tab) => {
+const switchTab = async (tab) => {
   activeTab.value = tab;
-  // 更新URL参数，但不重新加载页面
   router.push({ 
     path: route.path,
     query: { ...route.query, tab }
   });
-
-  // 根据标签加载相应数据
-  loadTabData(tab);
+  await loadTabData(tab);
 };
 
 // 加载标签数据
-const loadTabData = (tab) => {
+const loadTabData = async (tab) => {
   switch (tab) {
     case 'classes':
-      fetchClasses();
+      await fetchClasses();
       break;
     case 'teachers':
-      fetchTeachers();
+      await fetchTeachers();
       break;
     case 'courses':
-      fetchCourses();
+      await fetchCourses();
       break;
     case 'students':
-      fetchStudents();
+      await fetchClasses();
+      await fetchStudents();
       break;
   }
 };
@@ -573,43 +575,30 @@ const formatDate = (dateString) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
 
+// 格式化班级列表
+const formatClassList = (classList) => {
+  if (!classList || !Array.isArray(classList) || classList.length === 0) return '无';
+  return classList
+    .filter(cls => cls && typeof cls === 'object' && cls.name)
+    .map(cls => cls.name)
+    .join(', ');
+};
+
 // ========== 班级管理相关 ==========
 
 // 获取班级列表
 const fetchClasses = async () => {
   loading.value.classes = true;
   try {
-    console.log('开始获取班级列表...请求URL:', '/api/classes/');
-    
-    // 尝试先测试API连接
-    try {
-      const testResponse = await fetch('/api/test');
-      console.log('API连接测试结果:', await testResponse.json());
-    } catch (testError) {
-      console.error('API连接测试失败:', testError);
-    }
-    
-    // 使用相对路径避免代理问题，确保URL末尾有斜杠
     const res = await axios.get('/api/classes/');
-    console.log('班级列表返回数据:', res);
-    classes.value = res.data || [];
-    console.log('处理后的班级数据:', classes.value);
+    classes.value = Array.isArray(res.data) ? res.data : [];
   } catch (error) {
     console.error('获取班级列表失败', error);
-    console.error('错误详情:', {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-      config: {
-        url: error.config?.url,
-        baseURL: error.config?.baseURL,
-        method: error.config?.method
-      }
-    });
-    ElMessage.error(`获取班级列表失败: ${error.message}`);
+    ElMessage.error('获取班级列表失败');
+    classes.value = [];
+    
     // 如果是401错误，可能是未登录或token过期
     if (error.response?.status === 401) {
-      // 跳转到登录页
       router.push('/login');
     }
   } finally {
@@ -620,20 +609,14 @@ const fetchClasses = async () => {
 // 显示班级添加对话框
 const showClassModal = () => {
   isEditing.value = false;
-  classForm.value = {
-    id: null,
-    name: ''
-  };
+  classForm.value = { id: null, name: '' };
   classModalVisible.value = true;
 };
 
 // 显示班级编辑对话框
 const editClass = (classItem) => {
   isEditing.value = true;
-  classForm.value = {
-    id: classItem.id,
-    name: classItem.name
-  };
+  classForm.value = { id: classItem.id, name: classItem.name };
   classModalVisible.value = true;
 };
 
@@ -653,11 +636,11 @@ const submitClassForm = async () => {
       ElMessage.success('班级更新成功');
     } else {
       // 创建班级
-      const res = await axios.post('/api/classes/', classForm.value);
+      await axios.post('/api/classes/', classForm.value);
       ElMessage.success('班级创建成功');
     }
     classModalVisible.value = false;
-    fetchClasses(); // 刷新班级列表
+    await fetchClasses();
   } catch (error) {
     console.error('提交班级失败', error);
     ElMessage.error(isEditing.value ? '更新班级失败' : '创建班级失败');
@@ -671,10 +654,11 @@ const fetchTeachers = async () => {
   loading.value.teachers = true;
   try {
     const res = await axios.get('/api/users/teachers');
-    teachers.value = res.data;
+    teachers.value = Array.isArray(res.data) ? res.data : [];
   } catch (error) {
     console.error('获取教师列表失败', error);
     ElMessage.error('获取教师列表失败');
+    teachers.value = [];
   } finally {
     loading.value.teachers = false;
   }
@@ -683,25 +667,14 @@ const fetchTeachers = async () => {
 // 显示教师添加对话框
 const showTeacherModal = () => {
   isEditing.value = false;
-  teacherForm.value = {
-    id: null,
-    username: '',
-    password: '',
-    real_name: '',
-    role: 'teacher'
-  };
+  teacherForm.value = { id: null, username: '', password: '', real_name: '', role: 'teacher' };
   teacherModalVisible.value = true;
 };
 
 // 显示教师编辑对话框
 const editTeacher = (teacher) => {
   isEditing.value = true;
-  teacherForm.value = {
-    id: teacher.id,
-    username: teacher.username,
-    real_name: teacher.real_name,
-    role: 'teacher'
-  };
+  teacherForm.value = { id: teacher.id, username: teacher.username, real_name: teacher.real_name, role: 'teacher' };
   teacherModalVisible.value = true;
 };
 
@@ -725,7 +698,7 @@ const submitTeacherForm = async () => {
       ElMessage.success('教师创建成功');
     }
     teacherModalVisible.value = false;
-    fetchTeachers(); // 刷新教师列表
+    await fetchTeachers();
   } catch (error) {
     console.error('提交教师失败', error);
     ElMessage.error(isEditing.value ? '更新教师失败' : '创建教师失败');
@@ -734,21 +707,16 @@ const submitTeacherForm = async () => {
 
 // ========== 课程管理相关 ==========
 
-// 格式化班级列表
-const formatClassList = (classList) => {
-  if (!classList || classList.length === 0) return '无';
-  return classList.map(cls => cls.name).join(', ');
-};
-
 // 获取课程列表
 const fetchCourses = async () => {
   loading.value.courses = true;
   try {
     const res = await axios.get('/api/courses/');
-    courses.value = res.data;
+    courses.value = Array.isArray(res.data) ? res.data : [];
   } catch (error) {
     console.error('获取课程列表失败', error);
     ElMessage.error('获取课程列表失败');
+    courses.value = [];
   } finally {
     loading.value.courses = false;
   }
@@ -756,42 +724,31 @@ const fetchCourses = async () => {
 
 const showCourseModal = () => {
   isEditing.value = false;
-  courseForm.value = {
-    id: null,
-    name: '',
-    teacher_id: '',
-    category: '',
-    class_ids: []
-  };
+  courseForm.value = { id: null, name: '', teacher_id: '', category: '', class_ids: [] };
   courseModalVisible.value = true;
   
-  // 确保已加载教师和班级数据
-  if (teachers.value.length === 0) {
-    fetchTeachers();
-  }
-  if (classes.value.length === 0) {
-    fetchClasses();
-  }
+  if (teachers.value.length === 0) fetchTeachers();
+  if (classes.value.length === 0) fetchClasses();
 };
 
 const editCourse = (course) => {
   isEditing.value = true;
+  
+  const classIds = course.classes && Array.isArray(course.classes)
+    ? course.classes.filter(cls => cls && cls.id).map(cls => cls.id)
+    : [];
+  
   courseForm.value = {
     id: course.id,
     name: course.name,
     teacher_id: course.teacher_id,
-    category: course.category,
-    class_ids: course.classes.map(cls => cls.id)
+    category: course.category || '',
+    class_ids: classIds
   };
   courseModalVisible.value = true;
   
-  // 确保已加载教师和班级数据
-  if (teachers.value.length === 0) {
-    fetchTeachers();
-  }
-  if (classes.value.length === 0) {
-    fetchClasses();
-  }
+  if (teachers.value.length === 0) fetchTeachers();
+  if (classes.value.length === 0) fetchClasses();
 };
 
 const confirmDeleteCourse = (course) => {
@@ -812,7 +769,7 @@ const submitCourseForm = async () => {
       ElMessage.success('课程创建成功');
     }
     courseModalVisible.value = false;
-    fetchCourses(); // 刷新课程列表
+    await fetchCourses();
   } catch (error) {
     console.error('提交课程失败', error);
     ElMessage.error(isEditing.value ? '更新课程失败' : '创建课程失败');
@@ -826,22 +783,22 @@ const confirmDelete = async () => {
       // 删除班级
       await axios.delete(`/api/classes/${deleteItem.value.id}`);
       ElMessage.success('班级删除成功');
-      fetchClasses(); // 刷新班级列表
+      await fetchClasses();
     } else if (deleteType.value === 'teacher') {
       // 删除教师
       await axios.delete(`/api/users/teacher/${deleteItem.value.id}`);
       ElMessage.success('教师删除成功');
-      fetchTeachers(); // 刷新教师列表
+      await fetchTeachers();
     } else if (deleteType.value === 'course') {
       // 删除课程
       await axios.delete(`/api/courses/${deleteItem.value.id}`);
       ElMessage.success('课程删除成功');
-      fetchCourses(); // 刷新课程列表
+      await fetchCourses();
     } else if (deleteType.value === 'student') {
       // 删除学生
       await axios.delete(`/api/users/student/${deleteItem.value.id}`);
       ElMessage.success('学生删除成功');
-      fetchStudents(); // 刷新学生列表
+      await fetchStudents();
     }
     deleteModalVisible.value = false;
   } catch (error) {
@@ -854,12 +811,20 @@ const confirmDelete = async () => {
 
 // 筛选后的学生列表
 const filteredStudents = computed(() => {
+  if (!students.value || !Array.isArray(students.value)) {
+    return [];
+  }
+
   if (!studentFilters.value.classId) {
     return students.value;
   }
-  return students.value.filter(student => 
-    student.classes.some(cls => cls.id === studentFilters.value.classId)
-  );
+  
+  return students.value.filter(student => {
+    if (!student || !student.classes || !Array.isArray(student.classes)) {
+      return false;
+    }
+    return student.classes.some(cls => cls && cls.id === studentFilters.value.classId);
+  });
 });
 
 // 获取学生列表
@@ -870,11 +835,13 @@ const fetchStudents = async () => {
     if (studentFilters.value.classId) {
       url += `?class_id=${studentFilters.value.classId}`;
     }
+    
     const res = await axios.get(url);
-    students.value = res.data;
+    students.value = Array.isArray(res.data) ? res.data : [];
   } catch (error) {
     console.error('获取学生列表失败', error);
     ElMessage.error('获取学生列表失败');
+    students.value = [];
   } finally {
     loading.value.students = false;
   }
@@ -882,37 +849,29 @@ const fetchStudents = async () => {
 
 const showStudentModal = () => {
   isEditing.value = false;
-  studentForm.value = {
-    id: null,
-    username: '',
-    password: '',
-    real_name: '',
-    role: 'student',
-    class_ids: []
-  };
+  studentForm.value = { id: null, username: '', password: '', real_name: '', role: 'student', class_ids: [] };
   studentModalVisible.value = true;
   
-  // 确保已加载班级数据
-  if (classes.value.length === 0) {
-    fetchClasses();
-  }
+  if (classes.value.length === 0) fetchClasses();
 };
 
 const editStudent = (student) => {
   isEditing.value = true;
+  
+  const classIds = student.classes && Array.isArray(student.classes)
+    ? student.classes.filter(cls => cls && cls.id).map(cls => cls.id)
+    : [];
+  
   studentForm.value = {
     id: student.id,
     username: student.username,
     real_name: student.real_name,
     role: 'student',
-    class_ids: student.classes.map(cls => cls.id)
+    class_ids: classIds
   };
   studentModalVisible.value = true;
   
-  // 确保已加载班级数据
-  if (classes.value.length === 0) {
-    fetchClasses();
-  }
+  if (classes.value.length === 0) fetchClasses();
 };
 
 const confirmDeleteStudent = (student) => {
@@ -923,26 +882,51 @@ const confirmDeleteStudent = (student) => {
 
 const submitStudentForm = async () => {
   try {
+    if (!studentForm.value.username) {
+      ElMessage.warning('请输入用户名');
+      return;
+    }
+    
+    if (!isEditing.value && !studentForm.value.password) {
+      ElMessage.warning('请输入密码');
+      return;
+    }
+    
+    if (!studentForm.value.real_name) {
+      ElMessage.warning('请输入真实姓名');
+      return;
+    }
+    
+    // 构建提交数据
+    const postData = {
+      username: studentForm.value.username,
+      real_name: studentForm.value.real_name,
+      role: 'student',
+      class_ids: studentForm.value.class_ids || []
+    };
+    
+    // 只有在创建新学生时才添加密码字段
+    if (!isEditing.value) {
+      postData.password = studentForm.value.password;
+    }
+    
     if (isEditing.value) {
       // 更新学生
-      await axios.put(`/api/users/student/${studentForm.value.id}`, {
-        ...studentForm.value,
-        class_ids: studentForm.value.class_ids
-      });
+      await axios.put(`/api/users/student/${studentForm.value.id}`, postData);
       ElMessage.success('学生信息更新成功');
     } else {
       // 创建学生
-      await axios.post('/api/users/student', {
-        ...studentForm.value,
-        class_ids: studentForm.value.class_ids
-      });
+      await axios.post('/api/users/student', postData);
       ElMessage.success('学生创建成功');
     }
+    
     studentModalVisible.value = false;
-    fetchStudents(); // 刷新学生列表
+    await fetchStudents();
   } catch (error) {
     console.error('提交学生失败', error);
-    ElMessage.error(isEditing.value ? '更新学生失败' : '创建学生失败');
+    // 显示后端返回的错误消息或默认消息
+    const errorMsg = error.response?.data?.detail || (isEditing.value ? '更新学生失败' : '创建学生失败');
+    ElMessage.error(errorMsg);
   }
 };
 
@@ -953,10 +937,7 @@ const showImportModal = () => {
   };
   importModalVisible.value = true;
   
-  // 确保已加载班级数据
-  if (classes.value.length === 0) {
-    fetchClasses();
-  }
+  if (classes.value.length === 0) fetchClasses();
 };
 
 const handleFileChange = (event) => {
@@ -982,7 +963,7 @@ const importStudents = async () => {
     
     ElMessage.success('学生导入成功');
     importModalVisible.value = false;
-    fetchStudents(); // 刷新学生列表
+    await fetchStudents();
   } catch (error) {
     console.error('导入学生失败', error);
     ElMessage.error('导入学生失败');
@@ -998,7 +979,7 @@ const exportStudents = async () => {
     
     const res = await axios.get(url);
     
-    // 创建一个Blob对象
+    // 创建下载链接
     const blob = new Blob([res.data.content], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -1027,19 +1008,23 @@ const clearStudents = async () => {
     
     ElMessage.success('学生数据已清空');
     clearModalVisible.value = false;
-    fetchStudents(); // 刷新学生列表
+    await fetchStudents();
   } catch (error) {
     console.error('清空学生失败', error);
     ElMessage.error('清空学生失败');
   }
 };
 
+// 简化强制刷新方法
+const forceRefresh = async () => {
+  await loadTabData(activeTab.value);
+};
+
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   // 检查用户是否已登录
   const token = localStorage.getItem('token');
   if (!token) {
-    // 未登录，重定向到登录页
     router.push('/login');
     return;
   }
@@ -1050,7 +1035,10 @@ onMounted(() => {
   }
   
   // 加载当前标签数据
-  loadTabData(activeTab.value);
+  await loadTabData(activeTab.value);
+  
+  // 延迟后强制刷新一次数据
+  setTimeout(forceRefresh, 1000);
 });
 
 // 监听路由变化，切换标签

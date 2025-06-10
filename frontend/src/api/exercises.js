@@ -5,8 +5,14 @@ import axios from '../utils/axios'
  * @param {Object} params - 查询参数
  * @returns {Promise} - 返回练习列表
  */
-export const getStudentExercises = (params = {}) => {
-  return axios.get('/api/exercises/student', { params })
+export const getStudentExercises = async (params = {}) => {
+  try {
+    const response = await axios.get('/api/exercises/student', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取学生练习列表失败:', error);
+    return [];
+  }
 }
 
 /**
@@ -14,8 +20,14 @@ export const getStudentExercises = (params = {}) => {
  * @param {Object} params - 查询参数
  * @returns {Promise} - 返回练习列表
  */
-export const getTeacherExercises = (params = {}) => {
-  return axios.get('/api/exercises/teacher', { params })
+export const getTeacherExercises = async (params = {}) => {
+  try {
+    const response = await axios.get('/api/exercises/teacher', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取教师练习列表失败:', error);
+    return [];
+  }
 }
 
 /**
@@ -23,8 +35,14 @@ export const getTeacherExercises = (params = {}) => {
  * @param {Object} params - 查询参数
  * @returns {Promise} - 返回练习列表
  */
-export const getAdminExercises = (params = {}) => {
-  return axios.get('/api/exercises/admin', { params })
+export const getAdminExercises = async (params = {}) => {
+  try {
+    const response = await axios.get('/api/exercises/admin', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取管理员练习列表失败:', error);
+    return [];
+  }
 }
 
 /**

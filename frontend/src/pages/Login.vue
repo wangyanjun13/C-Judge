@@ -31,24 +31,18 @@
         {{ loading ? '登录中...' : '登录' }}
       </button>
       
-      <div class="api-test-section">
-        <p>API连接状态: <span :class="apiStatus.class">{{ apiStatus.text }}</span></p>
-        <button 
-          class="test-button" 
-          @click="testApiConnection" 
-          :disabled="testingApi"
-        >
-          {{ testingApi ? '测试中...' : '测试API连接' }}
-        </button>
+      <div class="login-options">
+        <button class="text-button" @click="clearStorage">清除登录状态</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
+import { ElMessage } from 'element-plus';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -57,9 +51,56 @@ const username = ref('');
 const password = ref('');
 const loading = ref(false);
 const error = ref('');
-const testingApi = ref(false);
-const apiStatus = ref({ class: '', text: '' });
 
+// 在页面加载时简单检查token
+onMounted(() => {
+  try {
+    // 清除可能存在的错误信息
+    error.value = '';
+    
+    // 如果已经登录，直接跳转
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user && user.role) {
+          redirectToUserPage(user.role);
+        }
+      } catch (e) {
+        console.error('解析用户数据出错:', e);
+        clearStorage();
+      }
+    }
+  } catch (err) {
+    console.error('初始化登录页时出错:', err);
+  }
+});
+
+// 清除存储数据
+const clearStorage = () => {
+  try {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    ElMessage.success('登录状态已清除');
+  } catch (err) {
+    console.error('清除存储数据时出错:', err);
+  }
+};
+
+// 根据角色跳转到对应页面
+const redirectToUserPage = (role) => {
+  if (role === 'admin') {
+    router.push('/admin/exercises');
+  } else if (role === 'teacher') {
+    router.push('/teacher/exercises');
+  } else if (role === 'student') {
+    router.push('/student/exercises');
+  }
+};
+
+// 处理登录
 const handleLogin = async () => {
   if (!username.value || !password.value) {
     error.value = '请输入用户名和密码';
@@ -70,39 +111,21 @@ const handleLogin = async () => {
   loading.value = true;
   
   try {
-    await authStore.login(username.value, password.value);
+    const result = await authStore.login(username.value, password.value);
+    console.log('登录成功:', result);
     
-    // 根据用户角色跳转到不同页面
+    // 根据用户角色跳转
     const role = authStore.userRole;
-    if (role === 'admin') {
-      router.push('/admin/exercises');
-    } else if (role === 'teacher') {
-      router.push('/teacher/exercises');
+    if (role) {
+      redirectToUserPage(role);
     } else {
-      router.push('/student/exercises');
+      error.value = '登录成功但无法确定用户角色';
     }
   } catch (err) {
+    console.error('登录失败:', err);
     error.value = err.response?.data?.detail || '登录失败，请检查用户名和密码';
   } finally {
     loading.value = false;
-  }
-};
-
-const testApiConnection = async () => {
-  testingApi.value = true;
-  apiStatus.value = { class: 'testing', text: '测试中...' };
-  
-  try {
-    const response = await fetch('/api/test');
-    if (response.ok) {
-      apiStatus.value = { class: 'success', text: '连接成功' };
-    } else {
-      apiStatus.value = { class: 'error', text: '连接失败' };
-    }
-  } catch (err) {
-    apiStatus.value = { class: 'error', text: '无法连接到API' };
-  } finally {
-    testingApi.value = false;
   }
 };
 </script>
@@ -174,27 +197,21 @@ input {
   cursor: not-allowed;
 }
 
-.api-test-section {
+.login-options {
   margin-top: 20px;
   text-align: center;
 }
 
-.test-button {
-  padding: 10px 20px;
-  background-color: #1890ff;
-  color: white;
+.text-button {
+  background: none;
   border: none;
-  border-radius: 4px;
+  color: #1890ff;
+  text-decoration: underline;
   cursor: pointer;
-  transition: background-color 0.3s;
+  font-size: 14px;
 }
 
-.test-button:hover {
-  background-color: #40a9ff;
-}
-
-.test-button:disabled {
-  background-color: #bae7ff;
-  cursor: not-allowed;
+.text-button:hover {
+  color: #40a9ff;
 }
 </style> 

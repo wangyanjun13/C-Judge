@@ -33,11 +33,6 @@ app.include_router(api_router)
 async def health_check():
     return {"status": "ok"}
 
-# 全局测试API
-@app.get("/api/test")
-async def test_api():
-    return {"status": "ok", "message": "API连接正常"}
-
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -309,35 +309,43 @@ const fetchExercises = async () => {
   loading.value = true;
   try {
     const result = await getAdminExercises();
-    exercises.value = result;
+    
+    // 确保返回结果是数组
+    exercises.value = Array.isArray(result) ? result : [];
     
     // 提取不重复的课程列表
     const courseMap = new Map();
     const teacherMap = new Map();
     
-    exercises.value.forEach(exercise => {
-      // 提取课程
-      if (!courseMap.has(exercise.course_id)) {
-        courseMap.set(exercise.course_id, {
-          id: exercise.course_id,
-          name: exercise.course_name
-        });
-      }
-      
-      // 提取教师ID（后续需要单独获取教师名称）
-      if (!teacherMap.has(exercise.publisher_id)) {
-        teacherMap.set(exercise.publisher_id, {
-          id: exercise.publisher_id,
-          name: `教师${exercise.publisher_id}` // 临时名称，实际应从API获取
-        });
-      }
-    });
+    if (exercises.value.length > 0) {
+      exercises.value.forEach(exercise => {
+        // 提取课程
+        if (!courseMap.has(exercise.course_id)) {
+          courseMap.set(exercise.course_id, {
+            id: exercise.course_id,
+            name: exercise.course_name
+          });
+        }
+        
+        // 提取教师ID（后续需要单独获取教师名称）
+        if (!teacherMap.has(exercise.publisher_id)) {
+          teacherMap.set(exercise.publisher_id, {
+            id: exercise.publisher_id,
+            name: `教师${exercise.publisher_id}` // 临时名称，实际应从API获取
+          });
+        }
+      });
+    }
     
     courses.value = Array.from(courseMap.values());
     teachers.value = Array.from(teacherMap.values());
   } catch (error) {
     console.error('获取练习列表失败', error);
     ElMessage.error('获取练习列表失败');
+    // 确保在出错时初始化为空数组
+    exercises.value = [];
+    courses.value = [];
+    teachers.value = [];
   } finally {
     loading.value = false;
   }

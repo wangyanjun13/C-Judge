@@ -13,11 +13,6 @@ from app.schemas.user import UserCreate, UserUpdate, UserResponse, TeacherRespon
 
 router = APIRouter(prefix="/users", tags=["用户"])
 
-@router.get("/test")
-async def test_users_api():
-    """测试用户API，无需身份验证"""
-    return {"status": "ok", "message": "用户API工作正常"}
-
 @router.get("/teachers", response_model=List[TeacherResponse])
 async def get_teachers(
     db: Session = Depends(get_db),
@@ -130,8 +125,7 @@ async def create_teacher(
 
 @router.post("/student", response_model=StudentResponse)
 async def create_student(
-    student_data: UserCreate,
-    class_ids: List[int],
+    student_data: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -140,8 +134,21 @@ async def create_student(
     if current_user.role == "student":
         raise HTTPException(status_code=403, detail="无权创建学生账号")
     
+    # 从请求体中提取必要字段
+    try:
+        username = student_data.get("username")
+        password = student_data.get("password")
+        real_name = student_data.get("real_name")
+        class_ids = student_data.get("class_ids", [])
+        
+        if not username or not password or not real_name:
+            raise HTTPException(status_code=400, detail="缺少必要字段")
+    except Exception as e:
+        print(f"参数解析错误: {e}, 接收到的数据: {student_data}")
+        raise HTTPException(status_code=400, detail=f"参数解析错误: {str(e)}")
+    
     # 检查用户名是否已存在
-    existing_user = db.query(User).filter(User.username == student_data.username).first()
+    existing_user = db.query(User).filter(User.username == username).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="用户名已存在")
     
@@ -162,11 +169,11 @@ async def create_student(
                 raise HTTPException(status_code=403, detail=f"无权向班级ID {class_id} 添加学生")
     
     # 创建学生账号
-    hashed_password = get_password_hash(student_data.password)
+    hashed_password = get_password_hash(password)
     new_student = User(
-        username=student_data.username,
+        username=username,
         password=hashed_password,
-        real_name=student_data.real_name,
+        real_name=real_name,
         role="student"
     )
     db.add(new_student)
@@ -229,8 +236,7 @@ async def update_teacher(
 @router.put("/student/{user_id}", response_model=StudentResponse)
 async def update_student(
     user_id: int,
-    student_data: UserUpdate,
-    class_ids: Optional[List[int]] = None,
+    student_data: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -244,12 +250,23 @@ async def update_student(
     if current_user.role == "student" and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="无权更新其他学生信息")
     
-    # 更新学生信息
-    if student_data.real_name:
-        student.real_name = student_data.real_name
+    # 从请求体中提取字段
+    try:
+        real_name = student_data.get("real_name")
+        password = student_data.get("password")
+        class_ids = student_data.get("class_ids")
+        
+        print(f"接收到的学生数据: {student_data}")
+    except Exception as e:
+        print(f"参数解析错误: {e}, 接收到的数据: {student_data}")
+        raise HTTPException(status_code=400, detail=f"参数解析错误: {str(e)}")
     
-    if student_data.password:
-        student.password = get_password_hash(student_data.password)
+    # 更新学生信息
+    if real_name:
+        student.real_name = real_name
+    
+    if password:
+        student.password = get_password_hash(password)
     
     # 如果是管理员或教师且提供了班级ID，更新学生班级
     if (current_user.role == "admin" or current_user.role == "teacher") and class_ids is not None:

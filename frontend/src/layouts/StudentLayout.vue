@@ -27,9 +27,9 @@
     <div v-if="aboutVisible" class="modal-overlay" @click="aboutVisible = false">
       <div class="modal" @click.stop>
         <h2>关于系统</h2>
-        <p>C语言评测系统是一个用于C语言编程课程的在线评测平台。</p>
+        <p>本系统为用于教育场景的C语言在线评测平台。</p>
         <p>版本：1.0.0</p>
-        <p>开发者：XXX团队</p>
+        <p>开发者：wangyanjun13@foxmail.com</p>
         <button @click="aboutVisible = false">关闭</button>
       </div>
     </div>

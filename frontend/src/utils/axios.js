@@ -4,18 +4,17 @@ import { ElMessage } from 'element-plus'
 // 创建 axios 实例
 const instance = axios.create({
   baseURL: '',  // 确保为空，使用相对路径
-  timeout: 15000,
+  timeout: 10000, // 请求超时时间
   headers: {
     'Content-Type': 'application/json'
   },
-  // 禁止重定向，由浏览器自动处理
-  maxRedirects: 0
+  withCredentials: true  // 确保跨域请求携带凭证
 })
 
 // 请求拦截器
 instance.interceptors.request.use(
   config => {
-    // 从localStorage直接获取token并添加到请求头
+    // 从localStorage获取token并添加到请求头
     const token = localStorage.getItem('token')
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
@@ -51,7 +50,7 @@ instance.interceptors.response.use(
       })
     }
     
-    return response.data
+    return response
   },
   error => {
     let message = '未知错误'
@@ -61,7 +60,9 @@ instance.interceptors.response.use(
       console.error('API错误:', {
         url: error.config?.url,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
+        message: error.message,
+        code: error.code
       })
     }
     
@@ -78,11 +79,8 @@ instance.interceptors.response.use(
           // 清除token
           localStorage.removeItem('token')
           localStorage.removeItem('user')
-          // 获取当前页面路径
-          const currentPath = window.location.pathname
           // 如果不是登录页，重定向到登录页
-          if (currentPath !== '/login') {
-            console.log('检测到401错误，重定向到登录页')
+          if (window.location.pathname !== '/login') {
             window.location.href = '/login'
           }
           break
@@ -100,7 +98,7 @@ instance.interceptors.response.use(
       }
     } else if (error.request) {
       // 请求已发送但未收到响应
-      message = '服务器无响应'
+      message = '服务器无响应，请检查网络连接'
     } else {
       // 请求过程中发生错误
       message = error.message

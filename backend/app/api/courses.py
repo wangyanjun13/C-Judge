@@ -9,11 +9,6 @@ from app.services import CourseService, UserService
 
 router = APIRouter(prefix="/courses", tags=["课程"])
 
-@router.get("/test")
-async def test_courses_api():
-    """测试课程API，无需身份验证"""
-    return {"status": "ok", "message": "课程API工作正常"}
-
 @router.get("/", response_model=List[CourseResponse])
 async def get_courses(
     db: Session = Depends(get_db),

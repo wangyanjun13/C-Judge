@@ -22,10 +22,11 @@
       </div>
 
       <div v-if="loading.courses" class="loading">加载中...</div>
-      <div v-else-if="courses.length === 0" class="empty-data">
+      <div v-else-if="!courses || courses.length === 0" class="empty-data">
         暂无课程数据
       </div>
       <div v-else class="data-table">
+        <p>找到 {{ courses.length }} 个课程</p>
         <table>
           <thead>
             <tr>
@@ -66,10 +67,11 @@
       </div>
       
       <div v-if="loading.students" class="loading">加载中...</div>
-      <div v-else-if="students.length === 0" class="empty-data">
+      <div v-else-if="!students || students.length === 0" class="empty-data">
         暂无学生数据
       </div>
       <div v-else class="data-table">
+        <p>找到 {{ students.length }} 个学生</p>
         <table>
           <thead>
             <tr>
@@ -100,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import axios from '@/utils/axios';
@@ -136,7 +138,7 @@ const studentFilters = ref({
 });
 
 // 切换标签
-const switchTab = (tab) => {
+const switchTab = async (tab) => {
   activeTab.value = tab;
   // 更新URL参数，但不重新加载页面
   router.push({ 
@@ -145,19 +147,34 @@ const switchTab = (tab) => {
   });
 
   // 根据标签加载相应数据
-  loadTabData(tab);
+  console.log('切换到标签:', tab);
+  await loadTabData(tab);
 };
 
 // 加载标签数据
-const loadTabData = (tab) => {
+const loadTabData = async (tab) => {
+  console.log('加载标签数据:', tab);
+  
   switch (tab) {
     case 'courses':
-      fetchCourses();
+      await fetchCourses();
       break;
     case 'students':
-      fetchClasses();
-      fetchStudents();
+      await fetchClasses(); // 先加载班级数据
+      await fetchStudents();
       break;
+  }
+  
+  console.log('数据加载完成。当前数据:',
+    'classes:', classes.value?.length,
+    'courses:', courses.value?.length,
+    'students:', students.value?.length
+  );
+  
+  // 强制触发视图更新
+  await nextTick();
+  if (tab === 'courses' && courses.value.length > 0) {
+    console.log('强制课程数据刷新:', courses.value);
   }
 };
 
@@ -170,19 +187,57 @@ const formatDate = (dateString) => {
 
 // 格式化班级列表
 const formatClassList = (classList) => {
-  if (!classList || classList.length === 0) return '无';
-  return classList.map(cls => cls.name).join(', ');
+  // 确保classList存在且是数组
+  if (!classList) return '无';
+  try {
+    if (Array.isArray(classList)) {
+      if (classList.length === 0) return '无';
+      // 安全地访问每个班级对象的name属性
+      return classList.map(cls => (cls && typeof cls === 'object' && cls.name) ? cls.name : '未命名').join(', ');
+    }
+    return '无';
+  } catch (error) {
+    console.error('格式化班级列表出错:', error, '原始数据:', classList);
+    return '无';
+  }
 };
 
 // 获取课程列表
 const fetchCourses = async () => {
   loading.value.courses = true;
   try {
-    const res = await axios.get('/api/courses/');
-    courses.value = res.data;
+    // 添加超时处理
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+    
+    const res = await axios.get('/api/courses/', {
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
+    
+    // 使用JSON转换再解析来创建全新的对象
+    if (Array.isArray(res.data)) {
+      const rawData = JSON.stringify(res.data);
+      courses.value = JSON.parse(rawData);
+    } else {
+      courses.value = [];
+    }
+    
+    console.log('课程数据:', courses.value);
+    console.log('课程数量:', courses.value.length);
+    
+    // 手动触发一次视图更新
+    await nextTick();
   } catch (error) {
     console.error('获取课程列表失败', error);
-    ElMessage.error('获取课程列表失败');
+    // 区分超时错误和其他错误
+    if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+      console.error('请求超时');
+      ElMessage.error('获取课程列表超时，请稍后重试');
+    } else {
+      ElMessage.error('获取课程列表失败');
+    }
+    // 确保在出错时也初始化数组
+    courses.value = [];
   } finally {
     loading.value.courses = false;
   }
@@ -192,11 +247,38 @@ const fetchCourses = async () => {
 const fetchClasses = async () => {
   loading.value.classes = true;
   try {
-    const res = await axios.get('/api/classes/');
-    classes.value = res.data;
+    // 添加超时处理
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+    
+    const res = await axios.get('/api/classes/', {
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
+    
+    // 使用JSON转换再解析来创建全新的对象
+    if (Array.isArray(res.data)) {
+      const rawData = JSON.stringify(res.data);
+      classes.value = JSON.parse(rawData);
+    } else {
+      classes.value = [];
+    }
+    
+    console.log('班级数据:', classes.value);
+    console.log('班级数量:', classes.value.length);
+    
+    // 手动触发一次视图更新
+    await nextTick();
   } catch (error) {
     console.error('获取班级列表失败', error);
-    ElMessage.error('获取班级列表失败');
+    // 区分超时错误和其他错误
+    if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+      console.error('请求超时');
+      ElMessage.error('获取班级列表超时，请稍后重试');
+    } else {
+      ElMessage.error('获取班级列表失败');
+    }
+    // 确保在出错时也初始化数组
+    classes.value = [];
   } finally {
     loading.value.classes = false;
   }
@@ -210,25 +292,69 @@ const fetchStudents = async () => {
     if (studentFilters.value.classId) {
       url += `?class_id=${studentFilters.value.classId}`;
     }
-    const res = await axios.get(url);
-    students.value = res.data;
+    
+    // 添加超时处理
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+    
+    const res = await axios.get(url, {
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
+    
+    // 使用JSON转换再解析来创建全新的对象
+    if (Array.isArray(res.data)) {
+      const rawData = JSON.stringify(res.data);
+      students.value = JSON.parse(rawData);
+    } else {
+      students.value = [];
+    }
+    
+    console.log('学生数据:', students.value);
+    console.log('学生数量:', students.value.length);
+    
+    // 手动触发一次视图更新
+    await nextTick();
   } catch (error) {
     console.error('获取学生列表失败', error);
-    ElMessage.error('获取学生列表失败');
+    // 区分超时错误和其他错误
+    if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+      console.error('请求超时');
+      ElMessage.error('获取学生列表超时，请稍后重试');
+    } else {
+      ElMessage.error('获取学生列表失败');
+    }
+    // 确保在出错时也初始化数组
+    students.value = [];
   } finally {
     loading.value.students = false;
   }
 };
 
+// 添加一个强制刷新方法
+const forceRefresh = async () => {
+  console.log('强制刷新数据...');
+  // 重新获取当前标签对应的数据
+  await loadTabData(activeTab.value);
+  await nextTick();
+  
+  // 额外的刷新步骤
+  if (activeTab.value === 'courses' && courses.value.length > 0) {
+    console.log('强制课程数据刷新:', courses.value);
+  }
+};
+
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   // 根据URL参数初始化当前标签
   if (route.query.tab && tabs.some(tab => tab.value === route.query.tab)) {
     activeTab.value = route.query.tab;
   }
   
   // 加载当前标签数据
-  loadTabData(activeTab.value);
+  await loadTabData(activeTab.value);
+  
+  // 延迟后强制刷新一次数据，以防第一次加载不显示
+  setTimeout(forceRefresh, 1000);
 });
 
 // 监听路由变化，切换标签

@@ -9,11 +9,6 @@ from app.services import ClassService
 
 router = APIRouter(prefix="/classes", tags=["班级"])
 
-@router.get("/test")
-async def test_classes_api():
-    """测试班级API，无需身份验证"""
-    return {"status": "ok", "message": "班级API工作正常"}
-
 @router.get("/", response_model=List[ClassResponse])
 async def get_classes(
     db: Session = Depends(get_db),
