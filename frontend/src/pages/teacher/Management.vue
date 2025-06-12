@@ -31,17 +31,22 @@
           <thead>
             <tr>
               <th>课程名称</th>
+              <th>教师</th>
               <th>班级</th>
               <th>课程类别</th>
-              <th>创建时间</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="course in courses" :key="course.id">
               <td>{{ course.name }}</td>
+              <td>{{ formatTeacherName(course) }}</td>
               <td>{{ formatClassList(course.classes) }}</td>
               <td>{{ course.category || '未分类' }}</td>
-              <td>{{ formatDate(course.created_at) }}</td>
+              <td>
+                <button class="btn btn-sm btn-edit disabled" disabled>修改</button>
+                <button class="btn btn-sm btn-danger disabled" disabled>删除</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -80,6 +85,7 @@
               <th>班级</th>
               <th>是否在线</th>
               <th>注册时间</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -93,6 +99,10 @@
                 </span>
               </td>
               <td>{{ formatDate(student.register_time) }}</td>
+              <td>
+                <button class="btn btn-sm btn-edit" @click="editStudent(student)">修改</button>
+                <button class="btn btn-sm btn-danger" @click="confirmDeleteStudent(student)">删除</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -364,6 +374,28 @@ watch(() => route.query.tab, (newTab) => {
     loadTabData(newTab);
   }
 }, { immediate: true });
+
+// 格式化教师名称
+const formatTeacherName = (course) => {
+  if (course.teacher && course.teacher.username && course.teacher.real_name) {
+    return `${course.teacher.username} (${course.teacher.real_name})`;
+  } else if (course.teacher_username && course.teacher_real_name) {
+    return `${course.teacher_username} (${course.teacher_real_name})`;
+  } else if (course.teacher_name) {
+    return course.teacher_name;
+  }
+  return '未分配';
+};
+
+// 显示学生编辑对话框
+const editStudent = (student) => {
+  ElMessage.info('学生修改功能正在开发中...');
+};
+
+// 确认删除学生
+const confirmDeleteStudent = (student) => {
+  ElMessage.info('学生删除功能正在开发中...');
+};
 </script>
 
 <style scoped>
@@ -487,5 +519,10 @@ th {
 .offline {
   background-color: #909399;
   color: white;
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style> 

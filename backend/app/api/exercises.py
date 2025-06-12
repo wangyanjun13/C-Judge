@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.models import User, Exercise, Course, Problem, get_db, OperationLog, Class
 from app.models.exercise import exercise_problem
@@ -98,13 +98,18 @@ async def create_exercise(
     if current_user.role == "teacher" and course.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权为此课程创建练习")
     
+    # 确保end_time字段有值，如果为None，设置为当前时间一年后
+    end_time = exercise_data.end_time
+    if not end_time:
+        end_time = datetime.now() + timedelta(days=365)  # 默认一年后截止
+    
     # 创建练习
     exercise = ExerciseService.create_exercise(
         db,
         current_user.id,
         exercise_data.name,
         exercise_data.course_id,
-        exercise_data.end_time,
+        end_time,
         exercise_data.is_online_judge,
         exercise_data.note,
         exercise_data.allowed_languages

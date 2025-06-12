@@ -11,16 +11,6 @@
             </option>
           </select>
         </div>
-        
-        <div class="teacher-selector">
-          <label for="teacher-select">发布教师：</label>
-          <select id="teacher-select" v-model="selectedTeacher">
-            <option value="">全部教师</option>
-            <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
-              {{ teacher.name }}
-            </option>
-          </select>
-        </div>
       </div>
       
       <div class="actions">
@@ -35,10 +25,10 @@
           <tr>
             <th>练习名称</th>
             <th>所属课程</th>
-            <th>发布教师</th>
             <th>发布时间</th>
             <th>截止时间</th>
             <th>是否在线测评</th>
+            <th>备注</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -51,16 +41,20 @@
           </tr>
           <template v-else>
             <tr v-for="exercise in filteredExercises" :key="exercise.id">
-              <td>{{ exercise.name }}</td>
-              <td>{{ exercise.course_name }}</td>
-              <td>{{ getTeacherName(exercise.publisher_id) }}</td>
-              <td>{{ formatDate(exercise.publish_time) }}</td>
-              <td>{{ formatDate(exercise.deadline) }}</td>
+              <td>
+                <a class="exercise-link" @click="viewExercise(exercise.id)">{{ exercise.name }}</a>
+              </td>
+              <td>{{ formatCourseName(exercise) }}</td>
+              <td>{{ formatDate(exercise.start_time) }}</td>
+              <td>{{ formatDate(exercise.end_time) }}</td>
               <td>{{ exercise.is_online_judge ? '是' : '否' }}</td>
               <td>
-                <button class="btn btn-primary" @click="viewExercise(exercise.id)">查看</button>
+                <span class="note-text" :title="exercise.note">{{ exercise.note || '无' }}</span>
+              </td>
+              <td>
                 <button class="btn btn-edit" @click="showEditModal(exercise)">编辑</button>
                 <button class="btn btn-danger" @click="confirmDelete(exercise)">删除</button>
+                <button class="btn btn-secondary" @click="downloadExercise(exercise.id)">下载</button>
               </td>
             </tr>
           </template>
@@ -98,11 +92,31 @@
           </div>
           
           <div class="form-group">
+            <label for="exercise-publisher">发布人</label>
+            <input 
+              type="text" 
+              id="exercise-publisher" 
+              :value="getCurrentUserName()"
+              disabled
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="exercise-start-time">发布时间</label>
+            <input 
+              type="datetime-local" 
+              id="exercise-start-time" 
+              v-model="form.start_time"
+            />
+          </div>
+          
+          <div class="form-group">
             <label for="exercise-deadline">截止时间</label>
             <input 
               type="datetime-local" 
               id="exercise-deadline" 
               v-model="form.deadline"
+              required
             />
           </div>
           
@@ -132,6 +146,10 @@
             ></textarea>
           </div>
           
+          <div class="form-notice">
+            <p class="notice-text">创建练习后需要为练习添加试题：点击[保存]后回到练习列表，点击"练习名称"进入[试题列表]界面，点击[添加]。</p>
+          </div>
+          
           <div class="form-actions">
             <button type="button" @click="formModalVisible = false">取消</button>
             <button type="submit" class="btn-primary">{{ isEditing ? '保存' : '创建' }}</button>
@@ -158,20 +176,20 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { useAuthStore } from '../../store/auth';
 import { 
   getAdminExercises, 
   createExercise, 
   updateExercise, 
-  deleteExercise as apiDeleteExercise 
+  deleteExercise as apiDeleteExercise,
+  getCourses
 } from '../../api/exercises';
 
 const router = useRouter();
 const exercises = ref([]);
 const courses = ref([]);
-const teachers = ref([]);
 const loading = ref(true);
 const selectedCourse = ref('');
-const selectedTeacher = ref('');
 const formModalVisible = ref(false);
 const deleteModalVisible = ref(false);
 const isEditing = ref(false);
@@ -181,6 +199,7 @@ const exerciseToDelete = ref(null);
 const form = ref({
   name: '',
   course_id: '',
+  start_time: '',
   deadline: '',
   is_online_judge: true,
   allowed_languages: 'c',
@@ -194,11 +213,6 @@ const filteredExercises = computed(() => {
   // 按课程过滤
   if (selectedCourse.value) {
     filtered = filtered.filter(exercise => exercise.course_id === selectedCourse.value);
-  }
-  
-  // 按教师过滤
-  if (selectedTeacher.value) {
-    filtered = filtered.filter(exercise => exercise.publisher_id === selectedTeacher.value);
   }
   
   return filtered;
@@ -218,12 +232,6 @@ const formatDateForInput = (dateString) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
 
-// 获取教师名称
-const getTeacherName = (teacherId) => {
-  const teacher = teachers.value.find(t => t.id === teacherId);
-  return teacher ? teacher.name : '未知';
-};
-
 // 查看练习
 const viewExercise = (id) => {
   router.push(`/admin/exercise/${id}`);
@@ -237,10 +245,19 @@ const refreshData = () => {
 // 显示创建对话框
 const showCreateModal = () => {
   isEditing.value = false;
+  
+  // 设置当前时间
+  const now = new Date();
+  
+  // 设置默认截止时间（当前时间一周后）
+  const oneWeekLater = new Date();
+  oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+  
   form.value = {
     name: '',
     course_id: courses.value.length > 0 ? courses.value[0].id : '',
-    deadline: '',
+    start_time: formatDateForInput(now),
+    deadline: formatDateForInput(oneWeekLater),
     is_online_judge: true,
     allowed_languages: 'c',
     note: ''
@@ -254,6 +271,7 @@ const showEditModal = (exercise) => {
   form.value = {
     name: exercise.name,
     course_id: exercise.course_id,
+    start_time: exercise.start_time ? formatDateForInput(exercise.start_time) : '',
     deadline: exercise.deadline ? formatDateForInput(exercise.deadline) : '',
     is_online_judge: exercise.is_online_judge,
     allowed_languages: exercise.allowed_languages,
@@ -269,8 +287,20 @@ const confirmDelete = (exercise) => {
   deleteModalVisible.value = true;
 };
 
+// 获取当前用户名称
+const getCurrentUserName = () => {
+  const authStore = useAuthStore();
+  return authStore.user ? authStore.user.username : '未知用户';
+};
+
 // 提交表单
 const submitForm = async () => {
+  // 检查必填字段
+  if (!form.value.name || !form.value.course_id || !form.value.deadline) {
+    ElMessage.error('请填写所有必填字段');
+    return;
+  }
+  
   try {
     if (isEditing.value) {
       // 更新练习
@@ -312,47 +342,55 @@ const fetchExercises = async () => {
     
     // 确保返回结果是数组
     exercises.value = Array.isArray(result) ? result : [];
-    
-    // 提取不重复的课程列表
-    const courseMap = new Map();
-    const teacherMap = new Map();
-    
-    if (exercises.value.length > 0) {
-      exercises.value.forEach(exercise => {
-        // 提取课程
-        if (!courseMap.has(exercise.course_id)) {
-          courseMap.set(exercise.course_id, {
-            id: exercise.course_id,
-            name: exercise.course_name
-          });
-        }
-        
-        // 提取教师ID（后续需要单独获取教师名称）
-        if (!teacherMap.has(exercise.publisher_id)) {
-          teacherMap.set(exercise.publisher_id, {
-            id: exercise.publisher_id,
-            name: `教师${exercise.publisher_id}` // 临时名称，实际应从API获取
-          });
-        }
-      });
-    }
-    
-    courses.value = Array.from(courseMap.values());
-    teachers.value = Array.from(teacherMap.values());
   } catch (error) {
     console.error('获取练习列表失败', error);
     ElMessage.error('获取练习列表失败');
     // 确保在出错时初始化为空数组
     exercises.value = [];
-    courses.value = [];
-    teachers.value = [];
   } finally {
     loading.value = false;
   }
 };
 
+// 获取课程列表
+const fetchCourses = async () => {
+  try {
+    const response = await getCourses();
+    // 适应不同的API返回格式
+    const courseData = Array.isArray(response) ? response : 
+                      (response.data && Array.isArray(response.data) ? response.data : []);
+    
+    courses.value = courseData.map(course => ({
+      id: course.id,
+      name: course.name
+    }));
+    
+    console.log('获取课程列表成功:', courses.value);
+  } catch (error) {
+    console.error('获取课程列表失败:', error);
+    ElMessage.error('获取课程列表失败');
+    courses.value = [];
+  }
+};
+
+// 下载练习
+const downloadExercise = (id) => {
+  ElMessage.info('下载功能正在开发中...');
+};
+
+// 格式化课程名称
+const formatCourseName = (exercise) => {
+  if (exercise.course_name && exercise.teacher_name) {
+    return `${exercise.course_name}（${exercise.teacher_name}）`;
+  } else if (exercise.course_name) {
+    return exercise.course_name;
+  }
+  return '未知课程';
+};
+
 onMounted(() => {
   fetchExercises();
+  fetchCourses();
 });
 </script>
 
@@ -548,5 +586,37 @@ th {
 .form-actions .btn-danger {
   background-color: #f5222d;
   color: white;
+}
+
+.form-notice {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 4px;
+}
+
+.notice-text {
+  color: #f5222d;
+  margin: 0;
+  font-size: 14px;
+}
+
+.exercise-link {
+  color: #1890ff;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.exercise-link:hover {
+  text-decoration: underline;
+}
+
+.note-text {
+  display: inline-block;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style> 

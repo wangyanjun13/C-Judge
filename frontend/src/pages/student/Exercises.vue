@@ -21,23 +21,29 @@
             <th>发布时间</th>
             <th>截止时间</th>
             <th>是否在线测评</th>
+            <th>备注</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="6" class="loading-message">加载中...</td>
+            <td colspan="7" class="loading-message">加载中...</td>
           </tr>
           <tr v-else-if="exercises.length === 0">
-            <td colspan="6" class="empty-message">暂无练习</td>
+            <td colspan="7" class="empty-message">暂无练习</td>
           </tr>
           <template v-else>
             <tr v-for="exercise in filteredExercises" :key="exercise.id">
-              <td>{{ exercise.name }}</td>
-              <td>{{ exercise.course_name }}</td>
-              <td>{{ formatDate(exercise.publish_time) }}</td>
-              <td>{{ formatDate(exercise.deadline) }}</td>
+              <td>
+                <a class="exercise-link" @click="viewExercise(exercise.id)">{{ exercise.name }}</a>
+              </td>
+              <td>{{ formatCourseName(exercise) }}</td>
+              <td>{{ formatDate(exercise.start_time) }}</td>
+              <td>{{ formatDate(exercise.end_time) }}</td>
               <td>{{ exercise.is_online_judge ? '是' : '否' }}</td>
+              <td>
+                <span class="note-text" :title="exercise.note">{{ exercise.note || '无' }}</span>
+              </td>
               <td>
                 <button class="btn btn-primary" @click="viewExercise(exercise.id)">查看</button>
               </td>
@@ -134,6 +140,16 @@ const fetchExercises = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// 格式化课程名称
+const formatCourseName = (exercise) => {
+  if (exercise.course_name && exercise.teacher_name) {
+    return `${exercise.course_name}（${exercise.teacher_name}）`;
+  } else if (exercise.course_name) {
+    return exercise.course_name;
+  }
+  return '未知课程';
 };
 
 onMounted(() => {
@@ -262,5 +278,23 @@ th {
 
 .modal button:hover {
   background-color: #40a9ff;
+}
+
+.exercise-link {
+  color: #1890ff;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.exercise-link:hover {
+  text-decoration: underline;
+}
+
+.note-text {
+  display: inline-block;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style> 

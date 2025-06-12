@@ -60,7 +60,22 @@ export const getExerciseDetail = (exerciseId) => {
  * @returns {Promise} - 返回创建的练习
  */
 export const createExercise = (exerciseData) => {
+  console.log('提交创建练习请求，数据:', JSON.stringify(exerciseData));
+  // 确保截止时间有值
+  if (!exerciseData.deadline) {
+    console.error('截止时间为空，这将导致服务器错误');
+    throw new Error('截止时间不能为空');
+  }
+  
   return axios.post('/api/exercises', exerciseData)
+    .then(response => {
+      console.log('创建练习成功:', response.data);
+      return response.data;
+    })
+    .catch(error => {
+      console.error('创建练习失败:', error.response?.data || error.message);
+      throw error;
+    });
 }
 
 /**
@@ -80,4 +95,12 @@ export const updateExercise = (exerciseId, exerciseData) => {
  */
 export const deleteExercise = (exerciseId) => {
   return axios.delete(`/api/exercises/${exerciseId}`)
+}
+
+/**
+ * 获取课程列表
+ * @returns {Promise} - 返回课程列表
+ */
+export const getCourses = () => {
+  return axios.get('/api/courses')
 } 

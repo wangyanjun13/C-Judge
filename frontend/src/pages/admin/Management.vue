@@ -33,7 +33,6 @@
             <tr>
               <th>班级名称</th>
               <th>学生数量</th>
-              <th>创建时间</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -41,7 +40,6 @@
             <tr v-for="classItem in classes" :key="classItem.id">
               <td>{{ classItem.name }}</td>
               <td>{{ classItem.student_count || 0 }}</td>
-              <td>{{ formatDate(classItem.created_at) }}</td>
               <td>
                 <button class="btn btn-sm btn-edit" @click="editClass(classItem)">修改</button>
                 <button class="btn btn-sm btn-danger" @click="confirmDeleteClass(classItem)">删除</button>
@@ -68,8 +66,7 @@
         <table>
           <thead>
             <tr>
-              <th>用户名</th>
-              <th>真实姓名</th>
+              <th>用户名称</th>
               <th>是否在线</th>
               <th>注册时间</th>
               <th>操作</th>
@@ -77,8 +74,7 @@
           </thead>
           <tbody>
             <tr v-for="teacher in teachers" :key="teacher.id">
-              <td>{{ teacher.username }}</td>
-              <td>{{ teacher.real_name }}</td>
+              <td>{{ teacher.username }} ({{ teacher.real_name }})</td>
               <td>
                 <span :class="['status-badge', teacher.is_online ? 'online' : 'offline']">
                   {{ teacher.is_online ? '在线' : '离线' }}
@@ -115,17 +111,15 @@
               <th>教师</th>
               <th>班级</th>
               <th>课程类别</th>
-              <th>创建时间</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="course in courses" :key="course.id">
               <td>{{ course.name }}</td>
-              <td>{{ course.teacher_name || (course.teacher && course.teacher.real_name) || '未分配' }}</td>
+              <td>{{ formatTeacherName(course) }}</td>
               <td>{{ formatClassList(course.classes) }}</td>
               <td>{{ course.category || '未分类' }}</td>
-              <td>{{ formatDate(course.created_at) }}</td>
               <td>
                 <button class="btn btn-sm btn-edit" @click="editCourse(course)">修改</button>
                 <button class="btn btn-sm btn-danger" @click="confirmDeleteCourse(course)">删除</button>
@@ -582,6 +576,18 @@ const formatClassList = (classList) => {
     .filter(cls => cls && typeof cls === 'object' && cls.name)
     .map(cls => cls.name)
     .join(', ');
+};
+
+// 格式化教师名称
+const formatTeacherName = (course) => {
+  if (course.teacher && course.teacher.username && course.teacher.real_name) {
+    return `${course.teacher.username} (${course.teacher.real_name})`;
+  } else if (course.teacher_username && course.teacher_real_name) {
+    return `${course.teacher_username} (${course.teacher_real_name})`;
+  } else if (course.teacher_name) {
+    return course.teacher_name;
+  }
+  return '未分配';
 };
 
 // ========== 班级管理相关 ==========
