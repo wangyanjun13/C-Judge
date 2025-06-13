@@ -18,7 +18,7 @@
     <!-- 课程管理 -->
     <div v-if="activeTab === 'courses'" class="tab-content">
       <div class="content-header">
-        <h3>课程管理</h3>
+        <h3>课程竞赛</h3>
       </div>
 
       <div v-if="loading.courses" class="loading">加载中...</div>
@@ -34,19 +34,26 @@
               <th>教师</th>
               <th>班级</th>
               <th>课程类别</th>
-              <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="course in courses" :key="course.id">
               <td>{{ course.name }}</td>
               <td>{{ formatTeacherName(course) }}</td>
-              <td>{{ formatClassList(course.classes) }}</td>
-              <td>{{ course.category || '未分类' }}</td>
               <td>
-                <button class="btn btn-sm btn-edit disabled" disabled>修改</button>
-                <button class="btn btn-sm btn-danger disabled" disabled>删除</button>
+                <span v-if="course.classes && course.classes.length > 0">
+                  <span 
+                    v-for="(cls, index) in course.classes" 
+                    :key="cls.id" 
+                    class="class-link"
+                    @click="goToStudentsByClass(cls.id)"
+                  >
+                    {{ cls.name }}{{ index < course.classes.length - 1 ? ', ' : '' }}
+                  </span>
+                </span>
+                <span v-else>无</span>
               </td>
+              <td>{{ course.category || '未分类' }}</td>
             </tr>
           </tbody>
         </table>
@@ -57,13 +64,13 @@
     <div v-else-if="activeTab === 'students'" class="tab-content">
       <div class="content-header">
         <h3>学生管理</h3>
+        <button class="btn btn-primary" @click="showStudentModal">添加学生</button>
       </div>
       
       <div class="filter-section">
         <div class="filter-item">
           <label for="class-filter">班级筛选：</label>
           <select id="class-filter" v-model="studentFilters.classId" @change="fetchStudents">
-            <option value="">全部班级</option>
             <option v-for="classItem in classes" :key="classItem.id" :value="classItem.id">
               {{ classItem.name }}
             </option>
@@ -108,6 +115,79 @@
         </table>
       </div>
     </div>
+
+    <!-- 学生添加/编辑对话框 -->
+    <div v-if="studentModalVisible" class="modal-overlay" @click="studentModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>{{ isEditing ? '编辑学生' : '添加学生' }}</h3>
+        <form @submit.prevent="submitStudentForm">
+          <div class="form-group">
+            <label for="student-username">用户名（学号）</label>
+            <input
+              type="text"
+              id="student-username"
+              v-model="studentForm.username"
+              :disabled="isEditing"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="student-password">密码</label>
+            <input
+              type="password"
+              id="student-password"
+              v-model="studentForm.password"
+              :required="!isEditing"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="student-confirm-password">确认密码</label>
+            <input
+              type="password"
+              id="student-confirm-password"
+              v-model="studentForm.confirmPassword"
+              :required="!isEditing"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="student-realname">真实姓名</label>
+            <input
+              type="text"
+              id="student-realname"
+              v-model="studentForm.real_name"
+              required
+            />
+          </div>
+          
+          <div class="form-group">
+            <label>班级</label>
+            <div class="selected-class">
+              {{ getClassName(studentForm.class_ids[0]) || '未选择班级' }}
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" @click="studentModalVisible = false">取消</button>
+            <button type="submit" class="btn-primary">{{ isEditing ? '保存' : '添加' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 确认删除对话框 -->
+    <div v-if="deleteModalVisible" class="modal-overlay" @click="deleteModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>确认删除</h3>
+        <p>您确定要删除学生 "{{ deleteItem?.username }} ({{ deleteItem?.real_name }})" 吗？此操作不可撤销。</p>
+        <div class="form-actions">
+          <button @click="deleteModalVisible = false">取消</button>
+          <button class="btn-danger" @click="confirmDelete">删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -123,7 +203,7 @@ const router = useRouter();
 
 // 标签页配置
 const tabs = [
-  { label: '课程管理', value: 'courses' },
+  { label: '课程竞赛', value: 'courses' },
   { label: '学生管理', value: 'students' }
 ];
 
@@ -142,9 +222,26 @@ const courses = ref([]);
 const students = ref([]);
 const classes = ref([]);
 
+// 模态框状态
+const studentModalVisible = ref(false);
+const deleteModalVisible = ref(false);
+const isEditing = ref(false);
+const deleteItem = ref(null);
+
 // 学生筛选
 const studentFilters = ref({
   classId: ''
+});
+
+// 学生表单
+const studentForm = ref({
+  id: null,
+  username: '',
+  password: '',
+  confirmPassword: '',
+  real_name: '',
+  role: 'student',
+  class_ids: []
 });
 
 // 切换标签
@@ -157,14 +254,17 @@ const switchTab = async (tab) => {
   });
 
   // 根据标签加载相应数据
-  console.log('切换到标签:', tab);
   await loadTabData(tab);
+  
+  // 如果是学生管理标签，且班级已加载，设置默认班级
+  if (tab === 'students' && classes.value.length > 0 && !studentFilters.value.classId) {
+    studentFilters.value.classId = classes.value[0].id;
+    fetchStudents();
+  }
 };
 
 // 加载标签数据
 const loadTabData = async (tab) => {
-  console.log('加载标签数据:', tab);
-  
   switch (tab) {
     case 'courses':
       await fetchCourses();
@@ -173,18 +273,6 @@ const loadTabData = async (tab) => {
       await fetchClasses(); // 先加载班级数据
       await fetchStudents();
       break;
-  }
-  
-  console.log('数据加载完成。当前数据:',
-    'classes:', classes.value?.length,
-    'courses:', courses.value?.length,
-    'students:', students.value?.length
-  );
-  
-  // 强制触发视图更新
-  await nextTick();
-  if (tab === 'courses' && courses.value.length > 0) {
-    console.log('强制课程数据刷新:', courses.value);
   }
 };
 
@@ -216,7 +304,6 @@ const formatClassList = (classList) => {
 const fetchCourses = async () => {
   loading.value.courses = true;
   try {
-    // 添加超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
     
@@ -224,29 +311,19 @@ const fetchCourses = async () => {
       signal: controller.signal
     }).finally(() => clearTimeout(timeoutId));
     
-    // 使用JSON转换再解析来创建全新的对象
     if (Array.isArray(res.data)) {
       const rawData = JSON.stringify(res.data);
       courses.value = JSON.parse(rawData);
     } else {
       courses.value = [];
     }
-    
-    console.log('课程数据:', courses.value);
-    console.log('课程数量:', courses.value.length);
-    
-    // 手动触发一次视图更新
-    await nextTick();
   } catch (error) {
     console.error('获取课程列表失败', error);
-    // 区分超时错误和其他错误
     if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
-      console.error('请求超时');
       ElMessage.error('获取课程列表超时，请稍后重试');
     } else {
       ElMessage.error('获取课程列表失败');
     }
-    // 确保在出错时也初始化数组
     courses.value = [];
   } finally {
     loading.value.courses = false;
@@ -257,37 +334,27 @@ const fetchCourses = async () => {
 const fetchClasses = async () => {
   loading.value.classes = true;
   try {
-    // 添加超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
     
-    const res = await axios.get('/api/classes/', {
+    // 获取当前教师的班级
+    const res = await axios.get('/api/classes/teacher', {
       signal: controller.signal
     }).finally(() => clearTimeout(timeoutId));
     
-    // 使用JSON转换再解析来创建全新的对象
     if (Array.isArray(res.data)) {
       const rawData = JSON.stringify(res.data);
       classes.value = JSON.parse(rawData);
     } else {
       classes.value = [];
     }
-    
-    console.log('班级数据:', classes.value);
-    console.log('班级数量:', classes.value.length);
-    
-    // 手动触发一次视图更新
-    await nextTick();
   } catch (error) {
     console.error('获取班级列表失败', error);
-    // 区分超时错误和其他错误
     if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
-      console.error('请求超时');
       ElMessage.error('获取班级列表超时，请稍后重试');
     } else {
       ElMessage.error('获取班级列表失败');
     }
-    // 确保在出错时也初始化数组
     classes.value = [];
   } finally {
     loading.value.classes = false;
@@ -303,7 +370,6 @@ const fetchStudents = async () => {
       url += `?class_id=${studentFilters.value.classId}`;
     }
     
-    // 添加超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
     
@@ -311,69 +377,24 @@ const fetchStudents = async () => {
       signal: controller.signal
     }).finally(() => clearTimeout(timeoutId));
     
-    // 使用JSON转换再解析来创建全新的对象
     if (Array.isArray(res.data)) {
       const rawData = JSON.stringify(res.data);
       students.value = JSON.parse(rawData);
     } else {
       students.value = [];
     }
-    
-    console.log('学生数据:', students.value);
-    console.log('学生数量:', students.value.length);
-    
-    // 手动触发一次视图更新
-    await nextTick();
   } catch (error) {
     console.error('获取学生列表失败', error);
-    // 区分超时错误和其他错误
     if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
-      console.error('请求超时');
       ElMessage.error('获取学生列表超时，请稍后重试');
     } else {
       ElMessage.error('获取学生列表失败');
     }
-    // 确保在出错时也初始化数组
     students.value = [];
   } finally {
     loading.value.students = false;
   }
 };
-
-// 添加一个强制刷新方法
-const forceRefresh = async () => {
-  console.log('强制刷新数据...');
-  // 重新获取当前标签对应的数据
-  await loadTabData(activeTab.value);
-  await nextTick();
-  
-  // 额外的刷新步骤
-  if (activeTab.value === 'courses' && courses.value.length > 0) {
-    console.log('强制课程数据刷新:', courses.value);
-  }
-};
-
-// 初始化
-onMounted(async () => {
-  // 根据URL参数初始化当前标签
-  if (route.query.tab && tabs.some(tab => tab.value === route.query.tab)) {
-    activeTab.value = route.query.tab;
-  }
-  
-  // 加载当前标签数据
-  await loadTabData(activeTab.value);
-  
-  // 延迟后强制刷新一次数据，以防第一次加载不显示
-  setTimeout(forceRefresh, 1000);
-});
-
-// 监听路由变化，切换标签
-watch(() => route.query.tab, (newTab) => {
-  if (newTab && tabs.some(tab => tab.value === newTab)) {
-    activeTab.value = newTab;
-    loadTabData(newTab);
-  }
-}, { immediate: true });
 
 // 格式化教师名称
 const formatTeacherName = (course) => {
@@ -388,13 +409,175 @@ const formatTeacherName = (course) => {
 };
 
 // 显示学生编辑对话框
+const showStudentModal = () => {
+  isEditing.value = false;
+  studentForm.value = { 
+    id: null, 
+    username: '', 
+    password: '', 
+    confirmPassword: '',
+    real_name: '', 
+    role: 'student', 
+    class_ids: studentFilters.value.classId ? [studentFilters.value.classId] : []
+  };
+  studentModalVisible.value = true;
+};
+
+// 编辑学生
 const editStudent = (student) => {
-  ElMessage.info('学生修改功能正在开发中...');
+  isEditing.value = true;
+  
+  studentForm.value = {
+    id: student.id,
+    username: student.username,
+    password: '',
+    confirmPassword: '',
+    real_name: student.real_name,
+    role: 'student',
+    class_ids: student.classes && student.classes.length > 0 ? [student.classes[0].id] : []
+  };
+  studentModalVisible.value = true;
 };
 
 // 确认删除学生
 const confirmDeleteStudent = (student) => {
-  ElMessage.info('学生删除功能正在开发中...');
+  deleteItem.value = student;
+  deleteModalVisible.value = true;
+};
+
+// 提交学生表单
+const submitStudentForm = async () => {
+  try {
+    if (!studentForm.value.username) {
+      ElMessage.warning('请输入用户名');
+      return;
+    }
+    
+    if (!isEditing.value) {
+      if (!studentForm.value.password) {
+        ElMessage.warning('请输入密码');
+        return;
+      }
+      
+      if (studentForm.value.password !== studentForm.value.confirmPassword) {
+        ElMessage.warning('两次输入的密码不一致');
+        return;
+      }
+    } else if (studentForm.value.password && studentForm.value.password !== studentForm.value.confirmPassword) {
+      ElMessage.warning('两次输入的密码不一致');
+      return;
+    }
+    
+    if (!studentForm.value.real_name) {
+      ElMessage.warning('请输入真实姓名');
+      return;
+    }
+    
+    if (!studentForm.value.class_ids || studentForm.value.class_ids.length === 0) {
+      ElMessage.warning('请选择班级');
+      return;
+    }
+    
+    // 构建提交数据
+    const postData = {
+      username: studentForm.value.username,
+      real_name: studentForm.value.real_name,
+      role: 'student',
+      class_ids: studentForm.value.class_ids || []
+    };
+    
+    // 只有在创建新学生时才添加密码字段
+    if (!isEditing.value) {
+      postData.password = studentForm.value.password;
+    }
+    
+    if (isEditing.value) {
+      // 更新学生
+      await axios.put(`/api/users/student/${studentForm.value.id}`, postData);
+      ElMessage.success('学生信息更新成功');
+    } else {
+      // 创建学生
+      await axios.post('/api/users/student', postData);
+      ElMessage.success('学生创建成功');
+    }
+    
+    studentModalVisible.value = false;
+    await fetchStudents();
+  } catch (error) {
+    console.error('提交学生失败', error);
+    // 显示后端返回的错误消息或默认消息
+    const errorMsg = error.response?.data?.detail || (isEditing.value ? '更新学生失败' : '创建学生失败');
+    ElMessage.error(errorMsg);
+  }
+};
+
+// 确认删除
+const confirmDelete = async () => {
+  try {
+    // 删除学生
+    await axios.delete(`/api/users/student/${deleteItem.value.id}`);
+    ElMessage.success('学生删除成功');
+    await fetchStudents();
+    deleteModalVisible.value = false;
+  } catch (error) {
+    console.error('删除失败', error);
+    ElMessage.error('删除失败');
+  }
+};
+
+// 获取班级名称
+const getClassName = (classId) => {
+  if (!classId) return '';
+  const classItem = classes.value.find(cls => cls.id === classId);
+  return classItem ? classItem.name : '';
+};
+
+// 强制刷新方法
+const forceRefresh = async () => {
+  await loadTabData(activeTab.value);
+};
+
+// 初始化
+onMounted(async () => {
+  // 检查用户是否已登录
+  const token = localStorage.getItem('token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+  
+  // 根据URL参数初始化当前标签
+  if (route.query.tab && tabs.some(tab => tab.value === route.query.tab)) {
+    activeTab.value = route.query.tab;
+  }
+  
+  // 加载当前标签数据
+  await loadTabData(activeTab.value);
+
+  // 如果是学生管理标签，且班级已加载，设置默认班级
+  if (activeTab.value === 'students' && classes.value.length > 0) {
+    studentFilters.value.classId = classes.value[0].id;
+    fetchStudents();
+  }
+  
+  // 延迟后强制刷新一次数据
+  setTimeout(forceRefresh, 1000);
+});
+
+// 监听路由变化，切换标签
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && tabs.some(tab => tab.value === newTab)) {
+    activeTab.value = newTab;
+    loadTabData(newTab);
+  }
+}, { immediate: true });
+
+// 添加班级点击跳转函数
+const goToStudentsByClass = (classId) => {
+  // 设置学生筛选的班级ID
+  studentFilters.value.classId = classId;
+  // 切换到学生管理标签
+  switchTab('students');
 };
 </script>
 
@@ -504,6 +687,135 @@ th {
   font-weight: 500;
 }
 
+.btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn-primary {
+  background-color: #409eff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #66b1ff;
+}
+
+.btn-secondary {
+  background-color: #909399;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #a6a9ad;
+}
+
+.btn-edit {
+  background-color: #67c23a;
+  color: white;
+}
+
+.btn-edit:hover {
+  background-color: #85ce61;
+}
+
+.btn-danger {
+  background-color: #f56c6c;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #f78989;
+}
+
+/* 模态对话框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.modal {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 500px;
+  max-width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal h3 {
+  margin-top: 0;
+  color: #303133;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #606266;
+}
+
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.form-actions button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.form-actions button:first-child {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.form-actions .btn-primary {
+  background-color: #409eff;
+  color: white;
+}
+
+.form-actions .btn-danger {
+  background-color: #f56c6c;
+  color: white;
+}
+
 .status-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -521,8 +833,19 @@ th {
   color: white;
 }
 
-.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.selected-class {
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #f5f7fa;
+  color: #606266;
+  min-height: 36px;
+  line-height: 20px;
+}
+
+.class-link {
+  color: #409eff;
+  cursor: pointer;
+  text-decoration: underline;
 }
 </style> 

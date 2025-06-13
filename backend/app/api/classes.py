@@ -97,4 +97,16 @@ async def delete_class(
             detail="无法删除班级，请确保班级内没有学生且未关联任何课程"
         )
     
-    return {"message": "班级删除成功"} 
+    return {"message": "班级删除成功"}
+
+@router.get("/teacher", response_model=List[ClassResponse])
+async def get_teacher_classes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_teacher_user)
+):
+    """获取当前教师关联的班级列表"""
+    # 记录操作日志
+    ClassService.log_operation(db, current_user.id, "查看教师班级列表", "教师班级列表")
+    
+    # 使用现有服务方法获取教师关联的班级
+    return ClassService.get_classes(db, current_user.id) 

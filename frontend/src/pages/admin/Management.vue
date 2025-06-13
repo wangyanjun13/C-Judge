@@ -118,7 +118,19 @@
             <tr v-for="course in courses" :key="course.id">
               <td>{{ course.name }}</td>
               <td>{{ formatTeacherName(course) }}</td>
-              <td>{{ formatClassList(course.classes) }}</td>
+              <td>
+                <span v-if="course.classes && course.classes.length > 0">
+                  <span 
+                    v-for="(cls, index) in course.classes" 
+                    :key="cls.id" 
+                    class="class-link"
+                    @click="goToStudentsByClass(cls.id)"
+                  >
+                    {{ cls.name }}{{ index < course.classes.length - 1 ? ', ' : '' }}
+                  </span>
+                </span>
+                <span v-else>无</span>
+              </td>
               <td>{{ course.category || '未分类' }}</td>
               <td>
                 <button class="btn btn-sm btn-edit" @click="editCourse(course)">修改</button>
@@ -144,9 +156,8 @@
       
       <div class="filter-section">
         <div class="filter-item">
-          <label for="class-filter">班级筛选：</label>
-          <select id="class-filter" v-model="studentFilters.classId">
-            <option value="">全部班级</option>
+          <label for="class-filter">班级：</label>
+          <select id="class-filter" v-model="studentFilters.classId" @change="fetchStudents">
             <option v-for="classItem in classes" :key="classItem.id" :value="classItem.id">
               {{ classItem.name }}
             </option>
@@ -281,21 +292,11 @@
               v-model="courseForm.teacher_id"
               required
             >
-              <option value="">选择教师</option>
+              <option v-if="!isEditing" value="">选择教师</option>
               <option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">
-                {{ teacher.real_name }} ({{ teacher.username }})
+                {{ teacher.username }} ({{ teacher.real_name }})
               </option>
             </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="course-category">课程类别</label>
-            <input
-              type="text"
-              id="course-category"
-              v-model="courseForm.category"
-              placeholder="选填"
-            />
           </div>
           
           <div class="form-group">
@@ -311,6 +312,19 @@
                 <label :for="`class-${classItem.id}`">{{ classItem.name }}</label>
               </div>
             </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="course-category">课程类别</label>
+            <select
+              id="course-category"
+              v-model="courseForm.category"
+            >
+              <option v-if="!isEditing" value="">选择类别</option>
+              <option value="（课程）">（课程）</option>
+              <option value="（竞赛）">（竞赛）</option>
+              <option value="（在线练习）">（在线练习）</option>
+            </select>
           </div>
           
           <div class="form-actions">
@@ -349,13 +363,23 @@
             />
           </div>
           
-          <div class="form-group" v-if="!isEditing">
+          <div class="form-group">
             <label for="student-password">密码</label>
             <input
               type="password"
               id="student-password"
               v-model="studentForm.password"
-              required
+              :required="!isEditing"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="student-confirm-password">确认密码</label>
+            <input
+              type="password"
+              id="student-confirm-password"
+              v-model="studentForm.confirmPassword"
+              :required="!isEditing"
             />
           </div>
           
@@ -370,17 +394,9 @@
           </div>
           
           <div class="form-group">
-            <label>选择班级</label>
-            <div class="checkbox-group">
-              <div v-for="classItem in classes" :key="classItem.id" class="checkbox-item">
-                <input
-                  type="checkbox"
-                  :id="`student-class-${classItem.id}`"
-                  :value="classItem.id"
-                  v-model="studentForm.class_ids"
-                />
-                <label :for="`student-class-${classItem.id}`">{{ classItem.name }}</label>
-              </div>
+            <label>班级</label>
+            <div class="selected-class">
+              {{ getClassName(studentForm.class_ids[0]) || '未选择班级' }}
             </div>
           </div>
           
@@ -523,6 +539,7 @@ const studentForm = ref({
   id: null,
   username: '',
   password: '',
+  confirmPassword: '',
   real_name: '',
   role: 'student',
   class_ids: []
@@ -541,6 +558,12 @@ const switchTab = async (tab) => {
     query: { ...route.query, tab }
   });
   await loadTabData(tab);
+  
+  // 如果是学生管理标签，且班级已加载，设置默认班级
+  if (tab === 'students' && classes.value.length > 0 && !studentFilters.value.classId) {
+    studentFilters.value.classId = classes.value[0].id;
+    fetchStudents();
+  }
 };
 
 // 加载标签数据
@@ -737,8 +760,21 @@ const showCourseModal = () => {
   if (classes.value.length === 0) fetchClasses();
 };
 
-const editCourse = (course) => {
+const editCourse = async (course) => {
   isEditing.value = true;
+  
+  // 确保教师列表已加载
+  if (teachers.value.length === 0) {
+    await fetchTeachers();
+  }
+  
+  // 确保班级列表已加载
+  if (classes.value.length === 0) {
+    await fetchClasses();
+  }
+  
+  // 从course.teacher对象中获取教师ID
+  const teacherId = course.teacher ? course.teacher.id : undefined;
   
   const classIds = course.classes && Array.isArray(course.classes)
     ? course.classes.filter(cls => cls && cls.id).map(cls => cls.id)
@@ -747,14 +783,12 @@ const editCourse = (course) => {
   courseForm.value = {
     id: course.id,
     name: course.name,
-    teacher_id: course.teacher_id,
+    teacher_id: teacherId, // 使用从teacher对象中获取的ID
     category: course.category || '',
     class_ids: classIds
   };
-  courseModalVisible.value = true;
   
-  if (teachers.value.length === 0) fetchTeachers();
-  if (classes.value.length === 0) fetchClasses();
+  courseModalVisible.value = true;
 };
 
 const confirmDeleteCourse = (course) => {
@@ -855,7 +889,15 @@ const fetchStudents = async () => {
 
 const showStudentModal = () => {
   isEditing.value = false;
-  studentForm.value = { id: null, username: '', password: '', real_name: '', role: 'student', class_ids: [] };
+  studentForm.value = { 
+    id: null, 
+    username: '', 
+    password: '', 
+    confirmPassword: '',
+    real_name: '', 
+    role: 'student', 
+    class_ids: studentFilters.value.classId ? [studentFilters.value.classId] : []
+  };
   studentModalVisible.value = true;
   
   if (classes.value.length === 0) fetchClasses();
@@ -864,20 +906,16 @@ const showStudentModal = () => {
 const editStudent = (student) => {
   isEditing.value = true;
   
-  const classIds = student.classes && Array.isArray(student.classes)
-    ? student.classes.filter(cls => cls && cls.id).map(cls => cls.id)
-    : [];
-  
   studentForm.value = {
     id: student.id,
     username: student.username,
+    password: '',
+    confirmPassword: '',
     real_name: student.real_name,
     role: 'student',
-    class_ids: classIds
+    class_ids: student.classes && student.classes.length > 0 ? [student.classes[0].id] : []
   };
   studentModalVisible.value = true;
-  
-  if (classes.value.length === 0) fetchClasses();
 };
 
 const confirmDeleteStudent = (student) => {
@@ -893,13 +931,28 @@ const submitStudentForm = async () => {
       return;
     }
     
-    if (!isEditing.value && !studentForm.value.password) {
-      ElMessage.warning('请输入密码');
+    if (!isEditing.value) {
+      if (!studentForm.value.password) {
+        ElMessage.warning('请输入密码');
+        return;
+      }
+      
+      if (studentForm.value.password !== studentForm.value.confirmPassword) {
+        ElMessage.warning('两次输入的密码不一致');
+        return;
+      }
+    } else if (studentForm.value.password && studentForm.value.password !== studentForm.value.confirmPassword) {
+      ElMessage.warning('两次输入的密码不一致');
       return;
     }
     
     if (!studentForm.value.real_name) {
       ElMessage.warning('请输入真实姓名');
+      return;
+    }
+    
+    if (!studentForm.value.class_ids || studentForm.value.class_ids.length === 0) {
+      ElMessage.warning('请选择班级');
       return;
     }
     
@@ -1043,6 +1096,12 @@ onMounted(async () => {
   // 加载当前标签数据
   await loadTabData(activeTab.value);
   
+  // 如果是学生管理标签，且班级已加载，设置默认班级
+  if (activeTab.value === 'students' && classes.value.length > 0) {
+    studentFilters.value.classId = classes.value[0].id;
+    fetchStudents();
+  }
+  
   // 延迟后强制刷新一次数据
   setTimeout(forceRefresh, 1000);
 });
@@ -1054,6 +1113,52 @@ watch(() => route.query.tab, (newTab) => {
     loadTabData(newTab);
   }
 }, { immediate: true });
+
+// 获取班级名称
+const getClassName = (classId) => {
+  if (!classId) return '';
+  const classItem = classes.value.find(cls => cls.id === classId);
+  return classItem ? classItem.name : '';
+};
+
+// 获取教师名称
+const getTeacherName = (teacherId) => {
+  if (!teacherId) return '';
+  const teacher = teachers.value.find(t => t.id === teacherId);
+  return teacher ? `${teacher.username} (${teacher.real_name})` : '';
+};
+
+// 获取当前选中课程的教师名称
+const getCurrentTeacherName = () => {
+  // 如果teachers尚未加载，尝试从courses中获取
+  if (isEditing.value && courseForm.value.teacher_id) {
+    const course = courses.value.find(c => c.id === courseForm.value.id);
+    if (course && course.teacher) {
+      return `${course.teacher.username} (${course.teacher.real_name})`;
+    }
+    if (course && course.teacher_username && course.teacher_real_name) {
+      return `${course.teacher_username} (${course.teacher_real_name})`;
+    }
+  }
+  return '';
+};
+
+// 计算属性 - 是否显示当前教师信息
+const showCurrentTeacher = computed(() => {
+  // 编辑模式下，且当前教师ID不在teachers列表中时显示
+  if (isEditing.value && courseForm.value.teacher_id) {
+    return !teachers.value.some(t => t.id === courseForm.value.teacher_id);
+  }
+  return false;
+});
+
+// 添加班级点击跳转函数
+const goToStudentsByClass = (classId) => {
+  // 设置学生筛选的班级ID
+  studentFilters.value.classId = classId;
+  // 切换到学生管理标签
+  switchTab('students');
+};
 </script>
 
 <style scoped>
@@ -1344,5 +1449,31 @@ th {
   border-radius: 4px;
   font-family: monospace;
   margin: 10px 0;
+}
+
+.selected-class {
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #f5f7fa;
+  color: #606266;
+  min-height: 36px;
+  line-height: 20px;
+}
+
+.selected-teacher {
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background-color: #f5f7fa;
+  color: #606266;
+  min-height: 36px;
+  line-height: 20px;
+}
+
+.class-link {
+  color: #409eff;
+  cursor: pointer;
+  text-decoration: underline;
 }
 </style> 
