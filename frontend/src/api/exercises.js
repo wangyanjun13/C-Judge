@@ -67,7 +67,16 @@ export const createExercise = (exerciseData) => {
     throw new Error('截止时间不能为空');
   }
   
-  return axios.post('/api/exercises', exerciseData)
+  // 创建一个新对象，将deadline字段转换为end_time
+  const apiData = {
+    ...exerciseData,
+    end_time: exerciseData.deadline
+  };
+  delete apiData.deadline;
+  
+  console.log('转换后的API数据:', JSON.stringify(apiData));
+  
+  return axios.post('/api/exercises', apiData)
     .then(response => {
       console.log('创建练习成功:', response.data);
       return response.data;
@@ -85,7 +94,15 @@ export const createExercise = (exerciseData) => {
  * @returns {Promise} - 返回更新后的练习
  */
 export const updateExercise = (exerciseId, exerciseData) => {
-  return axios.put(`/api/exercises/${exerciseId}`, exerciseData)
+  // 创建一个新对象，将deadline字段转换为end_time
+  const apiData = {...exerciseData};
+  if (apiData.deadline) {
+    apiData.end_time = apiData.deadline;
+    delete apiData.deadline;
+  }
+  
+  console.log('更新练习请求，数据:', JSON.stringify(apiData));
+  return axios.put(`/api/exercises/${exerciseId}`, apiData);
 }
 
 /**

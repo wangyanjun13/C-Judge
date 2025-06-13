@@ -114,12 +114,17 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/change-password")
 async def change_password(
-    old_password: str,
-    new_password: str,
+    password_data: dict,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """修改密码"""
+    old_password = password_data.get("old_password")
+    new_password = password_data.get("new_password")
+    
+    if not old_password or not new_password:
+        raise HTTPException(status_code=400, detail="缺少必要参数")
+    
     # 验证旧密码
     if not verify_password(old_password, current_user.password):
         raise HTTPException(status_code=400, detail="旧密码错误")

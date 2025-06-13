@@ -139,6 +139,13 @@ async def update_exercise(
     
     # 更新练习
     update_data = exercise_data.dict(exclude_unset=True)
+    
+    # 确保end_time有值且晚于start_time
+    if "end_time" in update_data and update_data["end_time"]:
+        print(f"更新练习 {exercise_id} 的截止时间为: {update_data['end_time']}")
+    else:
+        print(f"未提供截止时间或截止时间为空")
+    
     updated_exercise = ExerciseService.update_exercise(db, exercise_id, update_data)
     
     # 记录操作日志

@@ -29,7 +29,7 @@
         </div>
         <div class="info-item">
           <span class="label">截止时间:</span>
-          <span class="value">{{ formatDate(exercise.deadline) }}</span>
+          <span class="value">{{ formatDate(exercise.end_time) }}</span>
         </div>
         <div class="info-item">
           <span class="label">在线评测:</span>
@@ -142,7 +142,12 @@
           </div>
           <div class="form-group">
             <label for="exercise-deadline">截止时间</label>
-            <input id="exercise-deadline" type="datetime-local" v-model="editForm.deadline" />
+            <div class="datetime-input-wrapper">
+              <input id="exercise-deadline" type="datetime-local" v-model="editForm.deadline" required @change="validateDeadline" />
+              <div class="datetime-helper">
+                <small>请选择有效的截止时间</small>
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label for="exercise-judge">在线评测</label>
@@ -321,7 +326,7 @@ const showEditModal = () => {
   editForm.value = {
     name: exercise.value.name,
     course_id: exercise.value.course_id,
-    deadline: exercise.value.deadline ? formatDateForInput(exercise.value.deadline) : '',
+    deadline: exercise.value.end_time ? formatDateForInput(exercise.value.end_time) : '',
     is_online_judge: exercise.value.is_online_judge,
     allowed_languages: exercise.value.allowed_languages,
     note: exercise.value.note || ''
@@ -332,6 +337,10 @@ const showEditModal = () => {
 // 提交编辑表单
 const submitEditForm = async () => {
   try {
+    // 确保截止时间有效
+    validateDeadline();
+    
+    console.log('提交编辑表单:', editForm.value);
     await updateExercise(exerciseId, editForm.value);
     ElMessage.success('练习更新成功');
     editModalVisible.value = false;
@@ -350,6 +359,20 @@ const showAddProblemModal = () => {
 // 移除题目
 const removeProblem = (problemId) => {
   ElMessage.info('题目移除功能正在开发中...');
+};
+
+// 在script setup部分添加validateDeadline函数
+const validateDeadline = () => {
+  const deadline = new Date(editForm.value.deadline);
+  const now = new Date();
+  
+  if (deadline <= now) {
+    ElMessage.warning('截止时间必须晚于当前时间');
+    // 设置截止时间为当前时间后7天
+    const newDeadline = new Date();
+    newDeadline.setDate(newDeadline.getDate() + 7);
+    editForm.value.deadline = formatDateForInput(newDeadline);
+  }
 };
 
 onMounted(() => {
@@ -597,5 +620,15 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+
+.datetime-input-wrapper {
+  position: relative;
+}
+
+.datetime-helper {
+  margin-top: 5px;
+  color: #909399;
+  font-size: 12px;
 }
 </style> 

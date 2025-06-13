@@ -108,12 +108,18 @@
           
           <div class="form-group">
             <label for="exercise-deadline">截止时间</label>
-            <input 
-              type="datetime-local" 
-              id="exercise-deadline" 
-              v-model="form.deadline"
-              required
-            />
+            <div class="datetime-input-wrapper">
+              <input 
+                type="datetime-local" 
+                id="exercise-deadline" 
+                v-model="form.deadline"
+                required
+                @change="validateDeadline"
+              />
+              <div class="datetime-helper">
+                <small>请选择晚于发布时间的截止时间</small>
+              </div>
+            </div>
           </div>
           
           <div class="form-group checkbox">
@@ -237,7 +243,7 @@ const showCreateModal = () => {
   const now = new Date();
   
   // 设置默认截止时间（当前时间一周后）
-  const oneWeekLater = new Date();
+  const oneWeekLater = new Date(now);
   oneWeekLater.setDate(oneWeekLater.getDate() + 7);
   
   form.value = {
@@ -287,6 +293,9 @@ const submitForm = async () => {
     ElMessage.error('请填写所有必填字段');
     return;
   }
+  
+  // 确保截止时间晚于发布时间
+  validateDeadline();
   
   try {
     if (isEditing.value) {
@@ -373,6 +382,20 @@ const formatCourseName = (exercise) => {
     return exercise.course_name;
   }
   return '未知课程';
+};
+
+// 在script setup部分添加validateDeadline函数
+const validateDeadline = () => {
+  const startTime = new Date(form.value.start_time);
+  const deadline = new Date(form.value.deadline);
+  
+  if (deadline <= startTime) {
+    ElMessage.warning('截止时间必须晚于发布时间');
+    // 设置截止时间为发布时间后7天
+    const newDeadline = new Date(startTime);
+    newDeadline.setDate(newDeadline.getDate() + 7);
+    form.value.deadline = formatDateForInput(newDeadline);
+  }
 };
 
 onMounted(() => {
@@ -600,5 +623,15 @@ th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.datetime-input-wrapper {
+  position: relative;
+}
+
+.datetime-helper {
+  margin-top: 5px;
+  color: #909399;
+  font-size: 12px;
 }
 </style> 
