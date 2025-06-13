@@ -21,7 +21,6 @@
             <th>发布时间</th>
             <th>截止时间</th>
             <th>是否在线测评</th>
-            <th>备注</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -42,10 +41,11 @@
               <td>{{ formatDate(exercise.end_time) }}</td>
               <td>{{ exercise.is_online_judge ? '是' : '否' }}</td>
               <td>
-                <span class="note-text" :title="exercise.note">{{ exercise.note || '无' }}</span>
+                <button class="btn btn-primary" @click="viewExercise(exercise.id)">查看</button>
               </td>
               <td>
-                <button class="btn btn-primary" @click="viewExercise(exercise.id)">查看</button>
+                <button class="btn btn-text" @click="showNoteModal(exercise)">备注</button>
+                <span v-if="exerciseNotes[exercise.id]" class="note-text">{{ exerciseNotes[exercise.id] }}</span>
               </td>
             </tr>
           </template>
@@ -54,14 +54,22 @@
     </div>
     
     <!-- 练习备注弹窗 -->
-    <div v-if="noteVisible" class="modal-overlay" @click="noteVisible = false">
+    <div v-if="noteModalVisible" class="modal-overlay" @click="noteModalVisible = false">
       <div class="modal" @click.stop>
         <h3>练习备注</h3>
-        <div v-if="selectedExercise">
-          <p v-if="selectedExercise.note">{{ selectedExercise.note }}</p>
-          <p v-else>暂无备注</p>
+        <div class="form-group">
+          <label for="exercise-note">备注内容</label>
+          <textarea 
+            id="exercise-note" 
+            v-model="exerciseNotes[selectedExercise?.id]" 
+            rows="4"
+            placeholder="请输入备注内容..."
+          ></textarea>
         </div>
-        <button @click="noteVisible = false">关闭</button>
+        <div class="form-actions">
+          <button @click="noteModalVisible = false">关闭</button>
+          <button @click="saveNote" class="btn-primary">保存</button>
+        </div>
       </div>
     </div>
   </div>
@@ -78,8 +86,9 @@ const exercises = ref([]);
 const courses = ref([]);
 const loading = ref(true);
 const selectedCourse = ref('');
-const noteVisible = ref(false);
+const noteModalVisible = ref(false);
 const selectedExercise = ref(null);
+const exerciseNotes = ref({});  // 存储练习的备注，格式为 {exerciseId: noteText}
 
 // 过滤练习
 const filteredExercises = computed(() => {
@@ -101,10 +110,25 @@ const viewExercise = (id) => {
   router.push(`/student/exercise/${id}`);
 };
 
-// 显示备注
-const showNote = (exercise) => {
+// 显示备注对话框
+const showNoteModal = (exercise) => {
   selectedExercise.value = exercise;
-  noteVisible.value = true;
+  // 如果本地存储中有该练习的备注，则加载
+  const savedNotes = localStorage.getItem('studentExerciseNotes');
+  if (savedNotes) {
+    exerciseNotes.value = JSON.parse(savedNotes);
+  }
+  noteModalVisible.value = true;
+};
+
+// 保存备注
+const saveNote = () => {
+  if (selectedExercise.value) {
+    // 保存到本地存储
+    localStorage.setItem('studentExerciseNotes', JSON.stringify(exerciseNotes.value));
+    ElMessage.success('备注保存成功');
+    noteModalVisible.value = false;
+  }
 };
 
 // 获取练习列表
@@ -154,6 +178,12 @@ const formatCourseName = (exercise) => {
 
 onMounted(() => {
   fetchExercises();
+  
+  // 加载备注数据
+  const savedNotes = localStorage.getItem('studentExerciseNotes');
+  if (savedNotes) {
+    exerciseNotes.value = JSON.parse(savedNotes);
+  }
 });
 </script>
 
@@ -296,5 +326,9 @@ th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-left: 5px;
+  color: #999;
+  font-size: 12px;
+  font-style: italic;
 }
 </style> 

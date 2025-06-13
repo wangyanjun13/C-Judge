@@ -73,6 +73,8 @@ export const createExercise = (exerciseData) => {
     end_time: exerciseData.deadline
   };
   delete apiData.deadline;
+  // 删除note字段
+  delete apiData.note;
   
   console.log('转换后的API数据:', JSON.stringify(apiData));
   
@@ -100,6 +102,8 @@ export const updateExercise = (exerciseId, exerciseData) => {
     apiData.end_time = apiData.deadline;
     delete apiData.deadline;
   }
+  // 删除note字段
+  delete apiData.note;
   
   console.log('更新练习请求，数据:', JSON.stringify(apiData));
   return axios.put(`/api/exercises/${exerciseId}`, apiData);

@@ -28,7 +28,6 @@
             <th>发布时间</th>
             <th>截止时间</th>
             <th>是否在线测评</th>
-            <th>备注</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -49,12 +48,13 @@
               <td>{{ formatDate(exercise.end_time) }}</td>
               <td>{{ exercise.is_online_judge ? '是' : '否' }}</td>
               <td>
-                <span class="note-text" :title="exercise.note">{{ exercise.note || '无' }}</span>
-              </td>
-              <td>
                 <button class="btn btn-edit" @click="showEditModal(exercise)">编辑</button>
                 <button class="btn btn-danger" @click="confirmDelete(exercise)">删除</button>
                 <button class="btn btn-secondary" @click="downloadExercise(exercise.id)">下载</button>
+              </td>
+              <td>
+                <button class="btn btn-text" @click="showNoteModal(exercise)">备注</button>
+                <span v-if="exerciseNotes[exercise.id]" class="note-text">{{ exerciseNotes[exercise.id] }}</span>
               </td>
             </tr>
           </template>
@@ -143,15 +143,6 @@
             </select>
           </div>
           
-          <div class="form-group">
-            <label for="exercise-note">备注</label>
-            <textarea 
-              id="exercise-note" 
-              v-model="form.note" 
-              rows="4"
-            ></textarea>
-          </div>
-          
           <div class="form-notice">
             <p class="notice-text">创建练习后需要为练习添加试题：点击[保存]后回到练习列表，点击"练习名称"进入[试题列表]界面，点击[添加]。</p>
           </div>
@@ -172,6 +163,26 @@
         <div class="form-actions">
           <button @click="deleteModalVisible = false">取消</button>
           <button class="btn-danger" @click="deleteExerciseConfirm">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加备注对话框 -->
+    <div v-if="noteModalVisible" class="modal-overlay" @click="noteModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>练习备注</h3>
+        <div class="form-group">
+          <label for="exercise-note">备注内容</label>
+          <textarea 
+            id="exercise-note" 
+            v-model="exerciseNotes[selectedExercise?.id]" 
+            rows="4"
+            placeholder="请输入备注内容..."
+          ></textarea>
+        </div>
+        <div class="form-actions">
+          <button @click="noteModalVisible = false">关闭</button>
+          <button @click="saveNote" class="btn-primary">保存</button>
         </div>
       </div>
     </div>
@@ -200,6 +211,9 @@ const formModalVisible = ref(false);
 const deleteModalVisible = ref(false);
 const isEditing = ref(false);
 const exerciseToDelete = ref(null);
+const noteModalVisible = ref(false);
+const selectedExercise = ref(null);
+const exerciseNotes = ref({});  // 存储练习的备注，格式为 {exerciseId: noteText}
 
 // 表单数据
 const form = ref({
@@ -208,8 +222,7 @@ const form = ref({
   start_time: '',
   deadline: '',
   is_online_judge: true,
-  allowed_languages: 'c',
-  note: ''
+  allowed_languages: 'c'
 });
 
 // 过滤练习
@@ -265,8 +278,7 @@ const showCreateModal = () => {
     start_time: formatDateForInput(now),
     deadline: formatDateForInput(oneWeekLater),
     is_online_judge: true,
-    allowed_languages: 'c',
-    note: ''
+    allowed_languages: 'c'
   };
   formModalVisible.value = true;
 };
@@ -278,10 +290,9 @@ const showEditModal = (exercise) => {
     name: exercise.name,
     course_id: exercise.course_id,
     start_time: exercise.start_time ? formatDateForInput(exercise.start_time) : '',
-    deadline: exercise.deadline ? formatDateForInput(exercise.deadline) : '',
+    deadline: exercise.end_time ? formatDateForInput(exercise.end_time) : '',
     is_online_judge: exercise.is_online_judge,
-    allowed_languages: exercise.allowed_languages,
-    note: exercise.note || ''
+    allowed_languages: exercise.allowed_languages
   };
   exerciseToDelete.value = exercise;
   formModalVisible.value = true;
@@ -411,9 +422,36 @@ const validateDeadline = () => {
   }
 };
 
+// 显示备注对话框
+const showNoteModal = (exercise) => {
+  selectedExercise.value = exercise;
+  // 如果本地存储中有该练习的备注，则加载
+  const savedNotes = localStorage.getItem('exerciseNotes');
+  if (savedNotes) {
+    exerciseNotes.value = JSON.parse(savedNotes);
+  }
+  noteModalVisible.value = true;
+};
+
+// 保存备注
+const saveNote = () => {
+  if (selectedExercise.value) {
+    // 保存到本地存储
+    localStorage.setItem('exerciseNotes', JSON.stringify(exerciseNotes.value));
+    ElMessage.success('备注保存成功');
+    noteModalVisible.value = false;
+  }
+};
+
 onMounted(() => {
   fetchExercises();
   fetchCourses();
+  
+  // 加载备注数据
+  const savedNotes = localStorage.getItem('exerciseNotes');
+  if (savedNotes) {
+    exerciseNotes.value = JSON.parse(savedNotes);
+  }
 });
 </script>
 
@@ -518,6 +556,19 @@ th {
 
 .btn-danger:hover {
   background-color: #ff4d4f;
+}
+/* 备注按钮样式 */
+.btn-text {
+  background: none;
+  border: none;
+  color: #1890ff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-text:hover {
+  text-decoration: underline;
+  color: #40a9ff;
 }
 
 /* 模态对话框样式 */
@@ -641,6 +692,10 @@ th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-left: 5px;
+  color: #999;
+  font-size: 12px;
+  font-style: italic;
 }
 
 .datetime-input-wrapper {
