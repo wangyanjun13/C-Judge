@@ -242,13 +242,23 @@
             />
           </div>
           
-          <div class="form-group" v-if="!isEditing">
+          <div class="form-group">
             <label for="teacher-password">密码</label>
             <input
               type="password"
               id="teacher-password"
               v-model="teacherForm.password"
-              required
+              :required="!isEditing"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label for="teacher-confirm-password">确认密码</label>
+            <input
+              type="password"
+              id="teacher-confirm-password"
+              v-model="teacherForm.confirmPassword"
+              :required="!isEditing"
             />
           </div>
           
@@ -511,6 +521,7 @@ const teacherForm = ref({
   id: null,
   username: '',
   password: '',
+  confirmPassword: '',
   real_name: '',
   role: 'teacher'
 });
@@ -696,14 +707,21 @@ const fetchTeachers = async () => {
 // 显示教师添加对话框
 const showTeacherModal = () => {
   isEditing.value = false;
-  teacherForm.value = { id: null, username: '', password: '', real_name: '', role: 'teacher' };
+  teacherForm.value = { id: null, username: '', password: '', confirmPassword: '', real_name: '', role: 'teacher' };
   teacherModalVisible.value = true;
 };
 
 // 显示教师编辑对话框
 const editTeacher = (teacher) => {
   isEditing.value = true;
-  teacherForm.value = { id: teacher.id, username: teacher.username, real_name: teacher.real_name, role: 'teacher' };
+  teacherForm.value = { 
+    id: teacher.id, 
+    username: teacher.username, 
+    password: '',
+    confirmPassword: '',
+    real_name: teacher.real_name, 
+    role: 'teacher' 
+  };
   teacherModalVisible.value = true;
 };
 
@@ -717,20 +735,60 @@ const confirmDeleteTeacher = (teacher) => {
 // 提交教师表单
 const submitTeacherForm = async () => {
   try {
+    // 验证表单
+    if (!teacherForm.value.username) {
+      ElMessage.warning('请输入用户名');
+      return;
+    }
+    
+    if (!isEditing.value) {
+      if (!teacherForm.value.password) {
+        ElMessage.warning('请输入密码');
+        return;
+      }
+      
+      if (teacherForm.value.password !== teacherForm.value.confirmPassword) {
+        ElMessage.warning('两次输入的密码不一致');
+        return;
+      }
+    } else if (teacherForm.value.password && teacherForm.value.password !== teacherForm.value.confirmPassword) {
+      ElMessage.warning('两次输入的密码不一致');
+      return;
+    }
+    
+    if (!teacherForm.value.real_name) {
+      ElMessage.warning('请输入真实姓名');
+      return;
+    }
+    
+    // 构建提交数据
+    const postData = {
+      username: teacherForm.value.username,
+      real_name: teacherForm.value.real_name,
+      role: 'teacher'
+    };
+    
+    // 只有在密码不为空时才添加密码字段
+    if (teacherForm.value.password) {
+      postData.password = teacherForm.value.password;
+    }
+    
     if (isEditing.value) {
       // 更新教师
-      await axios.put(`/api/users/teacher/${teacherForm.value.id}`, teacherForm.value);
+      await axios.put(`/api/users/teacher/${teacherForm.value.id}`, postData);
       ElMessage.success('教师信息更新成功');
     } else {
       // 创建教师
-      await axios.post('/api/users/teacher', teacherForm.value);
+      await axios.post('/api/users/teacher', postData);
       ElMessage.success('教师创建成功');
     }
     teacherModalVisible.value = false;
     await fetchTeachers();
   } catch (error) {
     console.error('提交教师失败', error);
-    ElMessage.error(isEditing.value ? '更新教师失败' : '创建教师失败');
+    // 显示后端返回的错误消息或默认消息
+    const errorMsg = error.response?.data?.detail || (isEditing.value ? '更新教师失败' : '创建教师失败');
+    ElMessage.error(errorMsg);
   }
 };
 
