@@ -105,36 +105,72 @@ class ProblemService:
         time_limit = ""
         memory_limit = ""
         
-        # 尝试不同的编码格式
-        encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'latin1']
-        
-        for encoding in encodings:
-            try:
-                with open(inf_path, "r", encoding=encoding) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("试题中文名称="):
-                            chinese_name = line.split("=", 1)[1].strip('"')
-                        elif line.startswith("时间限制="):
-                            time_limit = line.split("=", 1)[1].split("//")[0].strip()
-                        elif line.startswith("内存限制="):
-                            memory_limit = line.split("=", 1)[1].split("//")[0].strip()
+        # 首先尝试二进制方式读取文件，检查文件头
+        try:
+            with open(inf_path, "rb") as f:
+                raw_data = f.read()
+                # 检查是否有BOM标记
+                if raw_data.startswith(b'\xef\xbb\xbf'):
+                    logger.info(f"文件 {inf_path} 有UTF-8 BOM标记")
+                    content = raw_data[3:].decode('utf-8')
+                # 检查是否有其他编码标记
+                elif raw_data.startswith(b'\xff\xfe'):
+                    logger.info(f"文件 {inf_path} 有UTF-16 LE标记")
+                    content = raw_data[2:].decode('utf-16-le')
+                elif raw_data.startswith(b'\xfe\xff'):
+                    logger.info(f"文件 {inf_path} 有UTF-16 BE标记")
+                    content = raw_data[2:].decode('utf-16-be')
+                else:
+                    # 打印文件前20个字节以便调试
+                    logger.info(f"文件 {inf_path} 前20个字节: {raw_data[:20]}")
+                    
+                    # 尝试不同的编码
+                    for encoding in ['utf-8', 'gbk', 'gb2312', 'gb18030', 'latin1']:
+                        try:
+                            content = raw_data.decode(encoding)
+                            logger.info(f"成功使用 {encoding} 解码文件")
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    else:
+                        # 如果所有编码都失败，使用latin1（不会失败，但可能乱码）
+                        logger.warning(f"所有编码尝试均失败，使用latin1作为后备")
+                        content = raw_data.decode('latin1')
                 
-                logger.info(f"成功使用 {encoding} 编码解析试题: {problem_name}, 中文名称: {chinese_name}")
+                # 打印文件内容前100个字符以便调试
+                logger.info(f"文件内容前100个字符: {content[:100]}")
+                
+                # 解析文件内容
+                for line in content.splitlines():
+                    line = line.strip()
+                    logger.info(f"处理行: {line}")
+                    
+                    if line.startswith("试题中文名称="):
+                        value = line[len("试题中文名称="):].strip()
+                        if value.startswith('"') and value.endswith('"'):
+                            chinese_name = value[1:-1]
+                        else:
+                            chinese_name = value.split("//")[0].strip()
+                        logger.info(f"提取到中文名称: {chinese_name}")
+                    
+                    elif line.startswith("时间限制="):
+                        value = line[len("时间限制="):].strip()
+                        time_limit = value.split("//")[0].strip()
+                        logger.info(f"提取到时间限制: {time_limit}")
+                    
+                    elif line.startswith("内存限制="):
+                        value = line[len("内存限制="):].strip()
+                        memory_limit = value.split("//")[0].strip()
+                        logger.info(f"提取到内存限制: {memory_limit}")
+                
                 return ProblemInfo(
                     name=problem_name,
-                    chinese_name=chinese_name,
-                    time_limit=time_limit,
-                    memory_limit=memory_limit,
+                    chinese_name=chinese_name if chinese_name else problem_name,
+                    time_limit=time_limit if time_limit else "1000ms",
+                    memory_limit=memory_limit if memory_limit else "256M",
                     data_path=os.path.join(category_path, problem_name),
                     category=category_path.split("/")[-1] if "/" in category_path else category_path
                 )
-            except UnicodeDecodeError:
-                logger.debug(f"使用 {encoding} 编码解析失败，尝试下一种编码")
-                continue
-            except Exception as e:
-                logger.error(f"解析试题信息失败: {str(e)}")
-                return None
-        
-        logger.error(f"所有编码尝试均失败，无法解析文件: {inf_path}")
-        return None 
+        except Exception as e:
+            logger.error(f"解析试题信息失败: {str(e)}")
+            return None 
