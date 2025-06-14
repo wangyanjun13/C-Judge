@@ -18,6 +18,8 @@
 /backend/.env
 /backend/*.db
 /backend/*.sqlite3
+/backend/题库/
+/backend/题库/**
 
 # 编辑器相关
 .idea/

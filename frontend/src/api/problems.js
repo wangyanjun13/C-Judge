@@ -7,6 +7,8 @@ import axios from '../utils/axios'
 export const getProblemCategories = async () => {
   try {
     const response = await axios.get('/api/problems/categories');
+    console.log('题库分类API响应:', response.data);
+    // 确保返回数据是数组
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error('获取题库分类列表失败:', error);
@@ -21,7 +23,9 @@ export const getProblemCategories = async () => {
  */
 export const getProblemsByCategory = async (categoryPath) => {
   try {
+    console.log('请求分类下的试题:', categoryPath);
     const response = await axios.get(`/api/problems/list/${encodeURIComponent(categoryPath)}`);
+    console.log('试题列表API响应:', response.data);
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error('获取试题列表失败:', error);

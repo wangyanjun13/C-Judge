@@ -50,6 +50,7 @@ instance.interceptors.response.use(
       })
     }
     
+    // 确保返回的是response对象，而不仅仅是data
     return response
   },
   error => {

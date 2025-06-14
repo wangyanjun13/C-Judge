@@ -30,8 +30,7 @@ services:
     volumes:
       - ../backend:/app
       - ./data:/app/data
-      - ../题库:/app/题库  # 直接挂载题库到/app/题库
-      - ..:/app_root  # 同时挂载整个项目目录作为备用
+      - ..:/app_root  # 挂载整个项目目录，题库可以通过 /app_root/题库 访问
     ports:
       - "8000:8000"
     dns:
@@ -90,8 +89,7 @@ services:
       - ./data/test_case:/test_case:ro
       - ./data/judge/log:/log
       - ./data/judge/run:/judger
-      - ../题库:/problems/题库:ro  # 直接挂载题库到/problems/题库
-      - ..:/root_project:ro  # 同时挂载整个项目目录作为备用
+      - ..:/root_project:ro  # 挂载整个项目目录，题库可以通过 /root_project/题库 访问
     environment:
       - SERVICE_URL=http://oj-judge:8080
       - BACKEND_URL=http://backend:8000/api/judge_server_heartbeat/

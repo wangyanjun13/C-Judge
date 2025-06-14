@@ -108,6 +108,10 @@ const uploadStatus = ref('');
 const loadCategories = async () => {
   try {
     categories.value = await getProblemCategories();
+    console.log('加载到的题库分类:', categories.value);
+    if (categories.value.length === 0) {
+      ElMessage.warning('未找到题库分类，请确保题库目录已正确配置');
+    }
   } catch (err) {
     console.error('加载题库分类失败:', err);
     ElMessage.error('加载题库分类失败');

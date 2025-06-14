@@ -8,21 +8,8 @@ from app.schemas.problem import ProblemCategory, ProblemInfo
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 题库根目录 - 优先使用Docker挂载路径
-PROBLEMS_ROOT = "/app/题库"  # Docker挂载的题库目录
-
-# 如果Docker挂载路径不存在，尝试其他可能的路径
-if not os.path.exists(PROBLEMS_ROOT):
-    possible_paths = [
-        "/app_root/题库",  # Docker挂载的整个项目中的题库
-        "../题库",         # 相对于当前目录的父目录下的题库
-        "../../题库"       # 再往上一级目录查找
-    ]
-    
-    for path in possible_paths:
-        if os.path.exists(path):
-            PROBLEMS_ROOT = path
-            break
+# 题库根目录 - 只使用项目根目录下的题库路径
+PROBLEMS_ROOT = "/app_root/题库"  # Docker挂载的项目根目录下的题库
 
 logger.info(f"设置题库根目录为: {PROBLEMS_ROOT}")
 logger.info(f"题库目录是否存在: {os.path.exists(PROBLEMS_ROOT)}")
@@ -34,29 +21,12 @@ class ProblemService:
         """获取所有题库分类"""
         categories = []
         
-        # 确保题库目录存在
+        # 确保题库目录存在，但不创建
         if not os.path.exists(PROBLEMS_ROOT):
             logger.error(f"题库目录不存在: {PROBLEMS_ROOT}")
             logger.info(f"当前工作目录: {os.getcwd()}")
-            logger.info(f"目录内容: {os.listdir('.')}")
-            
-            # 尝试列出父目录内容
-            try:
-                parent_dir = os.path.dirname(os.getcwd())
-                logger.info(f"父目录: {parent_dir}")
-                logger.info(f"父目录内容: {os.listdir(parent_dir)}")
-                
-                # 尝试列出项目根目录
-                try:
-                    root_dir = os.path.dirname(parent_dir)
-                    logger.info(f"项目根目录: {root_dir}")
-                    logger.info(f"项目根目录内容: {os.listdir(root_dir)}")
-                except Exception as e:
-                    logger.error(f"无法列出项目根目录内容: {str(e)}")
-            except Exception as e:
-                logger.error(f"无法列出父目录内容: {str(e)}")
-                
-            raise FileNotFoundError(f"题库目录不存在: {PROBLEMS_ROOT}")
+            # 不尝试创建目录，直接返回空列表
+            return categories
         
         logger.info(f"题库目录存在，开始扫描子目录")
         
@@ -95,7 +65,7 @@ class ProblemService:
         
         if not os.path.exists(full_path) or not os.path.isdir(full_path):
             logger.error(f"题库分类不存在: {full_path}")
-            raise FileNotFoundError(f"题库分类不存在: {category_path}")
+            return problems
         
         # 遍历分类目录下的所有试题文件夹
         for problem_dir in os.listdir(full_path):
@@ -135,26 +105,36 @@ class ProblemService:
         time_limit = ""
         memory_limit = ""
         
-        try:
-            with open(inf_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith("试题中文名称="):
-                        chinese_name = line.split("=", 1)[1].strip('"')
-                    elif line.startswith("时间限制="):
-                        time_limit = line.split("=", 1)[1].split("//")[0].strip()
-                    elif line.startswith("内存限制="):
-                        memory_limit = line.split("=", 1)[1].split("//")[0].strip()
-            
-            logger.info(f"解析试题成功: {problem_name}, 中文名称: {chinese_name}")
-            return ProblemInfo(
-                name=problem_name,
-                chinese_name=chinese_name,
-                time_limit=time_limit,
-                memory_limit=memory_limit,
-                data_path=os.path.join(category_path, problem_name),
-                category=category_path.split("/")[-1] if "/" in category_path else category_path
-            )
-        except Exception as e:
-            logger.error(f"解析试题信息失败: {str(e)}")
-            return None 
+        # 尝试不同的编码格式
+        encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'latin1']
+        
+        for encoding in encodings:
+            try:
+                with open(inf_path, "r", encoding=encoding) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("试题中文名称="):
+                            chinese_name = line.split("=", 1)[1].strip('"')
+                        elif line.startswith("时间限制="):
+                            time_limit = line.split("=", 1)[1].split("//")[0].strip()
+                        elif line.startswith("内存限制="):
+                            memory_limit = line.split("=", 1)[1].split("//")[0].strip()
+                
+                logger.info(f"成功使用 {encoding} 编码解析试题: {problem_name}, 中文名称: {chinese_name}")
+                return ProblemInfo(
+                    name=problem_name,
+                    chinese_name=chinese_name,
+                    time_limit=time_limit,
+                    memory_limit=memory_limit,
+                    data_path=os.path.join(category_path, problem_name),
+                    category=category_path.split("/")[-1] if "/" in category_path else category_path
+                )
+            except UnicodeDecodeError:
+                logger.debug(f"使用 {encoding} 编码解析失败，尝试下一种编码")
+                continue
+            except Exception as e:
+                logger.error(f"解析试题信息失败: {str(e)}")
+                return None
+        
+        logger.error(f"所有编码尝试均失败，无法解析文件: {inf_path}")
+        return None 
