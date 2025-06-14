@@ -15,7 +15,6 @@
         <div class="filter-item">
           <label>题库分类：</label>
           <select v-model="selectedCategory" @change="loadProblems">
-            <option value="">请选择题库分类</option>
             <option v-for="category in categories" :key="category.path" :value="category.path">
               {{ category.name }}
             </option>
@@ -40,6 +39,7 @@
           <thead>
             <tr>
               <th>序号</th>
+              <th>操作</th>
               <th>试题名称</th>
               <th>试题中文名称</th>
               <th>所有者</th>
@@ -47,12 +47,15 @@
               <th>时间限制</th>
               <th>内存限制</th>
               <th>数据路径</th>
-              <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(problem, index) in problems" :key="problem.name">
               <td>{{ index + 1 }}</td>
+              <td>
+                <button @click="updateProblem(problem)" class="btn btn-edit">更新</button>
+                <button @click="confirmDelete(problem)" class="btn btn-delete">删除</button>
+              </td>
               <td>{{ problem.name }}</td>
               <td>{{ problem.chinese_name }}</td>
               <td>{{ problem.owner }}</td>
@@ -60,10 +63,6 @@
               <td>{{ problem.time_limit }}</td>
               <td>{{ problem.memory_limit }}</td>
               <td>{{ problem.data_path }}</td>
-              <td>
-                <button @click="updateProblem(problem)" class="btn btn-edit">更新</button>
-                <button @click="confirmDelete(problem)" class="btn btn-delete">删除</button>
-              </td>
             </tr>
           </tbody>
         </table>
@@ -108,9 +107,12 @@ const uploadStatus = ref('');
 const loadCategories = async () => {
   try {
     categories.value = await getProblemCategories();
-    console.log('加载到的题库分类:', categories.value);
     if (categories.value.length === 0) {
       ElMessage.warning('未找到题库分类，请确保题库目录已正确配置');
+    } else {
+      // 自动选择第一个分类
+      selectedCategory.value = categories.value[0].path;
+      loadProblems();
     }
   } catch (err) {
     console.error('加载题库分类失败:', err);
