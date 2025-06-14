@@ -115,7 +115,16 @@ export const updateExercise = (exerciseId, exerciseData) => {
  * @returns {Promise} - 返回删除结果
  */
 export const deleteExercise = (exerciseId) => {
+  console.log(`尝试删除练习 ID: ${exerciseId}`);
   return axios.delete(`/api/exercises/${exerciseId}`)
+    .then(response => {
+      console.log('删除练习成功:', response.data);
+      return response.data;
+    })
+    .catch(error => {
+      console.error('删除练习失败:', error.response?.data || error.message);
+      throw error;
+    });
 }
 
 /**

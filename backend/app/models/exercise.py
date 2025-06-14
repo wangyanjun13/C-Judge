@@ -35,5 +35,5 @@ class Exercise(Base):
     publisher_id = Column(Integer, ForeignKey("users.id"))
     publisher = relationship("User", back_populates="published_exercises")
     
-    problems = relationship("Problem", back_populates="exercise")
+    problems = relationship("Problem", secondary=exercise_problem, back_populates="exercise")
     submissions = relationship("Submission", back_populates="exercise") 

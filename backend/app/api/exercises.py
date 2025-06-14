@@ -80,6 +80,10 @@ async def get_exercise_detail(
     # 记录操作日志
     ExerciseService.log_operation(db, current_user.id, "查看练习详情", exercise.name)
     
+    # 确保problems属性存在
+    if not hasattr(exercise, 'problems'):
+        exercise.problems = []
+    
     return exercise
 
 @router.post("/", response_model=ExerciseResponse)
@@ -160,21 +164,27 @@ async def delete_exercise(
     current_user: User = Depends(get_teacher_user)
 ):
     """删除练习（教师或管理员）"""
-    # 查询练习
-    exercise = ExerciseService.get_exercise_detail(db, exercise_id)
-    if not exercise:
-        raise HTTPException(status_code=404, detail="练习不存在")
-    
-    # 检查权限（教师只能删除自己发布的练习）
-    if current_user.role == "teacher" and not ExerciseService.check_teacher_permission(db, current_user.id, exercise_id):
-        raise HTTPException(status_code=403, detail="无权删除此练习")
-    
-    # 记录操作日志
-    ExerciseService.log_operation(db, current_user.id, "删除练习", exercise.name)
-    
-    # 删除练习
-    success = ExerciseService.delete_exercise(db, exercise_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="删除练习失败")
-    
-    return {"message": "练习删除成功"} 
+    try:
+        # 查询练习
+        exercise = ExerciseService.get_exercise_detail(db, exercise_id)
+        if not exercise:
+            raise HTTPException(status_code=404, detail="练习不存在")
+        
+        # 检查权限（教师只能删除自己发布的练习）
+        if current_user.role == "teacher" and not ExerciseService.check_teacher_permission(db, current_user.id, exercise_id):
+            raise HTTPException(status_code=403, detail="无权删除此练习")
+        
+        # 记录操作日志
+        ExerciseService.log_operation(db, current_user.id, "删除练习", exercise.name)
+        
+        # 删除练习
+        success = ExerciseService.delete_exercise(db, exercise_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="删除练习失败，可能存在关联数据")
+        
+        return {"message": "练习删除成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"删除练习时发生错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"删除练习失败: {str(e)}") 

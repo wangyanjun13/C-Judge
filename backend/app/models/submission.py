@@ -16,14 +16,11 @@ class Submission(Base):
     exercise_id = Column(Integer, ForeignKey("exercises.id"))
     code = Column(Text, nullable=False)
     language = Column(String, nullable=False)
-    status = Column(String, nullable=False)  # 'Pending', 'Accepted', 'Wrong Answer', 'Compilation Error', etc.
-    score = Column(Float, default=0)
-    code_review_score = Column(Float, default=0)
-    runtime_score = Column(Float, default=0)
-    time_used = Column(Integer, nullable=True)  # 毫秒
-    memory_used = Column(Integer, nullable=True)  # MB
-    error_message = Column(Text, nullable=True)
-    result = Column(JSONB)  # 评测结果详情
+    status = Column(String, nullable=True)  # 'Pending', 'Accepted', 'Wrong Answer', 'Compilation Error', etc.
+    code_check_score = Column(Integer, nullable=True)
+    runtime_score = Column(Integer, nullable=True)
+    total_score = Column(Integer, nullable=True)
+    result = Column(JSONB, nullable=True)  # 评测结果详情
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # 关系

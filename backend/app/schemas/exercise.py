@@ -6,12 +6,14 @@ from datetime import datetime
 class ProblemBrief(BaseModel):
     id: int
     name: str
-    chinese_name: str
+    chinese_name: Optional[str] = None
     time_limit: int
     memory_limit: int
-    code_review_score: float
-    runtime_score: float
-    score_method: str
+    code_check_score: int = 0
+    runtime_score: int = 100
+    score_method: str = "sum"
+    category: Optional[str] = None
+    data_path: Optional[str] = None
 
     class Config:
         orm_mode = True

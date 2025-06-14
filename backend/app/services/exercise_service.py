@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from app.models import User, Exercise, Course, Problem, OperationLog, Class
+from app.models import User, Exercise, Course, Problem, OperationLog, Class, Submission
 from app.models.exercise import exercise_problem
 
 class ExerciseService:
@@ -144,16 +144,21 @@ class ExerciseService:
     @staticmethod
     def delete_exercise(db: Session, exercise_id: int) -> bool:
         """删除练习"""
-        # 查询练习
-        exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
-        if not exercise:
+        try:
+            # 查询练习
+            exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+            if not exercise:
+                return False
+            
+            # 直接删除练习（让数据库级联处理关系）
+            db.delete(exercise)
+            db.commit()
+            
+            return True
+        except Exception as e:
+            db.rollback()
+            print(f"删除练习失败: {str(e)}")
             return False
-        
-        # 删除练习
-        db.delete(exercise)
-        db.commit()
-        
-        return True
     
     @staticmethod
     def check_student_permission(db: Session, user_id: int, exercise_id: int) -> bool:
