@@ -20,8 +20,44 @@ C-Judge/
 ├── docker/             # Docker配置文件
 ├── backend/            # 后端代码
 ├── frontend/           # 前端代码
+├── 题库/               # 题库目录（不包含在Git仓库中）
 └── README.md           # 项目说明
 ```
+
+## 题库目录结构
+
+题库目录存放评测系统使用的所有题目，按照以下结构组织：
+
+```
+题库/
+├── 基础题库/                      # 题库分类一
+│   ├── 1.顺序结构/                # 题目分类
+│   │   ├── problem1/             # 具体题目
+│   │   │   ├── Question.INF      # 题目配置文件
+│   │   │   ├── Question.md       # 题目描述
+│   │   │   ├── StdAnswer.c       # 标准答案
+│   │   │   └── TestData/         # 测试数据
+│   │   │       ├── input1.txt    # 输入样例
+│   │   │       └── output1.txt   # 输出样例
+│   │   └── problem2/
+│   │       └── ...
+│   ├── 2.分支结构/
+│   └── ...
+└── 高级题库/                      # 题库分类二
+    └── ...
+```
+
+### 题目配置文件 (Question.INF)
+
+每个题目文件夹中必须包含一个 `Question.INF` 文件，用于配置题目的基本信息：
+
+```
+试题中文名称="Hello World"
+时间限制=1000 //ms
+内存限制=65535 //KB
+```
+
+> 注意：题库目录不包含在Git仓库中，需要单独准备并放置在项目根目录下。
 
 数据库：![1749479270436](image/README/1749479270436.png)
 
@@ -59,6 +95,10 @@ C-Judge/
 │   ├── package.json
 │   └── vite.config.js
 │
+├── 题库/                     # 题库目录（不包含在Git仓库中）
+│   ├── 基础题库/
+│   └── 高级题库/
+│
 └── README.md                 # 项目说明
 
 ## 技术选型
@@ -82,68 +122,3 @@ C-Judge/
 * Nginx：反向代理和静态文件服务
 
 api:
-
-# 认证
-
-POST /api/auth/login
-POST /api/auth/logout
-PUT /api/auth/password
-
-# 用户管理
-
-GET /api/users
-POST /api/users
-GET /api/users/{id}
-PUT /api/users/{id}
-DELETE /api/users/{id}
-POST /api/users/batch-import
-
-# 班级管理
-
-GET /api/classes
-POST /api/classes
-PUT /api/classes/{id}
-DELETE /api/classes/{id}
-
-# 课程管理
-
-GET /api/courses
-POST /api/courses
-PUT /api/courses/{id}
-DELETE /api/courses/{id}
-
-# 练习管理
-
-GET /api/exercises
-POST /api/exercises
-GET /api/exercises/{id}
-PUT /api/exercises/{id}
-DELETE /api/exercises/{id}
-GET /api/exercises/{id}/problems
-POST /api/exercises/{id}/problems
-DELETE /api/exercises/{id}/problems/{problem_id}
-
-# 题目管理
-
-GET /api/problems
-POST /api/problems
-GET /api/problems/{id}
-PUT /api/problems/{id}
-DELETE /api/problems/{id}
-POST /api/problems/upload
-
-# 提交管理
-
-POST /api/submissions
-GET /api/submissions
-GET /api/submissions/{id}
-GET /api/exercises/{id}/statistics
-
-# 操作日志
-
-GET /api/logs
-
-# 系统设置
-
-GET /api/settings
-PUT /api/settings

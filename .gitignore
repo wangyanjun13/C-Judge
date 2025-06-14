@@ -37,6 +37,11 @@
 /docker/data/*
 !/docker/data/.gitkeep
 
+# 题库相关
+/题库/
+/题库/**
+!/题库/.gitkeep
+
 # 临时文件
 *.log
 *.tmp
