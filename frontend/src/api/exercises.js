@@ -133,4 +133,43 @@ export const deleteExercise = (exerciseId) => {
  */
 export const getCourses = () => {
   return axios.get('/api/courses')
+}
+
+/**
+ * 更新题目
+ * @param {Number} exerciseId - 练习ID
+ * @param {Number} problemId - 题目ID
+ * @param {Object} problemData - 题目更新数据
+ * @returns {Promise} - 返回更新后的题目
+ */
+export const updateProblem = (exerciseId, problemId, problemData) => {
+  console.log('更新题目请求，数据:', JSON.stringify(problemData));
+  return axios.put(`/api/exercises/${exerciseId}/problems/${problemId}`, problemData)
+    .then(response => {
+      console.log('更新题目成功:', response.data);
+      return response.data;
+    })
+    .catch(error => {
+      console.error('更新题目失败:', error.response?.data || error.message);
+      throw error;
+    });
+}
+
+/**
+ * 从练习中移除题目
+ * @param {Number} exerciseId - 练习ID
+ * @param {Number} problemId - 题目ID
+ * @returns {Promise} - 返回操作结果
+ */
+export const removeProblemFromExercise = (exerciseId, problemId) => {
+  console.log(`尝试从练习 ${exerciseId} 中移除题目 ${problemId}`);
+  return axios.delete(`/api/exercises/${exerciseId}/problems/${problemId}`)
+    .then(response => {
+      console.log('移除题目成功:', response.data);
+      return response.data;
+    })
+    .catch(error => {
+      console.error('移除题目失败:', error.response?.data || error.message);
+      throw error;
+    });
 } 

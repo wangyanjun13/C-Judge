@@ -7,68 +7,65 @@
     </div>
     <template v-else>
       <div class="header">
-        <h2>{{ exercise.name }}</h2>
+        <h2>{{ exercise.name }} 
+          <span class="time-info" v-if="isExerciseStarted && !isExerciseEnded">
+            ({{ formatTimeRemaining() }}后结束)
+          </span>
+          <span class="time-info" v-else-if="!isExerciseStarted">
+            ({{ formatTimeRemaining() }}后开始)
+          </span>
+          <span class="time-info" v-else-if="isExerciseEnded">
+            (已结束)
+          </span>
+        </h2>
         <div class="actions">
-          <button @click="showEditModal" class="btn btn-edit">编辑练习</button>
           <button @click="goBack" class="btn btn-back">返回</button>
-        </div>
-      </div>
-      
-      <div class="exercise-info">
-        <div class="info-item">
-          <span class="label">所属课程:</span>
-          <span class="value">{{ exercise.course_name }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">发布时间:</span>
-          <span class="value">{{ formatDate(exercise.publish_time) }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">截止时间:</span>
-          <span class="value">{{ formatDate(exercise.end_time) }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">在线评测:</span>
-          <span class="value">{{ exercise.is_online_judge ? '是' : '否' }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">允许语言:</span>
-          <span class="value">{{ formatLanguages(exercise.allowed_languages) }}</span>
-        </div>
-        <div class="info-item" v-if="exercise.note">
-          <span class="label">练习备注:</span>
-          <span class="value note">{{ exercise.note }}</span>
         </div>
       </div>
       
       <div class="problems-section">
         <div class="section-header">
           <h3>题目列表</h3>
-          <button @click="showAddProblemModal" class="btn btn-primary">添加题目</button>
+          <div class="action-buttons">
+            <button @click="showAddProblemModal" class="btn btn-primary">添加题目</button>
+            <button @click="showStatisticsModal" class="btn btn-info">试题答题统计</button>
+            <button @click="evaluateExercise" class="btn btn-success">测评练习</button>
+            <button @click="checkPlagiarism" class="btn btn-warning">查抄袭</button>
+            <button @click="clearExercise" class="btn btn-danger">清空</button>
+          </div>
         </div>
         
         <div v-if="exercise.problems && exercise.problems.length > 0">
           <table class="problems-table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>序号</th>
                 <th>题目名称</th>
                 <th>题目标题</th>
+                <th>得分</th>
                 <th>时间限制</th>
                 <th>内存限制</th>
+                <th>代码检查总分</th>
+                <th>运行总分</th>
+                <th>总分计算方法</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="problem in exercise.problems" :key="problem.id">
-                <td>{{ problem.id }}</td>
+              <tr v-for="(problem, index) in exercise.problems" :key="problem.id">
+                <td>{{ index + 1 }}</td>
                 <td>{{ problem.name }}</td>
                 <td>{{ problem.chinese_name }}</td>
+                <td>{{ problem.score || 0 }}</td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
+                <td>{{ problem.code_review_score || 0 }}</td>
+                <td>{{ problem.runtime_score || 0 }}</td>
+                <td>{{ problem.score_calculation_method || '取综合' }}</td>
                 <td>
                   <button @click="viewProblem(problem.id)" class="btn btn-primary">查看</button>
-                  <button @click="removeProblem(problem.id)" class="btn btn-danger">移除</button>
+                  <button @click="showEditProblemModal(problem)" class="btn btn-edit">修改</button>
+                  <button @click="removeProblem(problem.id)" class="btn btn-danger">删除</button>
                 </td>
               </tr>
             </tbody>
@@ -80,47 +77,6 @@
       </div>
     </template>
     
-    <!-- 编辑练习对话框 -->
-    <div v-if="editModalVisible" class="modal-overlay" @click="editModalVisible = false">
-      <div class="modal" @click.stop>
-        <h3>编辑练习</h3>
-        <form @submit.prevent="submitEditForm">
-          <div class="form-group">
-            <label for="exercise-name">练习名称</label>
-            <input id="exercise-name" v-model="editForm.name" required />
-          </div>
-          <div class="form-group">
-            <label for="exercise-deadline">截止时间</label>
-            <div class="datetime-input-wrapper">
-              <input id="exercise-deadline" type="datetime-local" v-model="editForm.deadline" required @change="validateDeadline" />
-              <div class="datetime-helper">
-                <small>请选择有效的截止时间</small>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="exercise-judge">在线评测</label>
-            <select id="exercise-judge" v-model="editForm.is_online_judge">
-              <option :value="true">是</option>
-              <option :value="false">否</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="exercise-languages">允许语言</label>
-            <input id="exercise-languages" v-model="editForm.allowed_languages" placeholder="如: c,cpp,java" />
-          </div>
-          <div class="form-group">
-            <label for="exercise-note">练习备注</label>
-            <textarea id="exercise-note" v-model="editForm.note" rows="4"></textarea>
-          </div>
-          <div class="form-actions">
-            <button type="button" @click="editModalVisible = false" class="btn btn-cancel">取消</button>
-            <button type="submit" class="btn btn-primary">保存</button>
-          </div>
-        </form>
-      </div>
-    </div>
-    
     <!-- 添加题目对话框 -->
     <div v-if="addProblemModalVisible" class="modal-overlay" @click="addProblemModalVisible = false">
       <div class="modal" @click.stop>
@@ -131,14 +87,89 @@
         </div>
       </div>
     </div>
+
+    <!-- 编辑题目对话框 -->
+    <div v-if="editProblemModalVisible" class="modal-overlay" @click="editProblemModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>修改题目</h3>
+        <form @submit.prevent="submitEditProblemForm">
+          <div class="form-section">
+            <h4>基本内容</h4>
+            <div class="form-group">
+              <label for="problem-name">试题名称</label>
+              <input id="problem-name" v-model="editProblemForm.name" required />
+            </div>
+            <div class="form-row">
+              <div class="form-group half">
+                <label for="problem-time-limit">时间限制 (ms)</label>
+                <input id="problem-time-limit" type="number" v-model="editProblemForm.time_limit" required />
+              </div>
+              <div class="form-group half">
+                <label for="problem-memory-limit">空间限制 (MB)</label>
+                <input id="problem-memory-limit" type="number" v-model="editProblemForm.memory_limit" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="editProblemForm.apply_limits_to_all" />
+                应用时限和空限到所有试题
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h4>得分计算方法</h4>
+            <div class="form-group">
+              <label for="score-calculation-method">计算方法</label>
+              <select id="score-calculation-method" v-model="editProblemForm.score_calculation_method">
+                <option value="综合">取综合</option>
+                <option value="较大者">取较大者</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group half">
+                <label for="code-review-score">代码检查总分</label>
+                <input id="code-review-score" type="number" v-model="editProblemForm.code_review_score" required />
+              </div>
+              <div class="form-group half">
+                <label for="runtime-score">运行总分</label>
+                <input id="runtime-score" type="number" v-model="editProblemForm.runtime_score" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="editProblemForm.apply_score_method_to_all" />
+                应用得分计算方法到所有试题
+              </label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" @click="editProblemModalVisible = false" class="btn btn-cancel">取消</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 试题答题统计对话框 -->
+    <div v-if="statisticsModalVisible" class="modal-overlay" @click="statisticsModalVisible = false">
+      <div class="modal large-modal" @click.stop>
+        <h3>试题答题统计</h3>
+        <p>此功能正在开发中...</p>
+        <div class="form-actions">
+          <button @click="statisticsModalVisible = false" class="btn btn-primary">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { getExerciseDetail, updateExercise } from '../../api/exercises';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { getExerciseDetail, updateExercise, removeProblemFromExercise, updateProblem } from '../../api/exercises';
 
 const route = useRoute();
 const router = useRouter();
@@ -147,17 +178,74 @@ const exerciseId = route.params.id;
 const exercise = ref({});
 const loading = ref(true);
 const error = ref(null);
-const editModalVisible = ref(false);
 const addProblemModalVisible = ref(false);
+const editProblemModalVisible = ref(false);
+const statisticsModalVisible = ref(false);
 
-// 编辑表单
-const editForm = ref({
+// 编辑题目表单
+const editProblemForm = ref({
+  id: '',
   name: '',
-  deadline: '',
-  is_online_judge: true,
-  allowed_languages: '',
-  note: ''
+  chinese_name: '',
+  time_limit: '',
+  memory_limit: '',
+  apply_limits_to_all: false,
+  score_calculation_method: '综合',
+  code_review_score: '',
+  runtime_score: '',
+  apply_score_method_to_all: false
 });
+
+// 添加题目表单
+const addProblemForm = ref({
+  name: '',
+  chinese_name: '',
+  time_limit: '',
+  memory_limit: '',
+  apply_limits_to_all: false,
+  score_calculation_method: '综合',
+  code_review_score: '',
+  runtime_score: '',
+  apply_score_method_to_all: false
+});
+
+// 在script setup部分添加计算练习时间的函数
+const isExerciseStarted = computed(() => {
+  if (!exercise.value || !exercise.value.publish_time) return false;
+  return new Date(exercise.value.publish_time) <= new Date();
+});
+
+const isExerciseEnded = computed(() => {
+  if (!exercise.value || !exercise.value.end_time) return false;
+  return new Date(exercise.value.end_time) <= new Date();
+});
+
+const formatTimeRemaining = () => {
+  if (!exercise.value) return '';
+  
+  const now = new Date();
+  let targetDate;
+  
+  if (!isExerciseStarted.value) {
+    // 未开始，计算距离开始的时间
+    targetDate = new Date(exercise.value.publish_time);
+  } else if (!isExerciseEnded.value) {
+    // 已开始但未结束，计算距离结束的时间
+    targetDate = new Date(exercise.value.end_time);
+  } else {
+    return '已结束';
+  }
+  
+  const diffMs = Math.abs(targetDate - now);
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  
+  if (diffDays > 0) {
+    return `${diffDays}天${diffHours}小时`;
+  } else {
+    return `${diffHours}小时`;
+  }
+};
 
 // 格式化日期
 const formatDate = (dateString) => {
@@ -214,57 +302,114 @@ const goBack = () => {
   router.push('/teacher/exercises');
 };
 
-// 显示编辑对话框
-const showEditModal = () => {
-  editForm.value = {
-    name: exercise.value.name,
-    deadline: exercise.value.end_time ? formatDateForInput(exercise.value.end_time) : '',
-    is_online_judge: exercise.value.is_online_judge,
-    allowed_languages: exercise.value.allowed_languages,
-    note: exercise.value.note || ''
-  };
-  editModalVisible.value = true;
-};
-
-// 提交编辑表单
-const submitEditForm = async () => {
-  try {
-    // 确保截止时间有效
-    validateDeadline();
-    
-    console.log('提交编辑表单:', editForm.value);
-    await updateExercise(exerciseId, editForm.value);
-    ElMessage.success('练习更新成功');
-    editModalVisible.value = false;
-    fetchExerciseDetail(); // 重新获取练习详情
-  } catch (error) {
-    console.error('更新失败', error);
-    ElMessage.error('更新练习失败');
-  }
-};
-
 // 显示添加题目对话框
 const showAddProblemModal = () => {
   addProblemModalVisible.value = true;
 };
 
 // 移除题目
-const removeProblem = (problemId) => {
-  ElMessage.info('题目移除功能正在开发中...');
+const removeProblem = async (problemId) => {
+  try {
+    await ElMessageBox.confirm('确定要从练习中移除该题目吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+    
+    await removeProblemFromExercise(exerciseId, problemId);
+    ElMessage.success('题目已成功移除');
+    fetchExerciseDetail(); // 重新获取练习详情
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('移除题目失败', error);
+      ElMessage.error('移除题目失败');
+    }
+  }
 };
 
-// 在script setup部分添加validateDeadline函数
-const validateDeadline = () => {
-  const deadline = new Date(editForm.value.deadline);
-  const now = new Date();
-  
-  if (deadline <= now) {
-    ElMessage.warning('截止时间必须晚于当前时间');
-    // 设置截止时间为当前时间后7天
-    const newDeadline = new Date();
-    newDeadline.setDate(newDeadline.getDate() + 7);
-    editForm.value.deadline = formatDateForInput(newDeadline);
+// 显示编辑题目对话框
+const showEditProblemModal = (problem) => {
+  editProblemForm.value = {
+    id: problem.id,
+    name: problem.name,
+    chinese_name: problem.chinese_name,
+    time_limit: problem.time_limit,
+    memory_limit: problem.memory_limit,
+    apply_limits_to_all: false,
+    score_calculation_method: problem.score_calculation_method || '综合',
+    code_review_score: problem.code_review_score || 0,
+    runtime_score: problem.runtime_score || 0,
+    apply_score_method_to_all: false
+  };
+  editProblemModalVisible.value = true;
+};
+
+// 提交编辑题目表单
+const submitEditProblemForm = async () => {
+  try {
+    console.log('提交编辑题目表单:', editProblemForm.value);
+    
+    // 如果应用到所有题目
+    if (editProblemForm.value.apply_limits_to_all || editProblemForm.value.apply_score_method_to_all) {
+      const updatedProblems = exercise.value.problems.map(problem => {
+        const updatedProblem = { ...problem };
+        
+        if (editProblemForm.value.apply_limits_to_all) {
+          updatedProblem.time_limit = editProblemForm.value.time_limit;
+          updatedProblem.memory_limit = editProblemForm.value.memory_limit;
+        }
+        
+        if (editProblemForm.value.apply_score_method_to_all) {
+          updatedProblem.score_calculation_method = editProblemForm.value.score_calculation_method;
+          updatedProblem.code_review_score = editProblemForm.value.code_review_score;
+          updatedProblem.runtime_score = editProblemForm.value.runtime_score;
+        }
+        
+        return updatedProblem;
+      });
+      
+      // 批量更新所有题目
+      await updateExercise(exerciseId, { problems: updatedProblems });
+    } else {
+      // 只更新单个题目
+      await updateProblem(exerciseId, editProblemForm.value.id, {
+        name: editProblemForm.value.name,
+        chinese_name: editProblemForm.value.chinese_name,
+        time_limit: editProblemForm.value.time_limit,
+        memory_limit: editProblemForm.value.memory_limit,
+        score_calculation_method: editProblemForm.value.score_calculation_method,
+        code_review_score: editProblemForm.value.code_review_score,
+        runtime_score: editProblemForm.value.runtime_score
+      });
+    }
+    
+    ElMessage.success('题目更新成功');
+    editProblemModalVisible.value = false;
+    fetchExerciseDetail(); // 重新获取练习详情
+  } catch (error) {
+    console.error('更新题目失败', error);
+    ElMessage.error('更新题目失败');
   }
+};
+
+// 显示试题答题统计对话框
+const showStatisticsModal = () => {
+  statisticsModalVisible.value = true;
+};
+
+// 清空练习
+const clearExercise = () => {
+  ElMessage.info('清空练习功能正在开发中...');
+};
+
+// 测评练习
+const evaluateExercise = () => {
+  ElMessage.info('测评练习功能正在开发中...');
+};
+
+// 检查抄袭
+const checkPlagiarism = () => {
+  ElMessage.info('检查抄袭功能正在开发中...');
 };
 
 onMounted(() => {
@@ -302,38 +447,20 @@ onMounted(() => {
 .header h2 {
   margin: 0;
   color: #303133;
+  display: flex;
+  align-items: center;
+}
+
+.time-info {
+  font-size: 14px;
+  color: #909399;
+  margin-left: 10px;
+  font-weight: normal;
 }
 
 .actions {
   display: flex;
   gap: 10px;
-}
-
-.exercise-info {
-  margin-bottom: 30px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 15px;
-}
-
-.info-item {
-  display: flex;
-  margin-bottom: 10px;
-}
-
-.label {
-  font-weight: 500;
-  width: 100px;
-  color: #606266;
-}
-
-.value {
-  flex: 1;
-  color: #303133;
-}
-
-.value.note {
-  white-space: pre-wrap;
 }
 
 .problems-section {
@@ -350,6 +477,11 @@ onMounted(() => {
 .section-header h3 {
   margin: 0;
   color: #303133;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
 }
 
 .problems-table {
@@ -500,5 +632,27 @@ onMounted(() => {
   margin-top: 5px;
   color: #909399;
   font-size: 12px;
+}
+
+.form-section {
+  margin-bottom: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.form-group.half {
+  width: calc(50% - 5px);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-label input {
+  margin-right: 5px;
 }
 </style> 
