@@ -89,9 +89,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getProblemCategories, getProblemsByCategory, updateProblem as updateProblemAPI, deleteProblem as deleteProblemAPI } from '../../api/problems';
+import { useRoute } from 'vue-router';
+
+// 获取路由参数
+const route = useRoute();
 
 // 状态变量
 const activeTab = ref('problems');
@@ -188,6 +192,15 @@ const uploadProblemBank = () => {
   ElMessage.info('上传题库功能正在开发中...');
   // 此处实现文件上传逻辑
 };
+
+// 监听路由参数变化
+watch(() => route.query.tab, (newTab) => {
+  if (newTab === 'upload') {
+    activeTab.value = 'upload';
+  } else {
+    activeTab.value = 'problems';
+  }
+}, { immediate: true });
 
 // 页面加载时获取题库分类
 onMounted(() => {

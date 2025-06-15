@@ -20,7 +20,7 @@
           <button class="nav-item dropdown-btn">维护</button>
           <div class="dropdown-content">
             <router-link to="/admin/maintenance?tab=upload" class="dropdown-item">上传题库</router-link>
-            <router-link to="/admin/maintenance?tab=problems" class="dropdown-item">题库维护</router-link>
+            <router-link to="/admin/maintenance" class="dropdown-item">题库维护</router-link>
           </div>
         </div>
         
