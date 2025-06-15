@@ -44,13 +44,23 @@ class ExerciseService:
     
     @staticmethod
     def get_teacher_exercises(db: Session, user_id: int, course_id: Optional[int] = None) -> List[Exercise]:
-        """获取教师发布的练习列表"""
-        # 查询条件：教师发布的练习
-        query = db.query(Exercise).filter(Exercise.publisher_id == user_id)
+        """获取教师课程下的练习列表"""
+        # 获取教师的课程ID列表
+        teacher_courses = db.query(Course).filter(Course.teacher_id == user_id).all()
+        course_ids = [course.id for course in teacher_courses]
+        
+        if not course_ids:
+            return []
+            
+        # 查询条件：教师课程下的所有练习
+        query = db.query(Exercise).filter(Exercise.course_id.in_(course_ids))
         
         # 如果指定了课程ID，进一步筛选
         if course_id:
-            query = query.filter(Exercise.course_id == course_id)
+            if course_id in course_ids:
+                query = query.filter(Exercise.course_id == course_id)
+            else:
+                return []
         
         # 获取练习列表
         exercises = query.all()
