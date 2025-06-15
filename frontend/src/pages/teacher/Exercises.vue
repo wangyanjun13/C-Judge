@@ -39,7 +39,9 @@
               <td>
                 <a class="exercise-link" @click="viewExercise(exercise.id)">{{ exercise.name }}</a>
               </td>
-              <td>{{ formatCourseName(exercise) }}</td>
+              <td>
+                <a class="course-link" @click="goToCourseManagement(exercise.course_id)">{{ formatCourseName(exercise) }}</a>
+              </td>
               <td>{{ formatDate(exercise.start_time) }}</td>
               <td>{{ formatDate(exercise.end_time) }}</td>
               <td>{{ exercise.is_online_judge ? '是' : '否' }}</td>
@@ -396,6 +398,15 @@ const formatCourseName = (exercise) => {
   return '未知课程';
 };
 
+// 添加跳转到课程管理的函数
+const goToCourseManagement = (courseId) => {
+  // 跳转到教师管理导航栏的课程竞赛模块
+  router.push({ 
+    path: '/teacher/management',
+    query: { tab: 'courses' }
+  });
+};
+
 // 在script setup部分添加validateDeadline函数
 const validateDeadline = () => {
   const startTime = new Date(form.value.start_time);
@@ -667,6 +678,16 @@ th {
 }
 
 .exercise-link:hover {
+  text-decoration: underline;
+}
+
+.course-link {
+  color: #1890ff;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.course-link:hover {
   text-decoration: underline;
 }
 

@@ -66,10 +66,8 @@ export const getExerciseDetail = async (exerciseId) => {
  * @returns {Promise} - 返回创建的练习
  */
 export const createExercise = (exerciseData) => {
-  console.log('提交创建练习请求，数据:', JSON.stringify(exerciseData));
   // 确保截止时间有值
   if (!exerciseData.deadline) {
-    console.error('截止时间为空，这将导致服务器错误');
     throw new Error('截止时间不能为空');
   }
   
@@ -82,15 +80,11 @@ export const createExercise = (exerciseData) => {
   // 删除note字段
   delete apiData.note;
   
-  console.log('转换后的API数据:', JSON.stringify(apiData));
-  
   return axios.post('/api/exercises', apiData)
     .then(response => {
-      console.log('创建练习成功:', response.data);
       return response.data;
     })
     .catch(error => {
-      console.error('创建练习失败:', error.response?.data || error.message);
       throw error;
     });
 }
@@ -111,7 +105,6 @@ export const updateExercise = (exerciseId, exerciseData) => {
   // 删除note字段
   delete apiData.note;
   
-  console.log('更新练习请求，数据:', JSON.stringify(apiData));
   return axios.put(`/api/exercises/${exerciseId}`, apiData);
 }
 
@@ -121,14 +114,11 @@ export const updateExercise = (exerciseId, exerciseData) => {
  * @returns {Promise} - 返回删除结果
  */
 export const deleteExercise = (exerciseId) => {
-  console.log(`尝试删除练习 ID: ${exerciseId}`);
   return axios.delete(`/api/exercises/${exerciseId}`)
     .then(response => {
-      console.log('删除练习成功:', response.data);
       return response.data;
     })
     .catch(error => {
-      console.error('删除练习失败:', error.response?.data || error.message);
       throw error;
     });
 }
@@ -149,14 +139,11 @@ export const getCourses = () => {
  * @returns {Promise} - 返回更新后的题目
  */
 export const updateProblem = (exerciseId, problemId, problemData) => {
-  console.log('更新题目请求，数据:', JSON.stringify(problemData));
   return axios.put(`/api/exercises/${exerciseId}/problems/${problemId}`, problemData)
     .then(response => {
-      console.log('更新题目成功:', response.data);
       return response.data;
     })
     .catch(error => {
-      console.error('更新题目失败:', error.response?.data || error.message);
       throw error;
     });
 }
@@ -168,14 +155,11 @@ export const updateProblem = (exerciseId, problemId, problemData) => {
  * @returns {Promise} - 返回操作结果
  */
 export const removeProblemFromExercise = (exerciseId, problemId) => {
-  console.log(`尝试从练习 ${exerciseId} 中移除题目 ${problemId}`);
   return axios.delete(`/api/exercises/${exerciseId}/problems/${problemId}`)
     .then(response => {
-      console.log('移除题目成功:', response.data);
       return response.data;
     })
     .catch(error => {
-      console.error('移除题目失败:', error.response?.data || error.message);
       throw error;
     });
 }
@@ -187,9 +171,6 @@ export const removeProblemFromExercise = (exerciseId, problemId) => {
  * @returns {Promise} - 返回添加结果
  */
 export const addProblemsToExercise = (exerciseId, problems) => {
-  console.log(`尝试向练习 ${exerciseId} 添加 ${problems.length} 道题目`);
-  console.log('原始题目数据:', JSON.stringify(problems));
-  
   // 转换题目数据格式，只保留必要的字段并确保格式正确
   const problemsData = problems.map(problem => {
     // 提取时间限制的纯数字部分
@@ -224,15 +205,12 @@ export const addProblemsToExercise = (exerciseId, problems) => {
   });
   
   const requestData = { problems: problemsData };
-  console.log('发送到后端的数据:', JSON.stringify(requestData));
   
   return axios.post(`/api/exercises/${exerciseId}/problems`, requestData)
     .then(response => {
-      console.log('添加题目成功:', response.data);
       return response.data;
     })
     .catch(error => {
-      console.error('添加题目失败:', error.response?.data || error.message);
       throw error;
     });
 }
@@ -245,11 +223,9 @@ export const addProblemsToExercise = (exerciseId, problems) => {
 export const clearExerciseProblems = (exerciseId) => {
   return axios.delete(`/api/exercises/${exerciseId}/problems`)
     .then(response => {
-      console.log('清空题目成功:', response.data);
       return response.data;
     })
     .catch(error => {
-      console.error('清空题目失败:', error.response?.data || error.message);
       throw error;
     });
 } 

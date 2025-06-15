@@ -24,6 +24,11 @@ async def get_student_exercises(
     # 获取练习列表
     exercises = ExerciseService.get_student_exercises(db, current_user.id, course_id)
     
+    # 调试输出
+    print("学生练习列表:")
+    for ex in exercises:
+        print(f"ID: {ex.id}, 名称: {ex.name}, 课程: {ex.course_name}, 教师: {getattr(ex, 'teacher_name', '无')}")
+    
     return exercises
 
 @router.get("/teacher", response_model=List[ExerciseResponse])

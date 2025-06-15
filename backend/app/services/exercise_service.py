@@ -36,9 +36,13 @@ class ExerciseService:
         # 获取练习列表
         exercises = query.all()
         
-        # 添加课程名称
+        # 添加课程名称和教师真实姓名
         for exercise in exercises:
             exercise.course_name = exercise.course.name
+            if exercise.course.teacher:
+                exercise.teacher_name = exercise.course.teacher.real_name
+            else:
+                exercise.teacher_name = "未知教师"
         
         return exercises
     
@@ -65,9 +69,13 @@ class ExerciseService:
         # 获取练习列表
         exercises = query.all()
         
-        # 添加课程名称
+        # 添加课程名称和教师真实姓名
         for exercise in exercises:
             exercise.course_name = exercise.course.name
+            if exercise.course.teacher:
+                exercise.teacher_name = exercise.course.teacher.real_name
+            else:
+                exercise.teacher_name = "未知教师"
         
         return exercises
     
@@ -84,9 +92,13 @@ class ExerciseService:
         # 获取练习列表
         exercises = query.all()
         
-        # 添加课程名称
+        # 添加课程名称和教师真实姓名
         for exercise in exercises:
             exercise.course_name = exercise.course.name
+            if exercise.course.teacher:
+                exercise.teacher_name = exercise.course.teacher.real_name
+            else:
+                exercise.teacher_name = "未知教师"
         
         return exercises
     
@@ -98,8 +110,12 @@ class ExerciseService:
         if not exercise:
             return None
         
-        # 添加课程名称
+        # 添加课程名称和教师真实姓名
         exercise.course_name = exercise.course.name
+        if exercise.course.teacher:
+            exercise.teacher_name = exercise.course.teacher.real_name
+        else:
+            exercise.teacher_name = "未知教师"
         
         return exercise
     
@@ -123,8 +139,13 @@ class ExerciseService:
         db.commit()
         db.refresh(new_exercise)
         
-        # 添加课程名称
-        new_exercise.course_name = db.query(Course).filter(Course.id == course_id).first().name
+        # 添加课程名称和教师真实姓名
+        course = db.query(Course).filter(Course.id == course_id).first()
+        new_exercise.course_name = course.name
+        if course.teacher:
+            new_exercise.teacher_name = course.teacher.real_name
+        else:
+            new_exercise.teacher_name = "未知教师"
         
         return new_exercise
     
@@ -147,8 +168,12 @@ class ExerciseService:
         db.commit()
         db.refresh(exercise)
         
-        # 添加课程名称
+        # 添加课程名称和教师真实姓名
         exercise.course_name = exercise.course.name
+        if exercise.course.teacher:
+            exercise.teacher_name = exercise.course.teacher.real_name
+        else:
+            exercise.teacher_name = "未知教师"
         
         return exercise
     
@@ -168,7 +193,6 @@ class ExerciseService:
             return True
         except Exception as e:
             db.rollback()
-            print(f"删除练习失败: {str(e)}")
             return False
     
     @staticmethod
@@ -236,17 +260,14 @@ class ExerciseService:
             try:
                 # 检查必要字段
                 if not problem_data.get("name"):
-                    print(f"跳过题目，缺少name字段: {problem_data}")
                     continue
                 
                 if not problem_data.get("data_path"):
-                    print(f"跳过题目，缺少data_path字段: {problem_data}")
                     continue
                 
                 # 确保data_path是字符串
                 data_path = str(problem_data.get("data_path", ""))
                 if not data_path:
-                    print(f"跳过题目，data_path为空: {problem_data}")
                     continue
                 
                 # 处理time_limit - 安全地提取数字部分
@@ -331,7 +352,6 @@ class ExerciseService:
                     )
                     problems_added.append(new_problem)
             except Exception as e:
-                print(f"处理题目数据时出错: {str(e)}")
                 continue  # 跳过这个题目，继续处理下一个
         
         if not problems_added and not problems_existing:

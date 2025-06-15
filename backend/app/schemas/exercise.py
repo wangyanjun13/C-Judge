@@ -41,6 +41,7 @@ class ExerciseResponse(BaseModel):
     name: str
     course_id: int
     course_name: str = ""  # 在API中动态添加
+    teacher_name: str = ""  # 在API中动态添加
     publisher_id: int
     start_time: datetime
     end_time: Optional[datetime] = None
