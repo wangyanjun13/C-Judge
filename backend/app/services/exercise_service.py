@@ -345,4 +345,104 @@ class ExerciseService:
             "message": message.strip(),
             "added_count": len(problems_added),
             "existing_count": len(problems_existing)
-        } 
+        }
+    
+    @staticmethod
+    def update_exercise_problem(db: Session, exercise_id: int, problem_id: int, user_id: int, problem_data: dict) -> dict:
+        """更新练习中的题目"""
+        # 查询练习
+        exercise = ExerciseService.get_exercise_detail(db, exercise_id)
+        if not exercise:
+            raise ValueError("练习不存在")
+        
+        # 检查权限（教师只能更新自己发布的练习）
+        if not ExerciseService.check_teacher_permission(db, user_id, exercise_id) and db.query(User).filter(User.id == user_id).first().role != "admin":
+            raise ValueError("无权更新此练习")
+        
+        # 检查题目是否存在
+        problem = db.query(Problem).filter(Problem.id == problem_id).first()
+        if not problem:
+            raise ValueError("题目不存在")
+        
+        # 检查题目是否属于练习
+        problem_in_exercise = db.query(exercise_problem).filter(
+            exercise_problem.c.exercise_id == exercise_id,
+            exercise_problem.c.problem_id == problem_id
+        ).first()
+        
+        if not problem_in_exercise:
+            raise ValueError("题目不在练习中")
+        
+        # 更新题目
+        for key, value in problem_data.items():
+            if hasattr(problem, key):
+                setattr(problem, key, value)
+        
+        db.commit()
+        
+        # 记录操作日志
+        ExerciseService.log_operation(db, user_id, "更新题目", f"在练习 {exercise.name} 中更新题目 {problem.name}")
+        
+        return {"message": "题目更新成功"}
+    
+    @staticmethod
+    def remove_problem_from_exercise(db: Session, exercise_id: int, problem_id: int, user_id: int) -> dict:
+        """从练习中移除题目"""
+        # 查询练习
+        exercise = ExerciseService.get_exercise_detail(db, exercise_id)
+        if not exercise:
+            raise ValueError("练习不存在")
+        
+        # 检查权限（教师只能更新自己发布的练习）
+        if not ExerciseService.check_teacher_permission(db, user_id, exercise_id) and db.query(User).filter(User.id == user_id).first().role != "admin":
+            raise ValueError("无权更新此练习")
+        
+        # 检查题目是否存在于练习中
+        problem_in_exercise = db.query(exercise_problem).filter(
+            exercise_problem.c.exercise_id == exercise_id,
+            exercise_problem.c.problem_id == problem_id
+        ).first()
+        
+        if not problem_in_exercise:
+            raise ValueError("题目不在练习中")
+        
+        # 获取题目信息用于日志
+        problem = db.query(Problem).filter(Problem.id == problem_id).first()
+        
+        # 从练习中移除题目
+        db.query(exercise_problem).filter(
+            exercise_problem.c.exercise_id == exercise_id,
+            exercise_problem.c.problem_id == problem_id
+        ).delete()
+        
+        db.commit()
+        
+        # 记录操作日志
+        problem_name = problem.name if problem else f"ID为{problem_id}的题目"
+        ExerciseService.log_operation(db, user_id, "移除题目", f"从练习 {exercise.name} 中移除题目 {problem_name}")
+        
+        return {"message": "题目已从练习中移除"}
+    
+    @staticmethod
+    def clear_exercise_problems(db: Session, exercise_id: int, user_id: int) -> dict:
+        """清空练习中的所有题目"""
+        # 查询练习
+        exercise = ExerciseService.get_exercise_detail(db, exercise_id)
+        if not exercise:
+            raise ValueError("练习不存在")
+        
+        # 检查权限（教师只能更新自己发布的练习）
+        if not ExerciseService.check_teacher_permission(db, user_id, exercise_id) and db.query(User).filter(User.id == user_id).first().role != "admin":
+            raise ValueError("无权更新此练习")
+        
+        # 从练习中移除所有题目
+        db.query(exercise_problem).filter(
+            exercise_problem.c.exercise_id == exercise_id
+        ).delete()
+        
+        db.commit()
+        
+        # 记录操作日志
+        ExerciseService.log_operation(db, user_id, "清空题目", f"清空练习 {exercise.name} 中的所有题目")
+        
+        return {"message": "已清空练习中的所有题目"} 

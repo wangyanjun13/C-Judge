@@ -170,7 +170,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getExerciseDetail, updateExercise, removeProblemFromExercise, updateProblem, addProblemsToExercise } from '../../api/exercises';
+import { getExerciseDetail, updateExercise, removeProblemFromExercise, updateProblem, addProblemsToExercise, clearExerciseProblems } from '../../api/exercises';
 import ProblemSelector from '../../components/ProblemSelector.vue';
 
 const route = useRoute();
@@ -381,8 +381,23 @@ const showStatisticsModal = () => {
 };
 
 // 清空练习
-const clearExercise = () => {
-  ElMessage.info('清空练习功能正在开发中...');
+const clearExercise = async () => {
+  try {
+    await ElMessageBox.confirm('确定要清空练习中的所有题目吗？此操作不可恢复！', '警告', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+    
+    await clearExerciseProblems(exerciseId);
+    ElMessage.success('已清空练习中的所有题目');
+    fetchExerciseDetail(); // 重新获取练习详情
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('清空题目失败', error);
+      ElMessage.error('清空题目失败');
+    }
+  }
 };
 
 // 测评练习

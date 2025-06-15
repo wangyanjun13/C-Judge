@@ -235,4 +235,21 @@ export const addProblemsToExercise = (exerciseId, problems) => {
       console.error('添加题目失败:', error.response?.data || error.message);
       throw error;
     });
+}
+
+/**
+ * 清空练习中的所有题目
+ * @param {Number} exerciseId - 练习ID
+ * @returns {Promise} - 返回操作结果
+ */
+export const clearExerciseProblems = (exerciseId) => {
+  return axios.delete(`/api/exercises/${exerciseId}/problems`)
+    .then(response => {
+      console.log('清空题目成功:', response.data);
+      return response.data;
+    })
+    .catch(error => {
+      console.error('清空题目失败:', error.response?.data || error.message);
+      throw error;
+    });
 } 

@@ -223,4 +223,70 @@ async def add_problems_to_exercise(
     except Exception as e:
         db.rollback()
         print(f"添加题目失败(未知错误): {str(e)}")
-        raise HTTPException(status_code=500, detail=f"添加题目失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"添加题目失败: {str(e)}")
+
+@router.put("/{exercise_id}/problems/{problem_id}")
+async def update_exercise_problem(
+    exercise_id: int,
+    problem_id: int,
+    problem_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_teacher_user)
+):
+    """更新练习中的题目（教师或管理员）"""
+    try:
+        result = ExerciseService.update_exercise_problem(
+            db=db,
+            exercise_id=exercise_id,
+            problem_id=problem_id,
+            user_id=current_user.id,
+            problem_data=problem_data
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"更新题目失败: {str(e)}")
+
+@router.delete("/{exercise_id}/problems/{problem_id}")
+async def remove_problem_from_exercise(
+    exercise_id: int,
+    problem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_teacher_user)
+):
+    """从练习中移除题目（教师或管理员）"""
+    try:
+        result = ExerciseService.remove_problem_from_exercise(
+            db=db,
+            exercise_id=exercise_id,
+            problem_id=problem_id,
+            user_id=current_user.id
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"移除题目失败: {str(e)}")
+
+@router.delete("/{exercise_id}/problems")
+async def clear_exercise_problems(
+    exercise_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_teacher_user)
+):
+    """清空练习中的所有题目（教师或管理员）"""
+    try:
+        result = ExerciseService.clear_exercise_problems(
+            db=db,
+            exercise_id=exercise_id,
+            user_id=current_user.id
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"清空题目失败: {str(e)}") 
