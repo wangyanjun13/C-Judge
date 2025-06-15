@@ -36,8 +36,8 @@
             <thead>
               <tr>
                 <th>序号</th>
-                <th>题目名称</th>
-                <th>题目标题</th>
+                <th>试题名称</th>
+                <th>试题中文名称</th>
                 <th>得分</th>
                 <th>时间限制</th>
                 <th>内存限制</th>
@@ -51,13 +51,13 @@
               <tr v-for="(problem, index) in exercise.problems" :key="problem.id">
                 <td>{{ index + 1 }}</td>
                 <td>{{ problem.name }}</td>
-                <td>{{ problem.chinese_name }}</td>
-                <td>{{ problem.score || 0 }}</td>
+                <td>{{ formatChineseName(problem.chinese_name) }}</td>
+                <td>{{ calculateTotalScore(problem) }}</td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
-                <td>{{ problem.code_review_score || 0 }}</td>
-                <td>{{ problem.runtime_score || 0 }}</td>
-                <td>{{ problem.score_calculation_method || '取综合' }}</td>
+                <td>{{ problem.code_check_score }}</td>
+                <td>{{ problem.runtime_score }}</td>
+                <td>{{ formatScoreMethod(problem.score_method) }}</td>
                 <td>
                   <button @click="viewProblem(problem.id)" class="btn btn-primary">查看</button>
                 </td>
@@ -156,6 +156,32 @@ const formatLanguages = (languages) => {
   };
   
   return languages.split(',').map(lang => languageMap[lang] || lang).join(', ');
+};
+
+// 格式化中文名称（去除引号）
+const formatChineseName = (chineseName) => {
+  if (!chineseName) return '';
+  return chineseName.replace(/^"(.+)"$/, '$1');
+};
+
+// 格式化总分计算方法
+const formatScoreMethod = (method) => {
+  if (!method) return '取综合';
+  if (method === 'sum') return '取综合';
+  if (method === 'max') return '取较大者';
+  return method;
+};
+
+// 计算题目总分
+const calculateTotalScore = (problem) => {
+  if (!problem) return 0;
+  const codeScore = problem.code_check_score || 0;
+  const runtimeScore = problem.runtime_score || 0;
+  
+  if (problem.score_method === 'max') {
+    return Math.max(codeScore, runtimeScore);
+  }
+  return codeScore + runtimeScore;
 };
 
 // 获取练习详情

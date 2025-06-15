@@ -40,8 +40,8 @@
             <thead>
               <tr>
                 <th>序号</th>
-                <th>题目名称</th>
-                <th>题目标题</th>
+                <th>试题名称</th>
+                <th>试题中文名称</th>
                 <th>得分</th>
                 <th>时间限制</th>
                 <th>内存限制</th>
@@ -55,13 +55,13 @@
               <tr v-for="(problem, index) in exercise.problems" :key="problem.id">
                 <td>{{ index + 1 }}</td>
                 <td>{{ problem.name }}</td>
-                <td>{{ problem.chinese_name }}</td>
-                <td>{{ problem.score || 0 }}</td>
+                <td>{{ formatChineseName(problem.chinese_name) }}</td>
+                <td>{{ calculateTotalScore(problem) }}</td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
-                <td>{{ problem.code_review_score || 0 }}</td>
-                <td>{{ problem.runtime_score || 0 }}</td>
-                <td>{{ problem.score_calculation_method || '取综合' }}</td>
+                <td>{{ problem.code_check_score }}</td>
+                <td>{{ problem.runtime_score }}</td>
+                <td>{{ formatScoreMethod(problem.score_method) }}</td>
                 <td>
                   <button @click="viewProblem(problem.id)" class="btn btn-primary">查看</button>
                   <button @click="showEditProblemModal(problem)" class="btn btn-edit">修改</button>
@@ -81,10 +81,11 @@
     <div v-if="addProblemModalVisible" class="modal-overlay" @click="addProblemModalVisible = false">
       <div class="modal" @click.stop>
         <h3>添加题目</h3>
-        <p>此功能正在开发中...</p>
-        <div class="form-actions">
-          <button @click="addProblemModalVisible = false" class="btn btn-primary">关闭</button>
-        </div>
+        <ProblemSelector 
+          :exerciseId="exerciseId" 
+          @confirm="handleAddProblems" 
+          @cancel="addProblemModalVisible = false"
+        />
       </div>
     </div>
 
@@ -169,7 +170,8 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { getExerciseDetail, updateExercise, removeProblemFromExercise, updateProblem } from '../../api/exercises';
+import { getExerciseDetail, updateExercise, removeProblemFromExercise, updateProblem, addProblemsToExercise } from '../../api/exercises';
+import ProblemSelector from '../../components/ProblemSelector.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -412,6 +414,57 @@ const checkPlagiarism = () => {
   ElMessage.info('检查抄袭功能正在开发中...');
 };
 
+// 处理添加题目
+const handleAddProblems = async (data) => {
+  try {
+    // 添加题目到练习
+    const result = await addProblemsToExercise(data.exerciseId, data.problems);
+    
+    // 根据返回结果显示不同的消息
+    if (result.added_count > 0 && result.existing_count > 0) {
+      ElMessage.success(`成功添加 ${result.added_count} 道题目，${result.existing_count} 道题目已存在`);
+    } else if (result.added_count > 0) {
+      ElMessage.success(`成功添加 ${result.added_count} 道题目`);
+    } else if (result.existing_count > 0) {
+      ElMessage.info(`${result.existing_count} 道题目已在练习中`);
+    } else {
+      ElMessage.warning('未添加任何题目');
+    }
+    
+    addProblemModalVisible.value = false;
+    fetchExerciseDetail(); // 重新获取练习详情
+  } catch (error) {
+    console.error('添加题目失败', error);
+    ElMessage.error('添加题目失败');
+  }
+};
+
+// 格式化中文名称（去除引号）
+const formatChineseName = (chineseName) => {
+  if (!chineseName) return '';
+  return chineseName.replace(/^"(.+)"$/, '$1');
+};
+
+// 格式化总分计算方法
+const formatScoreMethod = (method) => {
+  if (!method) return '取综合';
+  if (method === 'sum') return '取综合';
+  if (method === 'max') return '取较大者';
+  return method;
+};
+
+// 计算题目总分
+const calculateTotalScore = (problem) => {
+  if (!problem) return 0;
+  const codeScore = problem.code_check_score || 0;
+  const runtimeScore = problem.runtime_score || 0;
+  
+  if (problem.score_method === 'max') {
+    return Math.max(codeScore, runtimeScore);
+  }
+  return codeScore + runtimeScore;
+};
+
 onMounted(() => {
   fetchExerciseDetail();
 });
@@ -580,8 +633,8 @@ onMounted(() => {
   background-color: white;
   padding: 20px;
   border-radius: 8px;
-  width: 500px;
-  max-width: 90%;
+  width: 90%;
+  max-width: 1200px;
   max-height: 80vh;
   overflow-y: auto;
 }

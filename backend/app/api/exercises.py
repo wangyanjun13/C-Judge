@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 
 from app.models import User, Exercise, Course, Problem, get_db, OperationLog, Class
@@ -187,4 +187,40 @@ async def delete_exercise(
         raise
     except Exception as e:
         print(f"删除练习时发生错误: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"删除练习失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"删除练习失败: {str(e)}")
+
+@router.post("/{exercise_id}/problems")
+async def add_problems_to_exercise(
+    exercise_id: int,
+    data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_teacher_user)
+):
+    """向练习添加题目（教师或管理员）"""
+    try:
+        # 解析请求数据
+        problems_data = data.get("problems", [])
+        
+        print(f"API接收到的数据: {data}")
+        print(f"解析出的题目数据: {problems_data}")
+        
+        if not problems_data:
+            raise ValueError("未提供题目数据")
+        
+        # 调用服务层方法添加题目
+        result = ExerciseService.add_problems_to_exercise(
+            db=db,
+            exercise_id=exercise_id,
+            user_id=current_user.id,
+            problems_data=problems_data
+        )
+        
+        return result
+    except ValueError as e:
+        # 将服务层的ValueError转换为HTTP异常
+        print(f"添加题目失败(值错误): {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        print(f"添加题目失败(未知错误): {str(e)}")
+        raise HTTPException(status_code=500, detail=f"添加题目失败: {str(e)}") 

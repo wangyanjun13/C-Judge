@@ -50,8 +50,14 @@ export const getAdminExercises = async (params = {}) => {
  * @param {Number} exerciseId - 练习ID
  * @returns {Promise} - 返回练习详情
  */
-export const getExerciseDetail = (exerciseId) => {
-  return axios.get(`/api/exercises/${exerciseId}`)
+export const getExerciseDetail = async (exerciseId) => {
+  try {
+    const response = await axios.get(`/api/exercises/${exerciseId}`);
+    return response.data;
+  } catch (error) {
+    console.error('获取练习详情失败:', error);
+    throw error;
+  }
 }
 
 /**
@@ -170,6 +176,63 @@ export const removeProblemFromExercise = (exerciseId, problemId) => {
     })
     .catch(error => {
       console.error('移除题目失败:', error.response?.data || error.message);
+      throw error;
+    });
+}
+
+/**
+ * 向练习添加题目
+ * @param {Number} exerciseId - 练习ID
+ * @param {Array} problems - 题目数组，包含题目信息
+ * @returns {Promise} - 返回添加结果
+ */
+export const addProblemsToExercise = (exerciseId, problems) => {
+  console.log(`尝试向练习 ${exerciseId} 添加 ${problems.length} 道题目`);
+  console.log('原始题目数据:', JSON.stringify(problems));
+  
+  // 转换题目数据格式，只保留必要的字段并确保格式正确
+  const problemsData = problems.map(problem => {
+    // 提取时间限制的纯数字部分
+    let timeLimit = "1000ms";
+    if (problem.time_limit) {
+      const timeMatch = /(\d+)/.exec(problem.time_limit);
+      if (timeMatch) {
+        timeLimit = `${timeMatch[1]}ms`;
+      }
+    }
+    
+    // 提取内存限制的纯数字部分
+    let memoryLimit = "256MB";
+    if (problem.memory_limit) {
+      const memMatch = /(\d+)/.exec(problem.memory_limit);
+      if (memMatch) {
+        memoryLimit = `${memMatch[1]}MB`;
+      }
+    }
+    
+    // 确保data_path是字符串类型
+    const dataPath = String(problem.data_path || "");
+    
+    return {
+      name: problem.name || "",
+      chinese_name: problem.chinese_name || problem.name || "",
+      time_limit: timeLimit,
+      memory_limit: memoryLimit,
+      data_path: dataPath,
+      category: problem.category || ""
+    };
+  });
+  
+  const requestData = { problems: problemsData };
+  console.log('发送到后端的数据:', JSON.stringify(requestData));
+  
+  return axios.post(`/api/exercises/${exerciseId}/problems`, requestData)
+    .then(response => {
+      console.log('添加题目成功:', response.data);
+      return response.data;
+    })
+    .catch(error => {
+      console.error('添加题目失败:', error.response?.data || error.message);
       throw error;
     });
 } 
