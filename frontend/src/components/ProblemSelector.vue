@@ -157,10 +157,20 @@ const confirmSelection = () => {
     return;
   }
   
+  // 为选中的题目添加分数设置，但保留原始的时间限制和内存限制
+  const problems = selectedProblems.value.map(problem => {
+    return {
+      ...problem,
+      code_check_score: problem.code_check_score || 20,
+      runtime_score: problem.runtime_score || 80,
+      score_method: 'sum'
+    };
+  });
+  
   // 触发确认事件，将选择的题目传递给父组件
   emit('confirm', {
     exerciseId: props.exerciseId,
-    problems: selectedProblems.value
+    problems: problems
   });
 };
 

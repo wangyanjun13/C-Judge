@@ -63,8 +63,8 @@ CREATE TABLE problems (
     is_shared BOOLEAN DEFAULT FALSE,
     time_limit INTEGER DEFAULT 1000, -- ms
     memory_limit INTEGER DEFAULT 134217728, -- bytes (128MB)
-    code_check_score INTEGER DEFAULT 0,
-    runtime_score INTEGER DEFAULT 100,
+    code_check_score INTEGER DEFAULT 20,
+    runtime_score INTEGER DEFAULT 80,
     score_method VARCHAR(20) DEFAULT 'sum', -- 'sum' or 'max'
     data_path VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -59,8 +59,8 @@
                 <td>{{ calculateTotalScore(problem) }}</td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
-                <td>{{ problem.code_check_score }}</td>
-                <td>{{ problem.runtime_score }}</td>
+                <td>{{ problem.code_check_score || 20 }}</td>
+                <td>{{ problem.runtime_score || 80 }}</td>
                 <td>{{ formatScoreMethod(problem.score_method) }}</td>
                 <td>
                   <button @click="viewProblem(problem.id)" class="btn btn-primary">查看</button>
@@ -122,15 +122,14 @@
             <h4>得分计算方法</h4>
             <div class="form-group">
               <label for="score-calculation-method">计算方法</label>
-              <select id="score-calculation-method" v-model="editProblemForm.score_calculation_method">
-                <option value="综合">取综合</option>
-                <option value="较大者">取较大者</option>
+              <select id="score-calculation-method" v-model="editProblemForm.score_calculation_method" disabled>
+                <option value="综合">取总和</option>
               </select>
             </div>
             <div class="form-row">
               <div class="form-group half">
                 <label for="code-review-score">代码检查总分</label>
-                <input id="code-review-score" type="number" v-model="editProblemForm.code_review_score" required />
+                <input id="code-review-score" type="number" v-model="editProblemForm.code_check_score" required />
               </div>
               <div class="form-group half">
                 <label for="runtime-score">运行总分</label>
@@ -193,8 +192,8 @@ const editProblemForm = ref({
   memory_limit: '',
   apply_limits_to_all: false,
   score_calculation_method: '综合',
-  code_review_score: '',
-  runtime_score: '',
+  code_check_score: 20,
+  runtime_score: 80,
   apply_score_method_to_all: false
 });
 
@@ -206,8 +205,8 @@ const addProblemForm = ref({
   memory_limit: '',
   apply_limits_to_all: false,
   score_calculation_method: '综合',
-  code_review_score: '',
-  runtime_score: '',
+  code_check_score: 20,
+  runtime_score: 80,
   apply_score_method_to_all: false
 });
 
@@ -338,9 +337,9 @@ const showEditProblemModal = (problem) => {
     time_limit: problem.time_limit,
     memory_limit: problem.memory_limit,
     apply_limits_to_all: false,
-    score_calculation_method: problem.score_calculation_method || '综合',
-    code_review_score: problem.code_review_score || 0,
-    runtime_score: problem.runtime_score || 0,
+    score_calculation_method: '综合',
+    code_check_score: problem.code_check_score || 20,
+    runtime_score: problem.runtime_score || 80,
     apply_score_method_to_all: false
   };
   editProblemModalVisible.value = true;
@@ -363,7 +362,7 @@ const submitEditProblemForm = async () => {
         
         if (editProblemForm.value.apply_score_method_to_all) {
           updatedProblem.score_calculation_method = editProblemForm.value.score_calculation_method;
-          updatedProblem.code_review_score = editProblemForm.value.code_review_score;
+          updatedProblem.code_check_score = editProblemForm.value.code_check_score;
           updatedProblem.runtime_score = editProblemForm.value.runtime_score;
         }
         
@@ -374,15 +373,16 @@ const submitEditProblemForm = async () => {
       await updateExercise(exerciseId, { problems: updatedProblems });
     } else {
       // 只更新单个题目
-      await updateProblem(exerciseId, editProblemForm.value.id, {
-        name: editProblemForm.value.name,
-        chinese_name: editProblemForm.value.chinese_name,
+      const updateData = {
+        id: editProblemForm.value.id,
         time_limit: editProblemForm.value.time_limit,
         memory_limit: editProblemForm.value.memory_limit,
-        score_calculation_method: editProblemForm.value.score_calculation_method,
-        code_review_score: editProblemForm.value.code_review_score,
-        runtime_score: editProblemForm.value.runtime_score
-      });
+        code_check_score: editProblemForm.value.code_check_score,
+        runtime_score: editProblemForm.value.runtime_score,
+        score_method: 'sum'
+      };
+      
+      await updateProblem(exerciseId, editProblemForm.value.id, updateData);
     }
     
     ElMessage.success('题目更新成功');
@@ -462,22 +462,13 @@ const formatChineseName = (chineseName) => {
 
 // 格式化总分计算方法
 const formatScoreMethod = (method) => {
-  if (!method) return '取综合';
-  if (method === 'sum') return '取综合';
-  if (method === 'max') return '取较大者';
-  return method;
+  return '取总和';
 };
 
 // 计算题目总分
 const calculateTotalScore = (problem) => {
-  if (!problem) return 0;
-  const codeScore = problem.code_check_score || 0;
-  const runtimeScore = problem.runtime_score || 0;
-  
-  if (problem.score_method === 'max') {
-    return Math.max(codeScore, runtimeScore);
-  }
-  return codeScore + runtimeScore;
+  if (!problem) return '';
+  return '';  // 暂时返回空，等评测功能开发后再显示
 };
 
 onMounted(() => {

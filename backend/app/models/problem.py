@@ -15,8 +15,8 @@ class Problem(Base):
     chinese_name = Column(String, nullable=True)  # 中文名称
     time_limit = Column(Integer, default=1000)  # 毫秒
     memory_limit = Column(Integer, default=134217728)  # bytes (128MB)
-    code_check_score = Column(Integer, default=0)
-    runtime_score = Column(Integer, default=100)
+    code_check_score = Column(Integer, default=20)
+    runtime_score = Column(Integer, default=80)
     score_method = Column(String, default="sum")  # sum或max
     data_path = Column(String, nullable=True)
     category = Column(String, nullable=True)

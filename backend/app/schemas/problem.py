@@ -26,13 +26,13 @@ class ProblemDetail(BaseModel):
     id: int
     name: str
     chinese_name: Optional[str] = None
-    time_limit: int
-    memory_limit: int
-    html_content: str
+    time_limit: int = 1000
+    memory_limit: int = 134217728
+    html_content: Optional[str] = None
     data_path: Optional[str] = None
     category: Optional[str] = None
-    code_check_score: int = 0
-    runtime_score: int = 100
+    code_check_score: int = 20
+    runtime_score: int = 80
     score_method: str = "sum"
 
     class Config:

@@ -55,8 +55,8 @@
                 <td>{{ calculateTotalScore(problem) }}</td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
-                <td>{{ problem.code_check_score }}</td>
-                <td>{{ problem.runtime_score }}</td>
+                <td>{{ problem.code_check_score || 20 }}</td>
+                <td>{{ problem.runtime_score || 80 }}</td>
                 <td>{{ formatScoreMethod(problem.score_method) }}</td>
                 <td>
                   <button @click="viewProblem(problem.id)" class="btn btn-primary">查看</button>
@@ -166,22 +166,13 @@ const formatChineseName = (chineseName) => {
 
 // 格式化总分计算方法
 const formatScoreMethod = (method) => {
-  if (!method) return '取综合';
-  if (method === 'sum') return '取综合';
-  if (method === 'max') return '取较大者';
-  return method;
+  return '取总和';
 };
 
 // 计算题目总分
 const calculateTotalScore = (problem) => {
-  if (!problem) return 0;
-  const codeScore = problem.code_check_score || 0;
-  const runtimeScore = problem.runtime_score || 0;
-  
-  if (problem.score_method === 'max') {
-    return Math.max(codeScore, runtimeScore);
-  }
-  return codeScore + runtimeScore;
+  if (!problem) return '';
+  return '';  // 暂时返回空，等评测功能开发后再显示
 };
 
 // 获取练习详情

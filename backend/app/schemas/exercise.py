@@ -9,8 +9,8 @@ class ProblemBrief(BaseModel):
     chinese_name: Optional[str] = None
     time_limit: int
     memory_limit: int
-    code_check_score: int = 0
-    runtime_score: int = 100
+    code_check_score: int = 20
+    runtime_score: int = 80
     score_method: str = "sum"
     category: Optional[str] = None
     data_path: Optional[str] = None
@@ -56,6 +56,20 @@ class ExerciseResponse(BaseModel):
 # 练习详情响应
 class ExerciseDetailResponse(ExerciseResponse):
     problems: List[ProblemBrief] = []  # 在API中动态添加
+
+    class Config:
+        orm_mode = True
+
+class ProblemInExercise(BaseModel):
+    id: int
+    name: str
+    chinese_name: Optional[str] = None
+    time_limit: int = 1000
+    memory_limit: int = 134217728
+    data_path: Optional[str] = None
+    code_check_score: int = 20
+    runtime_score: int = 80
+    score_method: str = "sum"
 
     class Config:
         orm_mode = True 
