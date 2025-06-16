@@ -36,7 +36,40 @@
 
           <!-- 提交按钮 -->
           <div class="submission-actions">
-            <button @click="submitCode" class="btn btn-submit">运行测试</button>
+            <button @click="submitCode" class="btn btn-submit" :disabled="submitting">
+              {{ submitting ? '提交中...' : '提交代码' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 提交结果显示 -->
+      <div v-if="submissionResult" class="submission-result">
+        <h3>提交结果</h3>
+        <div class="result-card" :class="getStatusClass(submissionResult.status)">
+          <div class="result-header">
+            <span class="status">{{ submissionResult.status }}</span>
+            <span class="score">总分: {{ submissionResult.total_score || 0 }}</span>
+          </div>
+          <div class="result-details">
+            <div class="score-breakdown">
+              <div class="score-item">
+                <span class="score-label">代码检查:</span>
+                <span class="score-value">{{ submissionResult.code_check_score || 0 }}/20</span>
+              </div>
+              <div class="score-item">
+                <span class="score-label">运行测试:</span>
+                <span class="score-value">{{ submissionResult.runtime_score || 0 }}/80</span>
+              </div>
+            </div>
+            <div v-if="submissionResult.result && submissionResult.result.code_check" class="code-check-result">
+              <h4>代码检查结果</h4>
+              <p>{{ submissionResult.result.code_check.message }}</p>
+            </div>
+            <div v-if="submissionResult.result && submissionResult.result.runtime" class="runtime-result">
+              <h4>运行测试结果</h4>
+              <p>{{ submissionResult.result.runtime.message }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -49,17 +82,22 @@ import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
+import { submitCode as submitCodeAPI, getSubmissionDetail } from '../../api/submissions';
+import { useAuthStore } from '../../store/auth';
 
 const route = useRoute();
 const router = useRouter();
 const problemId = route.params.id;
 const exerciseId = route.query.exercise_id;
+const authStore = useAuthStore();
 
 const problem = ref({});
 const loading = ref(true);
 const error = ref(null);
 const code = ref('');
 const selectedLanguage = ref('c');
+const submitting = ref(false);
+const submissionResult = ref(null);
 
 // 代码模板
 const codeTemplates = {
@@ -84,15 +122,65 @@ const fetchProblemDetail = async () => {
 };
 
 // 提交代码
-const submitCode = () => {
+const submitCode = async () => {
   if (!code.value.trim()) {
     ElMessage.warning('请先编写代码');
     return;
   }
+
+  submitting.value = true;
   
-  ElMessage.info('代码运行功能正在开发中...');
+  try {
+    const result = await submitCodeAPI(
+      authStore.user.id,
+      problemId,
+      exerciseId,
+      code.value,
+      selectedLanguage.value
+    );
+    
+    if (result && result.id) {
+      // 提交成功，获取详细结果
+      submissionResult.value = result;
+      ElMessage.success('代码提交成功');
+      
+      // 显示结果后延迟2秒返回上一级
+      setTimeout(() => {
+        goBack();
+      }, 2000);
+    } else {
+      ElMessage.error('提交失败，请稍后重试');
+    }
+  } catch (error) {
+    console.error('提交代码失败', error);
+    ElMessage.error(`提交失败: ${error.response?.data?.detail || error.message}`);
+  } finally {
+    submitting.value = false;
+  }
+};
+
+// 获取状态对应的样式类
+const getStatusClass = (status) => {
+  if (!status) return '';
   
-  // 这里将来添加代码提交的API调用
+  switch (status.toLowerCase()) {
+    case 'accepted':
+      return 'status-accepted';
+    case 'wrong answer':
+      return 'status-wrong';
+    case 'compilation error':
+      return 'status-error';
+    case 'time limit exceeded':
+      return 'status-limit';
+    case 'memory limit exceeded':
+      return 'status-limit';
+    case 'runtime error':
+      return 'status-error';
+    case 'system error':
+      return 'status-error';
+    default:
+      return 'status-pending';
+  }
 };
 
 // 返回上一页
@@ -217,6 +305,11 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background-color: #409eff;
   color: white;
@@ -244,5 +337,94 @@ onMounted(() => {
 
 .btn-submit:hover {
   background-color: #85ce61;
+}
+
+/* 提交结果样式 */
+.submission-result {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.submission-result h3 {
+  margin: 0 0 15px;
+  color: #303133;
+}
+
+.result-card {
+  background-color: #f8f8f9;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.result-header {
+  padding: 12px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+  font-weight: bold;
+}
+
+.result-details {
+  padding: 15px;
+  background-color: white;
+  border: 1px solid #ebeef5;
+  border-top: none;
+}
+
+.score-breakdown {
+  display: flex;
+  margin-bottom: 15px;
+  border-bottom: 1px dashed #ebeef5;
+  padding-bottom: 15px;
+}
+
+.score-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.score-label {
+  font-size: 14px;
+  color: #606266;
+}
+
+.score-value {
+  font-size: 18px;
+  font-weight: bold;
+  color: #303133;
+}
+
+.code-check-result, .runtime-result {
+  margin-top: 15px;
+}
+
+.code-check-result h4, .runtime-result h4 {
+  margin: 0 0 8px;
+  color: #606266;
+  font-size: 14px;
+}
+
+/* 状态样式 */
+.status-accepted .result-header {
+  background-color: #67c23a;
+}
+
+.status-wrong .result-header {
+  background-color: #e6a23c;
+}
+
+.status-error .result-header {
+  background-color: #f56c6c;
+}
+
+.status-limit .result-header {
+  background-color: #909399;
+}
+
+.status-pending .result-header {
+  background-color: #909399;
 }
 </style> 

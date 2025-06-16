@@ -1,0 +1,109 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import List, Optional
+from sqlalchemy.orm import Session
+
+from app.models.database import get_db
+from app.models import Submission, User
+from app.schemas.submission import SubmissionCreate, SubmissionResponse, SubmissionDetail
+from app.services.judge_service import JudgeService
+from app.utils.auth import get_current_user
+
+router = APIRouter(prefix="/submissions", tags=["submissions"])
+
+@router.post("/", response_model=SubmissionResponse)
+async def submit_code(
+    submission: SubmissionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    提交代码进行评测
+    """
+    # 检查用户权限（学生只能提交自己的代码）
+    if current_user.role == "student" and submission.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="没有权限提交其他用户的代码"
+        )
+    
+    try:
+        # 使用评测服务进行提交
+        result = JudgeService.submit(
+            db=db,
+            user_id=submission.user_id,
+            problem_id=submission.problem_id,
+            exercise_id=submission.exercise_id,
+            code=submission.code,
+            language=submission.language
+        )
+        
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"提交失败: {str(e)}")
+
+@router.get("/{submission_id}", response_model=SubmissionDetail)
+async def get_submission(
+    submission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取提交记录详情
+    """
+    # 查询提交记录
+    submission = db.query(Submission).filter(Submission.id == submission_id).first()
+    
+    # 检查记录是否存在
+    if not submission:
+        raise HTTPException(status_code=404, detail="提交记录不存在")
+    
+    # 检查权限（学生只能查看自己的提交）
+    if current_user.role == "student" and submission.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="没有权限查看其他用户的提交记录"
+        )
+    
+    return submission
+
+@router.get("/", response_model=List[SubmissionResponse])
+async def get_submissions(
+    user_id: Optional[int] = None,
+    problem_id: Optional[int] = None,
+    exercise_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取提交记录列表
+    可以按用户ID、问题ID或练习ID筛选
+    """
+    # 构造查询
+    query = db.query(Submission)
+    
+    # 应用筛选条件
+    if user_id is not None:
+        # 检查权限（学生只能查看自己的提交）
+        if current_user.role == "student" and user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="没有权限查看其他用户的提交记录"
+            )
+        query = query.filter(Submission.user_id == user_id)
+    
+    if problem_id is not None:
+        query = query.filter(Submission.problem_id == problem_id)
+    
+    if exercise_id is not None:
+        query = query.filter(Submission.exercise_id == exercise_id)
+    
+    # 对于学生，只显示自己的提交
+    if current_user.role == "student":
+        query = query.filter(Submission.user_id == current_user.id)
+    
+    # 按提交时间降序排序
+    submissions = query.order_by(Submission.submitted_at.desc()).all()
+    
+    return submissions 

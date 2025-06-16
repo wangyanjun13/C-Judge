@@ -13,3 +13,4 @@ aiohttp
 redis
 alembic
 python-dotenv
+requests
