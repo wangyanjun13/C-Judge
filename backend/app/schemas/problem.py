@@ -19,4 +19,21 @@ class ProblemInfo(BaseModel):
     
 class ProblemDelete(BaseModel):
     """试题删除响应模型"""
-    message: str 
+    message: str
+
+class ProblemDetail(BaseModel):
+    """试题详情响应模型"""
+    id: int
+    name: str
+    chinese_name: Optional[str] = None
+    time_limit: int
+    memory_limit: int
+    html_content: str
+    data_path: Optional[str] = None
+    category: Optional[str] = None
+    code_check_score: int = 0
+    runtime_score: int = 100
+    score_method: str = "sum"
+
+    class Config:
+        orm_mode = True 

@@ -228,4 +228,19 @@ export const clearExerciseProblems = (exerciseId) => {
     .catch(error => {
       throw error;
     });
+}
+
+/**
+ * 获取题目详情
+ * @param {Number} problemId - 题目ID
+ * @returns {Promise} - 返回题目详情
+ */
+export const getProblemDetail = async (problemId) => {
+  try {
+    const response = await axios.get(`/api/problems/${problemId}`);
+    return response.data;
+  } catch (error) {
+    console.error('获取题目详情失败:', error);
+    throw error;
+  }
 } 

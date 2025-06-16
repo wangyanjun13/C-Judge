@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
-from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete
+from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail
 from app.services.problem_service import ProblemService
+from app.models import get_db, Problem
+from sqlalchemy.orm import Session
+from fastapi import Depends
 import logging
 
 # 创建路由
@@ -44,4 +47,21 @@ async def delete_problem(problem_path: str):
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"删除试题失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"删除试题失败: {str(e)}")
+
+@router.get("/{problem_id}", response_model=ProblemDetail)
+async def get_problem_detail(
+    problem_id: int, 
+    db: Session = Depends(get_db)
+):
+    """获取题目详情，包括HTML内容"""
+    try:
+        problem_detail = ProblemService.get_problem_detail(db, problem_id)
+        if not problem_detail:
+            raise HTTPException(status_code=404, detail=f"题目不存在: ID {problem_id}")
+        return problem_detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取题目详情失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取题目详情失败: {str(e)}") 

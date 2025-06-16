@@ -1,8 +1,10 @@
 import os
 import shutil
 import logging
-from typing import List, Optional
-from app.schemas.problem import ProblemCategory, ProblemInfo
+from typing import List, Optional, Dict, Any
+from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDetail
+from sqlalchemy.orm import Session
+from app.models import Problem
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -167,4 +169,75 @@ class ProblemService:
                 )
         except Exception as e:
             logger.error(f"解析试题信息失败: {str(e)}")
-            return None 
+            return None
+
+    @staticmethod
+    def get_problem_detail(db: Session, problem_id: int) -> Optional[ProblemDetail]:
+        """获取题目详情，包括HTML内容"""
+        try:
+            # 从数据库获取问题基本信息
+            problem = db.query(Problem).filter(Problem.id == problem_id).first()
+            if not problem:
+                logger.error(f"题目不存在: ID {problem_id}")
+                return None
+            
+            # 获取题目的HTML内容
+            html_content = ProblemService.get_problem_html_content(problem.data_path)
+            
+            # 构建并返回问题详情
+            return ProblemDetail(
+                id=problem.id,
+                name=problem.name,
+                chinese_name=problem.chinese_name,
+                time_limit=problem.time_limit,
+                memory_limit=problem.memory_limit,
+                html_content=html_content,
+                data_path=problem.data_path,
+                category=problem.category,
+                code_check_score=problem.code_check_score,
+                runtime_score=problem.runtime_score,
+                score_method=problem.score_method
+            )
+        except Exception as e:
+            logger.error(f"获取题目详情失败: {str(e)}")
+            raise
+    
+    @staticmethod
+    def get_problem_html_content(data_path: str) -> str:
+        """获取问题的HTML内容"""
+        if not data_path:
+            logger.warning("题目数据路径为空")
+            return "<p>题目内容不可用</p>"
+            
+        # 构建可能的HTML文件路径
+        problem_dir = os.path.join(PROBLEMS_ROOT, data_path)
+        possible_html_paths = [
+            os.path.join(problem_dir, f"{os.path.basename(data_path)}.htm"),  # Ex1.htm
+            os.path.join(problem_dir, f"{os.path.basename(data_path)}.html"),  # Ex1.html
+            os.path.join(problem_dir, "problem.htm"),  # problem.htm
+            os.path.join(problem_dir, "problem.html"),  # problem.html
+            os.path.join(problem_dir, "Question.htm"),  # Question.htm
+            os.path.join(problem_dir, "Question.html")   # Question.html
+        ]
+        
+        # 尝试找到并读取HTML文件
+        html_content = "<p>题目内容不可用</p>"
+        for html_path in possible_html_paths:
+            if os.path.exists(html_path):
+                try:
+                    # 尝试以不同编码读取文件
+                    encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'latin1']
+                    for encoding in encodings:
+                        try:
+                            with open(html_path, "r", encoding=encoding) as f:
+                                html_content = f.read()
+                                logger.info(f"成功读取题目HTML文件: {html_path}，使用编码: {encoding}")
+                                break  # 成功读取，退出编码循环
+                        except UnicodeDecodeError:
+                            continue  # 尝试下一种编码
+                    break  # 文件读取成功，退出文件路径循环
+                except Exception as e:
+                    logger.error(f"读取题目HTML文件失败: {str(e)}")
+                    continue  # 尝试下一个可能的文件路径
+        
+        return html_content 

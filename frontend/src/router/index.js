@@ -10,12 +10,14 @@ const StudentLayout = () => import('../layouts/StudentLayout.vue')
 // 学生页面
 const StudentExercises = () => import('../pages/student/Exercises.vue')
 const StudentExerciseDetail = () => import('../pages/student/ExerciseDetail.vue')
+const StudentProblemDetail = () => import('../pages/student/ProblemDetail.vue')
 const StudentOperationLogs = () => import('../pages/student/OperationLogs.vue')
 const StudentProfile = () => import('../pages/student/Profile.vue')
 
 // 教师页面
 const TeacherExercises = () => import('../pages/teacher/Exercises.vue')
 const TeacherExerciseDetail = () => import('../pages/teacher/ExerciseDetail.vue')
+const TeacherProblemDetail = () => import('../pages/teacher/ProblemDetail.vue')
 const TeacherOperationLogs = () => import('../pages/teacher/OperationLogs.vue')
 const TeacherManagement = () => import('../pages/teacher/Management.vue')
 const TeacherMaintenance = () => import('../pages/teacher/Maintenance.vue')
@@ -24,6 +26,7 @@ const TeacherProfile = () => import('../pages/teacher/Profile.vue')
 // 管理员页面
 const AdminExercises = () => import('../pages/admin/Exercises.vue')
 const AdminExerciseDetail = () => import('../pages/admin/ExerciseDetail.vue')
+const AdminProblemDetail = () => import('../pages/admin/ProblemDetail.vue')
 const AdminOperationLogs = () => import('../pages/admin/OperationLogs.vue')
 const AdminManagement = () => import('../pages/admin/Management.vue')
 const AdminMaintenance = () => import('../pages/admin/Maintenance.vue')
@@ -60,6 +63,12 @@ const routes = [
         meta: { title: '练习详情' }
       },
       {
+        path: 'problem/:id',
+        name: 'StudentProblemDetail',
+        component: StudentProblemDetail,
+        meta: { title: '试题详情' }
+      },
+      {
         path: 'operation-logs',
         name: 'StudentOperationLogs',
         component: StudentOperationLogs,
@@ -91,6 +100,12 @@ const routes = [
         name: 'TeacherExerciseDetail',
         component: TeacherExerciseDetail,
         meta: { title: '练习详情' }
+      },
+      {
+        path: 'problem/:id',
+        name: 'TeacherProblemDetail',
+        component: TeacherProblemDetail,
+        meta: { title: '试题详情' }
       },
       {
         path: 'operation-logs',
@@ -136,6 +151,12 @@ const routes = [
         name: 'AdminExerciseDetail',
         component: AdminExerciseDetail,
         meta: { title: '练习详情' }
+      },
+      {
+        path: 'problem/:id',
+        name: 'AdminProblemDetail',
+        component: AdminProblemDetail,
+        meta: { title: '试题详情' }
       },
       {
         path: 'operation-logs',
