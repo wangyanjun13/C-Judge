@@ -143,11 +143,6 @@ const submitCode = async () => {
       // 提交成功，获取详细结果
       submissionResult.value = result;
       ElMessage.success('代码提交成功');
-      
-      // 显示结果后延迟2秒返回上一级
-      setTimeout(() => {
-        goBack();
-      }, 2000);
     } else {
       ElMessage.error('提交失败，请稍后重试');
     }
