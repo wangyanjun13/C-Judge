@@ -31,13 +31,17 @@
               v-model="code" 
               placeholder="请在此处编写代码..."
               rows="25"
+              :disabled="isSubmitted && !isRedoing"
             ></textarea>
           </div>
 
-          <!-- 提交按钮 -->
+          <!-- 提交按钮或重做按钮 -->
           <div class="submission-actions">
-            <button @click="submitCode" class="btn btn-submit" :disabled="submitting">
+            <button v-if="!isSubmitted || isRedoing" @click="submitCode" class="btn btn-submit" :disabled="submitting">
               {{ submitting ? '提交中...' : '提交代码' }}
+            </button>
+            <button v-else-if="!isExerciseEnded" @click="redoSubmission" class="btn btn-redo">
+              重做
             </button>
           </div>
         </div>
@@ -69,6 +73,28 @@
             <div v-if="submissionResult.result && submissionResult.result.runtime" class="runtime-result">
               <h4>运行测试结果</h4>
               <p>{{ submissionResult.result.runtime.message }}</p>
+              
+              <!-- 显示测试用例详情 -->
+              <div v-if="submissionResult.result.runtime.details && submissionResult.result.runtime.details.length > 0" class="test-cases">
+                <h5>测试用例详情:</h5>
+                <div v-for="(testCase, index) in submissionResult.result.runtime.details" :key="index" 
+                     class="test-case" :class="{'test-passed': testCase.result === 0}">
+                  <div class="test-case-header">
+                    <span class="test-case-name">测试点 {{ testCase.test_case || (index + 1) }}</span>
+                    <span class="test-case-status">{{ testCase.result === 0 ? '通过' : '未通过' }}</span>
+                  </div>
+                  <div v-if="testCase.expected && testCase.actual" class="test-case-details">
+                    <div class="test-case-expected">
+                      <strong>期望输出:</strong>
+                      <pre>{{ testCase.expected }}</pre>
+                    </div>
+                    <div class="test-case-actual">
+                      <strong>实际输出:</strong>
+                      <pre>{{ testCase.actual }}</pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -78,11 +104,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
-import { submitCode as submitCodeAPI, getSubmissionDetail } from '../../api/submissions';
+import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
 
 const route = useRoute();
@@ -92,32 +118,81 @@ const exerciseId = route.query.exercise_id;
 const authStore = useAuthStore();
 
 const problem = ref({});
+const exercise = ref({});
 const loading = ref(true);
 const error = ref(null);
 const code = ref('');
 const selectedLanguage = ref('c');
 const submitting = ref(false);
 const submissionResult = ref(null);
+const isSubmitted = ref(false);
+const isRedoing = ref(false);
+
+// 判断练习是否已结束
+const isExerciseEnded = computed(() => {
+  if (!exercise.value || !exercise.value.end_time) return false;
+  return new Date(exercise.value.end_time) <= new Date();
+});
 
 // 代码模板
 const codeTemplates = {
   'c': '#include <stdio.h>\n\nint main() {\n    // 在此处编写代码\n    \n    return 0;\n}'
 };
 
-// 获取题目详情
+// 获取题目详情和历史提交
 const fetchProblemDetail = async () => {
   loading.value = true;
   error.value = null;
   
   try {
-    const result = await getProblemDetail(problemId);
-    problem.value = result;
+    // 获取题目详情
+    const problemResult = await getProblemDetail(problemId);
+    problem.value = problemResult;
+    
+    // 获取练习详情（主要用于检查结束时间）
+    if (exerciseId) {
+      const response = await fetch(`/api/exercises/${exerciseId}`);
+      if (response.ok) {
+        exercise.value = await response.json();
+      }
+    }
+    
+    // 获取历史提交记录
+    await fetchSubmissionHistory();
   } catch (err) {
     console.error('获取题目详情失败', err);
     error.value = '获取题目详情失败，请稍后重试';
     ElMessage.error('获取题目详情失败');
   } finally {
     loading.value = false;
+  }
+};
+
+// 获取历史提交记录
+const fetchSubmissionHistory = async () => {
+  if (!authStore.user || !authStore.user.id) return;
+  
+  try {
+    const submissions = await getSubmissions({
+      userId: authStore.user.id,
+      problemId: problemId,
+      exerciseId: exerciseId
+    });
+    
+    if (submissions && submissions.length > 0) {
+      // 获取最新的一次提交
+      const latestSubmission = submissions[0];
+      submissionResult.value = latestSubmission;
+      code.value = latestSubmission.code;
+      isSubmitted.value = true;
+    } else {
+      // 没有提交记录，使用默认代码模板
+      code.value = codeTemplates[selectedLanguage.value] || '';
+      isSubmitted.value = false;
+    }
+  } catch (error) {
+    console.error('获取提交历史失败:', error);
+    code.value = codeTemplates[selectedLanguage.value] || '';
   }
 };
 
@@ -142,6 +217,8 @@ const submitCode = async () => {
     if (result && result.id) {
       // 提交成功，获取详细结果
       submissionResult.value = result;
+      isSubmitted.value = true;
+      isRedoing.value = false;
       ElMessage.success('代码提交成功');
     } else {
       ElMessage.error('提交失败，请稍后重试');
@@ -152,6 +229,12 @@ const submitCode = async () => {
   } finally {
     submitting.value = false;
   }
+};
+
+// 重做提交
+const redoSubmission = () => {
+  isRedoing.value = true;
+  ElMessage.info('您可以修改代码后重新提交');
 };
 
 // 获取状态对应的样式类
@@ -185,7 +268,6 @@ const goBack = () => {
 
 onMounted(() => {
   fetchProblemDetail();
-  code.value = codeTemplates[selectedLanguage.value] || '';
 });
 </script>
 
@@ -287,6 +369,11 @@ onMounted(() => {
   resize: vertical;
 }
 
+.code-editor textarea:disabled {
+  background-color: #f5f7fa;
+  cursor: not-allowed;
+}
+
 .submission-actions {
   display: flex;
   justify-content: flex-end;
@@ -332,6 +419,17 @@ onMounted(() => {
 
 .btn-submit:hover {
   background-color: #85ce61;
+}
+
+.btn-redo {
+  background-color: #e6a23c;
+  color: white;
+  font-size: 16px;
+  padding: 10px 20px;
+}
+
+.btn-redo:hover {
+  background-color: #ebb563;
 }
 
 /* 提交结果样式 */
@@ -421,5 +519,68 @@ onMounted(() => {
 
 .status-pending .result-header {
   background-color: #909399;
+}
+
+/* 测试用例样式 */
+.test-cases {
+  margin-top: 15px;
+  border-top: 1px dashed #ebeef5;
+  padding-top: 15px;
+}
+
+.test-cases h5 {
+  margin: 0 0 10px;
+  color: #606266;
+  font-size: 14px;
+}
+
+.test-case {
+  margin-bottom: 10px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.test-case-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background-color: #f5f7fa;
+}
+
+.test-case-name {
+  font-weight: 500;
+  color: #606266;
+}
+
+.test-case-status {
+  font-weight: 500;
+}
+
+.test-passed .test-case-header {
+  background-color: #f0f9eb;
+}
+
+.test-passed .test-case-status {
+  color: #67c23a;
+}
+
+.test-case-details {
+  padding: 10px;
+  background-color: white;
+}
+
+.test-case-expected, .test-case-actual {
+  margin-bottom: 8px;
+}
+
+.test-case-details pre {
+  margin: 5px 0 0;
+  padding: 8px;
+  background-color: #f8f8f9;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 </style> 

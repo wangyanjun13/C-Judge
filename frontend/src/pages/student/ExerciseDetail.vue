@@ -52,7 +52,10 @@
                 <td>{{ index + 1 }}</td>
                 <td>{{ problem.name }}</td>
                 <td>{{ formatChineseName(problem.chinese_name) }}</td>
-                <td>{{ calculateTotalScore(problem) }}</td>
+                <td>
+                  <span class="score-cell">{{ calculateTotalScore(problem) }}</span>
+                  <span v-if="isSubmitted(problem)" class="submitted-tag">已提交</span>
+                </td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
                 <td>{{ problem.code_check_score || 20 }}</td>
@@ -89,15 +92,19 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getExerciseDetail } from '../../api/exercises';
+import { getSubmissions } from '../../api/submissions';
+import { useAuthStore } from '../../store/auth';
 
 const route = useRoute();
 const router = useRouter();
 const exerciseId = route.params.id;
+const authStore = useAuthStore();
 
 const exercise = ref({});
 const loading = ref(true);
 const error = ref(null);
 const statisticsModalVisible = ref(false);
+const submissionMap = ref({}); // 保存题目ID到提交记录的映射
 
 // 在script setup部分添加计算练习时间的函数
 const isExerciseStarted = computed(() => {
@@ -171,8 +178,17 @@ const formatScoreMethod = (method) => {
 
 // 计算题目总分
 const calculateTotalScore = (problem) => {
-  if (!problem) return '';
-  return '';  // 暂时返回空，等评测功能开发后再显示
+  // 检查这个题目是否有提交记录
+  const submission = submissionMap.value[problem.id];
+  if (submission && submission.total_score) {
+    return `${submission.total_score}`;
+  }
+  return '-';  // 没有分数时显示"-"
+};
+
+// 检查题目是否已提交
+const isSubmitted = (problem) => {
+  return !!submissionMap.value[problem.id];
 };
 
 // 获取练习详情
@@ -183,12 +199,42 @@ const fetchExerciseDetail = async () => {
   try {
     const result = await getExerciseDetail(exerciseId);
     exercise.value = result;
+    
+    // 获取所有题目的提交记录
+    if (authStore.user && authStore.user.id) {
+      await fetchSubmissions();
+    }
   } catch (err) {
     console.error('获取练习详情失败', err);
     error.value = '获取练习详情失败，请稍后重试';
     ElMessage.error('获取练习详情失败');
   } finally {
     loading.value = false;
+  }
+};
+
+// 获取提交记录
+const fetchSubmissions = async () => {
+  try {
+    // 获取该用户在这个练习中的所有提交记录
+    const submissions = await getSubmissions({
+      userId: authStore.user.id,
+      exerciseId: exerciseId
+    });
+    
+    // 为每道题找到最新的提交记录
+    const tempMap = {};
+    submissions.forEach(submission => {
+      // 如果这道题还没有提交记录，或者这条记录比之前的更新
+      if (!tempMap[submission.problem_id] || 
+          new Date(submission.submitted_at) > new Date(tempMap[submission.problem_id].submitted_at)) {
+        tempMap[submission.problem_id] = submission;
+      }
+    });
+    
+    submissionMap.value = tempMap;
+  } catch (error) {
+    console.error('获取提交记录失败:', error);
   }
 };
 
@@ -304,6 +350,21 @@ onMounted(() => {
   background-color: #f5f7fa;
   color: #606266;
   font-weight: 500;
+}
+
+.score-cell {
+  font-weight: bold;
+  color: #303133;
+}
+
+.submitted-tag {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 5px;
+  background-color: #67c23a;
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
 }
 
 .empty-problems {
