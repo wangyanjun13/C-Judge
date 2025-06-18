@@ -50,7 +50,7 @@
               <td>{{ formatDate(exercise.end_time) }}</td>
               <td>{{ exercise.is_online_judge ? '是' : '否' }}</td>
               <td>
-                <button class="btn btn-edit" @click="showEditModal(exercise)">编辑</button>
+                <button class="btn btn-edit" @click="showEditModal(exercise)">修改</button>
                 <button class="btn btn-danger" @click="confirmDelete(exercise)">删除</button>
                 <button class="btn btn-secondary" @click="downloadExercise(exercise.id)">下载</button>
               </td>
