@@ -41,34 +41,12 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
   response => {
-    // 输出响应详情到控制台（仅开发环境）
-    if (import.meta.env.DEV) {
-      console.log('API响应:', {
-        url: response.config.url,
-        status: response.status,
-        data: response.data
-      })
-    }
-    
-    // 确保返回的是response对象，而不仅仅是data
     return response
   },
   error => {
     let message = '未知错误'
     
-    // 输出错误详情到控制台（仅开发环境）
-    if (import.meta.env.DEV) {
-      console.error('API错误:', {
-        url: error.config?.url,
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        code: error.code
-      })
-    }
-    
     if (error.response) {
-      // 服务器返回了错误状态码
       const { status, data } = error.response
       
       switch (status) {
@@ -76,14 +54,7 @@ instance.interceptors.response.use(
           message = data.detail || '请求参数错误'
           break
         case 401:
-          message = '未授权，请重新登录'
-          // 清除token
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          // 如果不是登录页，重定向到登录页
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
-          }
+          message = '未授权'
           break
         case 403:
           message = '拒绝访问'
@@ -98,17 +69,12 @@ instance.interceptors.response.use(
           message = `请求错误 (${status})`
       }
     } else if (error.request) {
-      // 请求已发送但未收到响应
-      message = '服务器无响应，请检查网络连接'
+      message = '服务器无响应'
     } else {
-      // 请求过程中发生错误
       message = error.message
     }
     
-    // 显示错误消息
     ElMessage.error(message)
-    console.error('响应错误:', error)
-    
     return Promise.reject(error)
   }
 )

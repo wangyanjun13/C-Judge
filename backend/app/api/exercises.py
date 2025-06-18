@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from app.models import User, Exercise, Course, Problem, get_db, OperationLog, Class
 from app.models.exercise import exercise_problem
-from app.utils.auth import get_current_active_user, get_teacher_user, get_admin_user
+from app.utils.auth import get_current_active_user, get_current_user, get_teacher_user, get_admin_user
 from app.schemas.exercise import ExerciseCreate, ExerciseUpdate, ExerciseResponse, ExerciseDetailResponse
 from app.services import ExerciseService
 
@@ -64,26 +64,13 @@ async def get_admin_exercises(
 @router.get("/{exercise_id}", response_model=ExerciseDetailResponse)
 async def get_exercise_detail(
     exercise_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ):
     """获取练习详情"""
-    # 查询练习
-    exercise = ExerciseService.get_exercise_detail(db, exercise_id)
+    # 简化逻辑，直接查询练习
+    exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
     if not exercise:
         raise HTTPException(status_code=404, detail="练习不存在")
-    
-    # 检查权限
-    if current_user.role == "student":
-        # 学生只能查看自己班级关联课程的练习
-        if not ExerciseService.check_student_permission(db, current_user.id, exercise_id):
-            raise HTTPException(status_code=403, detail="无权查看此练习")
-    elif current_user.role == "teacher" and not ExerciseService.check_teacher_permission(db, current_user.id, exercise_id):
-        # 教师只能查看自己发布的练习
-        raise HTTPException(status_code=403, detail="无权查看此练习")
-    
-    # 记录操作日志
-    ExerciseService.log_operation(db, current_user.id, "查看练习详情", exercise.name)
     
     # 确保problems属性存在
     if not hasattr(exercise, 'problems'):

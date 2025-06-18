@@ -23,7 +23,10 @@
         </div>
       </div>
       
-      <div class="problems-section">
+      <div class="problems-section" :class="{'exercise-ended': isExerciseEnded}">
+        <div v-if="isExerciseEnded" class="deadline-banner">
+          <span>练习已截止，无法提交新代码</span>
+        </div>
         <div class="section-header">
           <h3>题目列表</h3>
           <div class="action-buttons">
@@ -66,7 +69,10 @@
                 <td>{{ problem.runtime_score || 80 }}</td>
                 <td>{{ formatScoreMethod(problem.score_method) }}</td>
                 <td>
-                  <button @click="viewProblem(problem.id)" class="btn btn-primary">查看</button>
+                  <button @click="viewProblem(problem.id)" class="btn btn-primary">
+                    查看
+                    <span v-if="isExerciseEnded" class="deadline-badge">已截止</span>
+                  </button>
                   <button @click="showEditProblemModal(problem)" class="btn btn-edit">修改</button>
                   <button @click="removeProblem(problem.id)" class="btn btn-danger">删除</button>
                 </td>
@@ -774,5 +780,30 @@ onMounted(() => {
 
 .checkbox-label input {
   margin-right: 5px;
+}
+
+/* 如果练习已截止，使表格显示半透明 */
+.exercise-ended .problems-table {
+  opacity: 0.9;
+}
+
+.deadline-banner {
+  background-color: #e6a23c;
+  color: white;
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.deadline-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 5px;
+  background-color: #e6a23c;
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
 }
 </style> 

@@ -31,18 +31,23 @@
               v-model="code" 
               placeholder="请在此处编写代码..."
               rows="25"
-              :disabled="isSubmitted && !isRedoing"
+              :disabled="isSubmitted && !isRedoing || isExerciseEnded"
             ></textarea>
           </div>
 
           <!-- 提交按钮或重做按钮 -->
           <div class="submission-actions">
-            <button v-if="!isSubmitted || isRedoing" @click="submitCode" class="btn btn-submit" :disabled="submitting">
-              {{ submitting ? '提交中...' : '提交代码' }}
-            </button>
-            <button v-else-if="!isExerciseEnded" @click="redoSubmission" class="btn btn-redo">
-              重做
-            </button>
+            <div v-if="isExerciseEnded" class="deadline-notice">
+              <span>练习已截止，无法提交</span>
+            </div>
+            <template v-else>
+              <button v-if="!isSubmitted || isRedoing" @click="submitCode" class="btn btn-submit" :disabled="submitting">
+                {{ submitting ? '提交中...' : '提交代码' }}
+              </button>
+              <button v-else @click="redoSubmission" class="btn btn-redo">
+                重做
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -151,16 +156,23 @@ const fetchProblemDetail = async () => {
     
     // 获取练习详情（主要用于检查结束时间）
     if (exerciseId) {
-      const response = await fetch(`/api/exercises/${exerciseId}`);
-      if (response.ok) {
-        exercise.value = await response.json();
+      try {
+        const response = await fetch(`/api/exercises/${exerciseId}`);
+        if (response.ok) {
+          exercise.value = await response.json();
+        } else {
+          // 即使无法获取练习信息，也允许管理员操作
+          exercise.value = { end_time: null };
+        }
+      } catch (error) {
+        // 出错时也允许管理员操作
+        exercise.value = { end_time: null };
       }
     }
     
     // 获取历史提交记录
     await fetchSubmissionHistory();
   } catch (err) {
-    console.error('获取题目详情失败', err);
     error.value = '获取题目详情失败，请稍后重试';
     ElMessage.error('获取题目详情失败');
   } finally {
@@ -202,6 +214,12 @@ const submitCode = async () => {
     ElMessage.warning('请先编写代码');
     return;
   }
+  
+  // 检查练习是否已截止
+  if (isExerciseEnded.value) {
+    ElMessage.warning('练习已截止，无法提交');
+    return;
+  }
 
   submitting.value = true;
   
@@ -233,6 +251,12 @@ const submitCode = async () => {
 
 // 重做提交
 const redoSubmission = () => {
+  // 检查练习是否已截止
+  if (isExerciseEnded.value) {
+    ElMessage.warning('练习已截止，无法重做');
+    return;
+  }
+  
   isRedoing.value = true;
   ElMessage.info('您可以修改代码后重新提交');
 };
@@ -377,6 +401,7 @@ onMounted(() => {
 .submission-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
 }
 
 .btn {
@@ -582,5 +607,15 @@ onMounted(() => {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* 添加截止信息样式 */
+.deadline-notice {
+  background-color: #909399;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
 }
 </style> 

@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.models.database import get_db
-from app.models import Submission, User
+from app.models import Submission, User, Exercise
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, SubmissionDetail
 from app.services.judge_service import JudgeService
 from app.utils.auth import get_current_user
@@ -25,6 +26,17 @@ async def submit_code(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="没有权限提交其他用户的代码"
         )
+    
+    # 如果是练习的提交，检查练习是否已截止
+    if submission.exercise_id:
+        exercise = db.query(Exercise).filter(Exercise.id == submission.exercise_id).first()
+        
+        if not exercise:
+            raise HTTPException(status_code=404, detail="练习不存在")
+        
+        # 检查练习是否已截止，所有用户都不能在截止后提交
+        if exercise.end_time and datetime.now() > exercise.end_time:
+            raise HTTPException(status_code=403, detail="练习已截止，无法提交")
     
     try:
         # 使用评测服务进行提交

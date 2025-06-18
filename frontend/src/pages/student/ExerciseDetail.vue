@@ -23,7 +23,10 @@
         </div>
       </div>
       
-      <div class="problems-section">
+      <div class="problems-section" :class="{'exercise-ended': isExerciseEnded}">
+        <div v-if="isExerciseEnded" class="deadline-banner">
+          <span>练习已截止，无法提交新代码</span>
+        </div>
         <div class="section-header">
           <h3>题目列表</h3>
           <div class="action-buttons">
@@ -62,7 +65,10 @@
                 <td>{{ problem.runtime_score || 80 }}</td>
                 <td>{{ formatScoreMethod(problem.score_method) }}</td>
                 <td>
-                  <button @click="viewProblem(problem.id)" class="btn btn-primary">查看</button>
+                  <button @click="viewProblem(problem.id)" class="btn btn-primary">
+                    查看
+                    <span v-if="isExerciseEnded" class="deadline-badge">已截止</span>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -454,12 +460,29 @@ onMounted(() => {
   margin-top: 20px;
 }
 
-.btn-primary {
-  background-color: #409eff;
+.deadline-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 5px;
+  background-color: #909399;
   color: white;
+  font-size: 12px;
+  border-radius: 4px;
 }
 
-.btn-primary:hover {
-  background-color: #66b1ff;
+/* 如果练习已截止，使表格显示灰色 */
+.exercise-ended .problems-table {
+  opacity: 0.8;
+}
+
+.deadline-banner {
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  color: #f56c6c;
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: bold;
 }
 </style> 
