@@ -788,8 +788,9 @@ onMounted(() => {
 }
 
 .deadline-banner {
-  background-color: #e6a23c;
-  color: white;
+  background-color: #fef0f0;
+  border: 1px solid #fde2e2;
+  color: #f56c6c;
   padding: 10px;
   margin-bottom: 20px;
   border-radius: 4px;
@@ -801,7 +802,7 @@ onMounted(() => {
   display: inline-block;
   margin-left: 5px;
   padding: 2px 5px;
-  background-color: #e6a23c;
+  background-color: #909399;
   color: white;
   font-size: 12px;
   border-radius: 4px;

@@ -611,11 +611,11 @@ onMounted(() => {
 
 /* 添加截止信息样式 */
 .deadline-notice {
-  background-color: #e6a23c;
+  background-color: #909399;
   color: white;
-  padding: 6px 12px;
+  padding: 10px 15px;
   border-radius: 4px;
-  margin-right: 10px;
-  font-size: 14px;
+  text-align: center;
+  font-weight: 500;
 }
 </style> 
