@@ -27,6 +27,10 @@
           
           <!-- 代码编辑框 -->
           <div class="code-editor">
+            <div class="editor-header">
+              <span class="language-label">编程语言：C</span>
+              <span v-if="isSubmitted" class="history-submission">历史提交</span>
+            </div>
             <textarea 
               v-model="code" 
               placeholder="请在此处编写代码..."
@@ -194,16 +198,34 @@ const fetchSubmissionHistory = async () => {
     if (submissions && submissions.length > 0) {
       // 获取最新的一次提交
       const latestSubmission = submissions[0];
-      submissionResult.value = latestSubmission;
-      code.value = latestSubmission.code;
-      isSubmitted.value = true;
+      
+      // 获取完整的提交详情(包括代码)
+      try {
+        const submissionDetail = await getSubmissionDetail(latestSubmission.id);
+        submissionResult.value = submissionDetail;
+        
+        // 确保有代码才更新
+        if (submissionDetail && submissionDetail.code) {
+          code.value = submissionDetail.code;
+          console.log("学生版本：加载历史提交代码成功, ID:", submissionDetail.id);
+          isSubmitted.value = true;
+        } else {
+          console.warn("学生版本：提交记录中无代码内容");
+          code.value = codeTemplates[selectedLanguage.value] || '';
+        }
+      } catch (detailError) {
+        console.error("学生版本：获取提交详情失败:", detailError);
+        code.value = codeTemplates[selectedLanguage.value] || '';
+        submissionResult.value = latestSubmission;
+      }
     } else {
       // 没有提交记录，使用默认代码模板
       code.value = codeTemplates[selectedLanguage.value] || '';
       isSubmitted.value = false;
+      console.log("学生版本：无历史提交记录，使用模板代码");
     }
   } catch (error) {
-    console.error('获取提交历史失败:', error);
+    console.error('学生版本：获取提交历史失败:', error);
     code.value = codeTemplates[selectedLanguage.value] || '';
   }
 };
@@ -235,6 +257,8 @@ const submitCode = async () => {
     if (result && result.id) {
       // 提交成功，获取详细结果
       submissionResult.value = result;
+      // 确保使用提交的代码
+      code.value = result.code || code.value;
       isSubmitted.value = true;
       isRedoing.value = false;
       ElMessage.success('代码提交成功');
@@ -388,6 +412,14 @@ onMounted(() => {
 .code-editor {
   flex-grow: 1;
   margin-bottom: 15px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: #f5f7fa;
 }
 
 .code-editor textarea {
@@ -625,6 +657,15 @@ onMounted(() => {
   padding: 10px 15px;
   border-radius: 4px;
   text-align: center;
+  font-weight: 500;
+}
+
+.history-submission {
+  font-size: 14px;
+  color: #409eff;
+  background-color: #ecf5ff;
+  padding: 2px 8px;
+  border-radius: 4px;
   font-weight: 500;
 }
 </style> 

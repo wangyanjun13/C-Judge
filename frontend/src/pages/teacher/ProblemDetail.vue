@@ -27,6 +27,10 @@
           
           <!-- 代码编辑框 -->
           <div class="code-editor">
+            <div class="editor-header">
+              <span class="language-label">编程语言：C</span>
+              <span v-if="isSubmitted" class="history-submission">历史提交</span>
+            </div>
             <textarea 
               v-model="code" 
               placeholder="请在此处编写代码..."
@@ -194,16 +198,34 @@ const fetchSubmissionHistory = async () => {
     if (submissions && submissions.length > 0) {
       // 获取最新的一次提交
       const latestSubmission = submissions[0];
-      submissionResult.value = latestSubmission;
-      code.value = latestSubmission.code;
-      isSubmitted.value = true;
+      
+      // 获取完整的提交详情(包括代码)
+      try {
+        const submissionDetail = await getSubmissionDetail(latestSubmission.id);
+        submissionResult.value = submissionDetail;
+        
+        // 确保有代码才更新
+        if (submissionDetail && submissionDetail.code) {
+          code.value = submissionDetail.code;
+          console.log("教师版本：加载历史提交代码成功, ID:", submissionDetail.id);
+          isSubmitted.value = true;
+        } else {
+          console.warn("教师版本：提交记录中无代码内容");
+          code.value = codeTemplates[selectedLanguage.value] || '';
+        }
+      } catch (detailError) {
+        console.error("教师版本：获取提交详情失败:", detailError);
+        code.value = codeTemplates[selectedLanguage.value] || '';
+        submissionResult.value = latestSubmission;
+      }
     } else {
       // 没有提交记录，使用默认代码模板
       code.value = codeTemplates[selectedLanguage.value] || '';
       isSubmitted.value = false;
+      console.log("教师版本：无历史提交记录，使用模板代码");
     }
   } catch (error) {
-    console.error('获取提交历史失败:', error);
+    console.error('教师版本：获取提交历史失败:', error);
     code.value = codeTemplates[selectedLanguage.value] || '';
   }
 };
@@ -234,7 +256,9 @@ const submitCode = async () => {
     
     if (result && result.id) {
       // 提交成功，获取详细结果
-      submissionResult.value = result;
+      submissionResult.value = result; 
+      // 确保使用提交的代码
+      code.value = result.code || code.value;
       isSubmitted.value = true;
       isRedoing.value = false;
       ElMessage.success('代码提交成功');
@@ -257,8 +281,9 @@ const redoSubmission = () => {
     return;
   }
   
+  // 将isRedoing置为true，但保留当前代码
   isRedoing.value = true;
-  ElMessage.info('您可以修改代码后重新提交');
+  ElMessage.info('您可以在历史代码的基础上进行修改后重新提交');
 };
 
 // 获取状态对应的样式类
@@ -378,6 +403,23 @@ onMounted(() => {
 .code-editor {
   flex-grow: 1;
   margin-bottom: 15px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: #f5f7fa;
+}
+
+.history-submission {
+  font-size: 14px;
+  color: #409eff;
+  background-color: #ecf5ff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .code-editor textarea {
