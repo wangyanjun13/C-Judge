@@ -9,13 +9,13 @@
       <div class="header">
         <h2>{{ exercise.name }} 
           <span class="time-info" v-if="isExerciseStarted && !isExerciseEnded">
-            ({{ formatTimeRemaining() }}后结束)
+            （已开始，{{ formatTimeRemaining() }}后截止，截止时间为{{ formatDate(exercise.end_time) }}）
           </span>
           <span class="time-info" v-else-if="!isExerciseStarted">
-            ({{ formatTimeRemaining() }}后开始)
+            （{{ formatTimeRemaining() }}后开始）
           </span>
           <span class="time-info" v-else-if="isExerciseEnded">
-            (已结束)
+            （已截止）
           </span>
         </h2>
         <div class="actions">
@@ -25,7 +25,7 @@
       
       <div class="problems-section" :class="{'exercise-ended': isExerciseEnded}">
         <div v-if="isExerciseEnded" class="deadline-banner">
-          <span>练习已截止，无法提交新代码</span>
+          <span>练习已结束，无法提交新代码</span>
         </div>
         <div class="section-header">
           <h3>题目列表</h3>
@@ -62,6 +62,7 @@
                 <td>
                   <span class="score-cell">{{ calculateTotalScore(problem) }}</span>
                   <span v-if="isSubmitted(problem)" class="submitted-tag">已提交</span>
+                  <span v-else class="not-submitted-tag">未提交</span>
                 </td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
@@ -225,8 +226,8 @@ const addProblemForm = ref({
 
 // 在script setup部分添加计算练习时间的函数
 const isExerciseStarted = computed(() => {
-  if (!exercise.value || !exercise.value.publish_time) return false;
-  return new Date(exercise.value.publish_time) <= new Date();
+  if (!exercise.value || !exercise.value.start_time) return false;
+  return new Date(exercise.value.start_time) <= new Date();
 });
 
 const isExerciseEnded = computed(() => {
@@ -235,17 +236,21 @@ const isExerciseEnded = computed(() => {
 });
 
 const formatTimeRemaining = () => {
-  if (!exercise.value) return '';
+  if (!exercise.value) return '0小时';
   
   const now = new Date();
   let targetDate;
   
   if (!isExerciseStarted.value) {
     // 未开始，计算距离开始的时间
-    targetDate = new Date(exercise.value.publish_time);
+    if (!exercise.value.start_time) return '0小时';
+    targetDate = new Date(exercise.value.start_time);
+    if (isNaN(targetDate.getTime())) return '0小时';
   } else if (!isExerciseEnded.value) {
     // 已开始但未结束，计算距离结束的时间
+    if (!exercise.value.end_time) return '0小时';
     targetDate = new Date(exercise.value.end_time);
+    if (isNaN(targetDate.getTime())) return '0小时';
   } else {
     return '已结束';
   }
@@ -293,10 +298,11 @@ const formatLanguages = (languages) => {
 const calculateTotalScore = (problem) => {
   // 检查这个题目是否有提交记录
   const submission = submissionMap.value[problem.id];
-  if (submission && submission.total_score) {
-    return `${submission.total_score}`;
+  if (submission) {
+    // 即使是0分也显示出来
+    return `${submission.total_score ?? 0}`;
   }
-  return '-';  // 没有分数时显示"-"
+  return '0';  // 没有提交记录显示0分
 };
 
 // 检查题目是否已提交
@@ -563,10 +569,14 @@ onMounted(() => {
 }
 
 .time-info {
-  font-size: 14px;
-  color: #909399;
+  font-size: 15px;
+  color: #606266;
   margin-left: 10px;
-  font-weight: normal;
+  font-weight: bold;
+  background-color: #f0f9eb;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e1f3d8;
 }
 
 .actions {
@@ -622,6 +632,16 @@ onMounted(() => {
   margin-left: 5px;
   padding: 2px 5px;
   background-color: #67c23a;
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.not-submitted-tag {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 5px;
+  background-color: #909399;
   color: white;
   font-size: 12px;
   border-radius: 4px;
