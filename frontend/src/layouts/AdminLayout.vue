@@ -1,7 +1,7 @@
 <template>
   <div class="layout">
     <header class="header">
-      <div class="logo">C语言评测系统</div>
+      <div class="logo">C-Judge测评系统(C语言)</div>
       <nav class="nav">
         <router-link to="/admin/exercises" class="nav-item">练习</router-link>
         <router-link to="/admin/operation-logs" class="nav-item">操作记录</router-link>
@@ -45,13 +45,16 @@
       <router-view></router-view>
     </main>
     
+    <!-- 页脚 -->
+    <Footer />
+    
     <!-- 关于对话框 -->
     <div v-if="aboutVisible" class="modal-overlay" @click="aboutVisible = false">
       <div class="modal" @click.stop>
         <h2>关于系统</h2>
-        <p>本系统为用于教育场景的C语言在线评测平台。</p>
+        <p>本系统为用于教育场景的简单C语言在线测评平台，主要用于C语言教学，支持C语言的在线评测，支持C语言的在线提交、在线评测、在线查看结果，支持教师管理、学生管理、班级管理、课程管理、题库管理、评测管理等，支持用户管理、权限管理、日志管理等，支持系统设置、统计数据等。</p>
         <p>版本：1.0.0</p>
-        <p>开发者：wangyanjun13@foxmail.com</p>
+        <p>联系开发者：wangyanjun13@foxmail.com</p>
         <button @click="aboutVisible = false">关闭</button>
       </div>
     </div>
@@ -78,6 +81,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
+import Footer from '../components/Footer.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();

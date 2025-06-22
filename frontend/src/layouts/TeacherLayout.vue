@@ -1,7 +1,7 @@
 <template>
   <div class="layout">
     <header class="header">
-      <div class="logo">C语言评测系统</div>
+      <div class="logo">C-Judge测评系统(C语言)</div>
       <nav class="nav">
         <router-link to="/teacher/exercises" class="nav-item">练习</router-link>
         <router-link to="/teacher/operation-logs" class="nav-item">操作记录</router-link>
@@ -41,6 +41,9 @@
       <router-view></router-view>
     </main>
     
+    <!-- 页脚 -->
+    <Footer />
+    
     <!-- 关于对话框 -->
     <div v-if="aboutVisible" class="modal-overlay" @click="aboutVisible = false">
       <div class="modal" @click.stop>
@@ -73,6 +76,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
+import Footer from '../components/Footer.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
