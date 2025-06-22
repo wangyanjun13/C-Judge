@@ -93,6 +93,7 @@ import { ref, onMounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getProblemCategories, getProblemsByCategory, updateProblem as updateProblemAPI, deleteProblem as deleteProblemAPI } from '../../api/problems';
 import { useRoute } from 'vue-router';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 // 获取路由参数
 const route = useRoute();
@@ -148,6 +149,7 @@ const loadProblems = async () => {
 // 更新试题
 const updateProblem = (problem) => {
   ElMessage.info('更新试题功能正在开发中...');
+  logUserOperation(OperationType.UPDATE_PROBLEM, `试题: ${problem.chinese_name}`);
 };
 
 // 确认删除试题
@@ -168,6 +170,7 @@ const deleteProblem = async (problem) => {
   try {
     await deleteProblemAPI(problem.data_path);
     ElMessage.success('删除试题成功');
+    logUserOperation(OperationType.DELETE_PROBLEM, `试题: ${problem.chinese_name}`);
     loadProblems(); // 重新加载试题列表
   } catch (err) {
     console.error('删除试题失败:', err);
@@ -190,6 +193,7 @@ const uploadProblemBank = () => {
   
   uploadStatus.value = '上传中...';
   ElMessage.info('上传题库功能正在开发中...');
+  logUserOperation(OperationType.UPLOAD_PROBLEM_BANK, `文件: ${selectedFile.value.name}`);
   // 此处实现文件上传逻辑
 };
 

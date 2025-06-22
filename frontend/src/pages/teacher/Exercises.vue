@@ -199,6 +199,7 @@ import {
   deleteExercise as apiDeleteExercise,
   getCourses
 } from '../../api/exercises';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const router = useRouter();
 const exercises = ref([]);
@@ -315,10 +316,14 @@ const submitForm = async () => {
     if (isEditing.value) {
       // 更新练习
       await updateExercise(exerciseToDelete.value.id, form.value);
+      // 记录更新练习操作
+      await logUserOperation(OperationType.UPDATE_EXERCISE, `练习: ${form.value.name}`);
       ElMessage.success('练习更新成功');
     } else {
       // 创建练习
-      await createExercise(form.value);
+      const result = await createExercise(form.value);
+      // 记录创建练习操作
+      await logUserOperation(OperationType.CREATE_EXERCISE, `练习: ${form.value.name}`);
       ElMessage.success('练习创建成功');
     }
     formModalVisible.value = false;
@@ -335,6 +340,8 @@ const deleteExerciseConfirm = async () => {
   
   try {
     await apiDeleteExercise(exerciseToDelete.value.id);
+    // 记录删除练习操作
+    await logUserOperation(OperationType.DELETE_EXERCISE, `练习: ${exerciseToDelete.value.name}`);
     ElMessage.success('练习删除成功');
     deleteModalVisible.value = false;
     fetchExercises();

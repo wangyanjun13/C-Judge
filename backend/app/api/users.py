@@ -20,10 +20,12 @@ async def get_teachers(
 ):
     """获取教师列表（仅限管理员）"""
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=current_user.id,
         operation="查看教师列表",
-        target="教师列表"
+        target="教师列表",
+        created_at=now
     )
     db.add(log)
     db.commit()
@@ -41,10 +43,12 @@ async def get_students(
 ):
     """获取学生列表"""
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=current_user.id,
         operation="查看学生列表",
-        target="学生列表"
+        target="学生列表",
+        created_at=now
     )
     db.add(log)
     db.commit()
@@ -113,10 +117,12 @@ async def create_teacher(
     db.refresh(new_teacher)
     
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=current_user.id,
         operation="创建教师账号",
-        target=new_teacher.username
+        target=new_teacher.username,
+        created_at=now
     )
     db.add(log)
     db.commit()
@@ -189,10 +195,12 @@ async def create_student(
     db.refresh(new_student)
     
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=current_user.id,
         operation="创建学生账号",
-        target=new_student.username
+        target=new_student.username,
+        created_at=now
     )
     db.add(log)
     db.commit()

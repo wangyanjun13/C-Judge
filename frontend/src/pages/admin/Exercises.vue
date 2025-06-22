@@ -203,6 +203,7 @@ import {
   deleteExercise as apiDeleteExercise,
   getCourses
 } from '../../api/exercises';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const router = useRouter();
 const exercises = ref([]);
@@ -255,6 +256,7 @@ const formatDateForInput = (dateString) => {
 
 // 查看练习
 const viewExercise = (id) => {
+  logUserOperation(OperationType.VIEW_EXERCISE, `练习ID: ${id}`);
   router.push(`/admin/exercise/${id}`);
 };
 
@@ -327,10 +329,12 @@ const submitForm = async () => {
     if (isEditing.value) {
       // 更新练习
       await updateExercise(exerciseToDelete.value.id, form.value);
+      logUserOperation(OperationType.UPDATE_EXERCISE, `练习: ${form.value.name}`);
       ElMessage.success('练习更新成功');
     } else {
       // 创建练习
       await createExercise(form.value);
+      logUserOperation(OperationType.CREATE_EXERCISE, `练习: ${form.value.name}`);
       ElMessage.success('练习创建成功');
     }
     formModalVisible.value = false;
@@ -347,6 +351,7 @@ const deleteExerciseConfirm = async () => {
   
   try {
     await apiDeleteExercise(exerciseToDelete.value.id);
+    logUserOperation(OperationType.DELETE_EXERCISE, `练习: ${exerciseToDelete.value.name}`);
     ElMessage.success('练习删除成功');
     deleteModalVisible.value = false;
     fetchExercises();
@@ -398,6 +403,12 @@ const fetchCourses = async () => {
 // 下载练习
 const downloadExercise = (id) => {
   ElMessage.info('下载功能正在开发中...');
+  const exercise = exercises.value.find(e => e.id === id);
+  if (exercise) {
+    logUserOperation(OperationType.DOWNLOAD_EXERCISE, `练习: ${exercise.name}`);
+  } else {
+    logUserOperation(OperationType.DOWNLOAD_EXERCISE, `练习ID: ${id}`);
+  }
 };
 
 // 格式化课程名称

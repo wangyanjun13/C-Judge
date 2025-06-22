@@ -27,10 +27,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     db.commit()
     
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=user.id,
         operation="登录",
-        target="系统"
+        target="系统",
+        created_at=now
     )
     db.add(log)
     db.commit()
@@ -81,10 +83,12 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=db_user.id,
         operation="注册",
-        target="系统"
+        target="系统",
+        created_at=now
     )
     db.add(log)
     db.commit()
@@ -134,10 +138,12 @@ async def change_password(
     db.commit()
     
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=current_user.id,
         operation="修改密码",
-        target="系统"
+        target="系统",
+        created_at=now
     )
     db.add(log)
     db.commit()
@@ -152,10 +158,12 @@ async def logout(current_user: User = Depends(get_current_active_user), db: Sess
     db.commit()
     
     # 记录操作日志
+    now = datetime.now()
     log = OperationLog(
         user_id=current_user.id,
         operation="登出",
-        target="系统"
+        target="系统",
+        created_at=now
     )
     db.add(log)
     db.commit()

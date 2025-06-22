@@ -100,7 +100,7 @@ CREATE TABLE operation_logs (
     user_id INTEGER REFERENCES users(id),
     operation VARCHAR(100) NOT NULL,
     target VARCHAR(255), -- 操作对象，如练习名称、题目名称等
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 创建系统设置表

@@ -44,6 +44,11 @@ instance.interceptors.response.use(
     return response
   },
   error => {
+    // 如果是操作日志相关的请求，静默处理错误
+    if (error.config && error.config.url && error.config.url.includes('/api/operation-logs')) {
+      return Promise.reject(error);
+    }
+    
     let message = '未知错误'
     
     if (error.response) {

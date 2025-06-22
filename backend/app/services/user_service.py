@@ -387,7 +387,8 @@ class UserService:
         log = OperationLog(
             user_id=user_id,
             operation=operation,
-            target=target
+            target=target,
+            created_at=datetime.now()  # 明确设置当前时间
         )
         db.add(log)
         db.commit() 

@@ -119,6 +119,7 @@ import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
 import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -255,8 +256,11 @@ const submitCode = async () => {
     );
     
     if (result && result.id) {
+      // 记录提交代码操作
+      await logUserOperation(OperationType.SUBMIT_CODE, `题目: ${problem.value.name || problemId}`);
+      
       // 提交成功，获取详细结果
-      submissionResult.value = result;
+      submissionResult.value = result; 
       // 确保使用提交的代码
       code.value = result.code || code.value;
       isSubmitted.value = true;
@@ -267,17 +271,7 @@ const submitCode = async () => {
     }
   } catch (error) {
     console.error('提交代码失败', error);
-    if (error.response && error.response.data && error.response.data.detail) {
-      ElMessage.error(`提交失败: ${error.response.data.detail}`);
-    } else {
-      ElMessage.error(`提交失败: ${error.message || '未知错误'}`);
-    }
-    
-    // 如果返回403并提示练习已截止，强制更新练习状态
-    if (error.response && error.response.status === 403 && 
-        error.response.data && error.response.data.detail.includes('练习已截止')) {
-      exercise.value = { ...exercise.value, end_time: new Date(Date.now() - 86400000).toISOString() };
-    }
+    ElMessage.error(`提交失败: ${error.response?.data?.detail || error.message}`);
   } finally {
     submitting.value = false;
   }
@@ -290,6 +284,9 @@ const redoSubmission = () => {
     ElMessage.warning('练习已截止，无法重做');
     return;
   }
+  
+  // 记录重做提交的操作
+  logUserOperation(OperationType.REDO_SUBMISSION, `题目: ${problem.value.name || problemId}`);
   
   isRedoing.value = true;
   ElMessage.info('您可以修改代码后重新提交');

@@ -101,6 +101,7 @@ import { ElMessage } from 'element-plus';
 import { getExerciseDetail } from '../../api/exercises';
 import { getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -212,6 +213,9 @@ const fetchExerciseDetail = async () => {
     const result = await getExerciseDetail(exerciseId);
     exercise.value = result;
     
+    // 记录查看练习操作
+    await logUserOperation(OperationType.VIEW_EXERCISE, `练习: ${result.name}`);
+    
     // 获取所有题目的提交记录
     if (authStore.user && authStore.user.id) {
       await fetchSubmissions();
@@ -252,6 +256,8 @@ const fetchSubmissions = async () => {
 
 // 查看题目
 const viewProblem = (problemId) => {
+  // 记录查看题目操作
+  logUserOperation(OperationType.VIEW_PROBLEM, `题目ID: ${problemId}`);
   router.push(`/student/problem/${problemId}?exercise_id=${exerciseId}`);
 };
 

@@ -119,6 +119,7 @@ import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
 import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -157,6 +158,9 @@ const fetchProblemDetail = async () => {
     // 获取题目详情
     const problemResult = await getProblemDetail(problemId);
     problem.value = problemResult;
+    
+    // 记录查看题目操作
+    logUserOperation(OperationType.VIEW_PROBLEM, `题目ID: ${problemId}`);
     
     // 获取练习详情（主要用于检查结束时间）
     if (exerciseId) {
@@ -262,6 +266,9 @@ const submitCode = async () => {
       isSubmitted.value = true;
       isRedoing.value = false;
       ElMessage.success('代码提交成功');
+      
+      // 记录提交代码操作
+      logUserOperation(OperationType.SUBMIT_CODE, `题目: ${problem.value.name || problemId}`);
     } else {
       ElMessage.error('提交失败，请稍后重试');
     }

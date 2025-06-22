@@ -54,6 +54,7 @@ import { ref } from 'vue';
 import { useAuthStore } from '../../store/auth';
 import { ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -88,6 +89,9 @@ const handleChangePassword = async () => {
       passwordForm.value.oldPassword,
       passwordForm.value.newPassword
     );
+    
+    // 记录修改密码操作
+    logUserOperation(OperationType.CHANGE_PASSWORD);
     
     ElMessage.success('密码修改成功，请重新登录');
     

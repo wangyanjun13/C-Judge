@@ -183,6 +183,7 @@ import { getExerciseDetail, updateExercise, removeProblemFromExercise, updatePro
 import { getSubmissions } from '../../api/submissions';
 import ProblemSelector from '../../components/ProblemSelector.vue';
 import { useAuthStore } from '../../store/auth';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -240,6 +241,9 @@ const fetchExerciseDetail = async () => {
     const result = await getExerciseDetail(exerciseId);
     exercise.value = result;
     
+    // 记录查看练习详情操作
+    logUserOperation(OperationType.VIEW_EXERCISE, `练习: ${result.name}`);
+    
     // 获取所有题目的提交记录
     if (authStore.user && authStore.user.id) {
       await fetchSubmissions();
@@ -280,6 +284,7 @@ const fetchSubmissions = async () => {
 
 // 查看题目
 const viewProblem = (problemId) => {
+  logUserOperation(OperationType.VIEW_PROBLEM, `题目ID: ${problemId}`);
   router.push(`/admin/problem/${problemId}?exercise_id=${exerciseId}`);
 };
 
@@ -303,6 +308,11 @@ const removeProblem = async (problemId) => {
     });
     
     await removeProblemFromExercise(exerciseId, problemId);
+    
+    // 记录移除题目操作
+    const problemName = exercise.value.problems.find(p => p.id === problemId)?.name || problemId;
+    logUserOperation(OperationType.REMOVE_PROBLEM, `从练习 ${exercise.value.name} 中移除题目: ${problemName}`);
+    
     ElMessage.success('题目已成功移除');
     fetchExerciseDetail(); // 重新获取练习详情
   } catch (error) {
@@ -356,6 +366,7 @@ const submitEditProblemForm = async () => {
       
       // 批量更新所有题目
       await updateExercise(exerciseId, { problems: updatedProblems });
+      logUserOperation(OperationType.UPDATE_PROBLEMS, `批量更新练习 ${exercise.value.name} 中的所有题目`);
     } else {
       // 只更新单个题目
       const updateData = {
@@ -367,6 +378,7 @@ const submitEditProblemForm = async () => {
         score_method: 'sum'
       };
       await updateProblem(exerciseId, editProblemForm.value.id, updateData);
+      logUserOperation(OperationType.UPDATE_PROBLEM, `更新练习 ${exercise.value.name} 中的题目: ${editProblemForm.value.name}`);
     }
     
     ElMessage.success('题目更新成功');
@@ -398,6 +410,9 @@ const handleAddProblems = async (data) => {
   try {
     // 添加题目到练习
     const result = await addProblemsToExercise(data.exerciseId, data.problems);
+    
+    // 记录添加题目操作
+    logUserOperation(OperationType.ADD_PROBLEMS, `向练习 ${exercise.value.name} 添加题目: ${data.problems.length}道`);
     
     // 根据返回结果显示不同的消息
     if (result.added_count > 0 && result.existing_count > 0) {
@@ -433,6 +448,7 @@ const clearExercise = async () => {
     });
     
     await clearExerciseProblems(exerciseId);
+    logUserOperation(OperationType.CLEAR_EXERCISE, `清空练习 ${exercise.value.name} 中的所有题目`);
     ElMessage.success('已清空练习中的所有题目');
     fetchExerciseDetail(); // 重新获取练习详情
   } catch (error) {
@@ -446,11 +462,13 @@ const clearExercise = async () => {
 // 测评练习
 const evaluateExercise = () => {
   ElMessage.info('测评练习功能正在开发中...');
+  logUserOperation(OperationType.EVALUATE_EXERCISE, `测评练习: ${exercise.value.name}`);
 };
 
 // 检查抄袭
 const checkPlagiarism = () => {
   ElMessage.info('检查抄袭功能正在开发中...');
+  logUserOperation(OperationType.CHECK_PLAGIARISM, `检查练习抄袭: ${exercise.value.name}`);
 };
 
 // 在script setup部分添加计算练习时间的函数

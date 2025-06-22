@@ -80,6 +80,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getStudentExercises } from '../../api/exercises';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const router = useRouter();
 const exercises = ref([]);
@@ -107,6 +108,11 @@ const formatDate = (dateString) => {
 
 // 查看练习
 const viewExercise = (id) => {
+  // 记录查看练习的操作
+  const exercise = exercises.value.find(e => e.id === id);
+  if (exercise) {
+    logUserOperation(OperationType.VIEW_EXERCISE, `练习: ${exercise.name}`);
+  }
   router.push(`/student/exercise/${id}`);
 };
 
@@ -126,6 +132,8 @@ const saveNote = () => {
   if (selectedExercise.value) {
     // 保存到本地存储
     localStorage.setItem('studentExerciseNotes', JSON.stringify(exerciseNotes.value));
+    // 记录添加备注的操作
+    logUserOperation(OperationType.UPDATE_NOTE, `练习备注: ${selectedExercise.value.name}`);
     ElMessage.success('备注保存成功');
     noteModalVisible.value = false;
   }

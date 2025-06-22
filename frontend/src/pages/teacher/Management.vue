@@ -196,6 +196,7 @@ import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import axios from '@/utils/axios';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 // 获取路由参数
 const route = useRoute();
@@ -494,10 +495,14 @@ const submitStudentForm = async () => {
     if (isEditing.value) {
       // 更新学生
       await axios.put(`/api/users/student/${studentForm.value.id}`, postData);
+      // 记录更新学生操作
+      await logUserOperation(OperationType.UPDATE_STUDENT, `学生: ${studentForm.value.real_name} (${studentForm.value.username})`);
       ElMessage.success('学生信息更新成功');
     } else {
       // 创建学生
       await axios.post('/api/users/student', postData);
+      // 记录创建学生操作
+      await logUserOperation(OperationType.CREATE_STUDENT, `学生: ${studentForm.value.real_name} (${studentForm.value.username})`);
       ElMessage.success('学生创建成功');
     }
     
@@ -516,6 +521,8 @@ const confirmDelete = async () => {
   try {
     // 删除学生
     await axios.delete(`/api/users/student/${deleteItem.value.id}`);
+    // 记录删除学生操作
+    await logUserOperation(OperationType.DELETE_STUDENT, `学生: ${deleteItem.value.real_name} (${deleteItem.value.username})`);
     ElMessage.success('学生删除成功');
     await fetchStudents();
     deleteModalVisible.value = false;

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { authApi } from '../api/auth';
 import storage from '../utils/localStorage';
+import { logUserOperation, OperationType } from '../utils/logger';
 
 export const useAuthStore = defineStore('auth', {
   state: () => {
@@ -31,6 +32,10 @@ export const useAuthStore = defineStore('auth', {
         console.log('登录响应:', response.data);
         if (response && response.data) {
           this.setAuth(response.data);
+          
+          // 记录登录操作
+          await logUserOperation(OperationType.LOGIN);
+          
           return response.data;
         } else {
           throw new Error('登录响应无效');
@@ -71,6 +76,10 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const response = await authApi.changePassword(oldPassword, newPassword);
+        
+        // 记录修改密码操作
+        await logUserOperation(OperationType.CHANGE_PASSWORD);
+        
         return response;
       } catch (error) {
         this.error = error.response?.data?.detail || '修改密码失败';
@@ -85,6 +94,9 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true;
       
       try {
+        // 记录登出操作
+        await logUserOperation(OperationType.LOGOUT);
+        
         await authApi.logout();
       } catch (error) {
         console.error('登出错误', error);

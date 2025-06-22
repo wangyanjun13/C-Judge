@@ -1,5 +1,6 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.models import User, Course, Class, OperationLog
 
@@ -141,7 +142,8 @@ class CourseService:
         log = OperationLog(
             user_id=user_id,
             operation=operation,
-            target=target
+            target=target,
+            created_at=datetime.now()  # 明确设置当前时间
         )
         db.add(log)
         db.commit() 

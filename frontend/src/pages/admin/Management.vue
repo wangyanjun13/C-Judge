@@ -472,6 +472,7 @@ import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import axios from '@/utils/axios';  // 修正导入路径
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 // 获取路由参数
 const route = useRoute();
@@ -673,10 +674,12 @@ const submitClassForm = async () => {
     if (isEditing.value) {
       // 更新班级
       await axios.put(`/api/classes/${classForm.value.id}`, classForm.value);
+      logUserOperation(OperationType.UPDATE_CLASS, `班级: ${classForm.value.name}`);
       ElMessage.success('班级更新成功');
     } else {
       // 创建班级
       await axios.post('/api/classes/', classForm.value);
+      logUserOperation(OperationType.CREATE_CLASS, `班级: ${classForm.value.name}`);
       ElMessage.success('班级创建成功');
     }
     classModalVisible.value = false;
@@ -776,10 +779,12 @@ const submitTeacherForm = async () => {
     if (isEditing.value) {
       // 更新教师
       await axios.put(`/api/users/teacher/${teacherForm.value.id}`, postData);
+      logUserOperation(OperationType.UPDATE_TEACHER, `教师: ${teacherForm.value.real_name} (${teacherForm.value.username})`);
       ElMessage.success('教师信息更新成功');
     } else {
       // 创建教师
       await axios.post('/api/users/teacher', postData);
+      logUserOperation(OperationType.CREATE_TEACHER, `教师: ${teacherForm.value.real_name} (${teacherForm.value.username})`);
       ElMessage.success('教师创建成功');
     }
     teacherModalVisible.value = false;
@@ -860,10 +865,12 @@ const submitCourseForm = async () => {
     if (isEditing.value) {
       // 更新课程
       await axios.put(`/api/courses/${courseForm.value.id}`, courseForm.value);
+      logUserOperation(OperationType.UPDATE_COURSE, `课程: ${courseForm.value.name}`);
       ElMessage.success('课程更新成功');
     } else {
       // 创建课程
       await axios.post('/api/courses/', courseForm.value);
+      logUserOperation(OperationType.CREATE_COURSE, `课程: ${courseForm.value.name}`);
       ElMessage.success('课程创建成功');
     }
     courseModalVisible.value = false;
@@ -880,21 +887,25 @@ const confirmDelete = async () => {
     if (deleteType.value === 'class') {
       // 删除班级
       await axios.delete(`/api/classes/${deleteItem.value.id}`);
+      logUserOperation(OperationType.DELETE_CLASS, `班级: ${deleteItem.value.name}`);
       ElMessage.success('班级删除成功');
       await fetchClasses();
     } else if (deleteType.value === 'teacher') {
       // 删除教师
       await axios.delete(`/api/users/teacher/${deleteItem.value.id}`);
+      logUserOperation(OperationType.DELETE_TEACHER, `教师: ${deleteItem.value.real_name} (${deleteItem.value.username})`);
       ElMessage.success('教师删除成功');
       await fetchTeachers();
     } else if (deleteType.value === 'course') {
       // 删除课程
       await axios.delete(`/api/courses/${deleteItem.value.id}`);
+      logUserOperation(OperationType.DELETE_COURSE, `课程: ${deleteItem.value.name}`);
       ElMessage.success('课程删除成功');
       await fetchCourses();
     } else if (deleteType.value === 'student') {
       // 删除学生
       await axios.delete(`/api/users/student/${deleteItem.value.id}`);
+      logUserOperation(OperationType.DELETE_STUDENT, `学生: ${deleteItem.value.real_name} (${deleteItem.value.username})`);
       ElMessage.success('学生删除成功');
       await fetchStudents();
     }
@@ -1030,10 +1041,12 @@ const submitStudentForm = async () => {
     if (isEditing.value) {
       // 更新学生
       await axios.put(`/api/users/student/${studentForm.value.id}`, postData);
+      logUserOperation(OperationType.UPDATE_STUDENT, `学生: ${studentForm.value.real_name} (${studentForm.value.username})`);
       ElMessage.success('学生信息更新成功');
     } else {
       // 创建学生
       await axios.post('/api/users/student', postData);
+      logUserOperation(OperationType.CREATE_STUDENT, `学生: ${studentForm.value.real_name} (${studentForm.value.username})`);
       ElMessage.success('学生创建成功');
     }
     
@@ -1078,6 +1091,7 @@ const importStudents = async () => {
     formData.append('class_id', importForm.value.class_id);
     await axios.post('/api/users/import', formData);
     
+    logUserOperation(OperationType.IMPORT_STUDENTS, `导入学生到班级ID: ${importForm.value.class_id}`);
     ElMessage.success('学生导入成功');
     importModalVisible.value = false;
     await fetchStudents();
@@ -1103,6 +1117,7 @@ const exportStudents = async () => {
     link.download = res.data.filename;
     link.click();
     
+    logUserOperation(OperationType.EXPORT_STUDENTS, studentFilters.value.classId ? `导出班级ID: ${studentFilters.value.classId} 的学生` : '导出所有学生');
     ElMessage.success('学生数据导出成功');
   } catch (error) {
     console.error('导出学生失败', error);
@@ -1123,6 +1138,7 @@ const clearStudents = async () => {
     
     await axios.delete(url);
     
+    logUserOperation(OperationType.CLEAR_STUDENTS, studentFilters.value.classId ? `清空班级ID: ${studentFilters.value.classId} 的学生` : '清空所有学生');
     ElMessage.success('学生数据已清空');
     clearModalVisible.value = false;
     await fetchStudents();

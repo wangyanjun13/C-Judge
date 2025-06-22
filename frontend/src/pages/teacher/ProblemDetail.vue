@@ -119,6 +119,7 @@ import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
 import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
+import { logUserOperation, OperationType } from '../../utils/logger';
 
 const route = useRoute();
 const router = useRouter();
@@ -157,6 +158,11 @@ const fetchProblemDetail = async () => {
     // 获取题目详情
     const problemResult = await getProblemDetail(problemId);
     problem.value = problemResult;
+    
+    // 记录查看题目的操作
+    if (problemResult && problemResult.name) {
+      logUserOperation(OperationType.VIEW_PROBLEM, `题目: ${problemResult.name}`);
+    }
     
     // 获取练习详情（主要用于检查结束时间）
     if (exerciseId) {
@@ -261,6 +267,10 @@ const submitCode = async () => {
       code.value = result.code || code.value;
       isSubmitted.value = true;
       isRedoing.value = false;
+      
+      // 记录提交代码的操作
+      logUserOperation(OperationType.SUBMIT_CODE, `题目: ${problem.value.name || problemId}`);
+      
       ElMessage.success('代码提交成功');
     } else {
       ElMessage.error('提交失败，请稍后重试');
@@ -280,6 +290,9 @@ const redoSubmission = () => {
     ElMessage.warning('练习已截止，无法重做');
     return;
   }
+  
+  // 记录重做提交的操作
+  logUserOperation(OperationType.REDO_SUBMISSION, `题目: ${problem.value.name || problemId}`);
   
   // 将isRedoing置为true，但保留当前代码
   isRedoing.value = true;
