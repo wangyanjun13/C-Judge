@@ -214,8 +214,8 @@ const handleLogin = async () => {
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
   position: relative;
   z-index: 2;
-  margin: 0 0 0 800px;  /* 从中间位置向右偏移 */
-  transform: translateY(-10px);  /* 从中间位置向下偏移 */
+  margin: 0 0 0 830px;  /* 从中间位置向右偏移 */
+  transform: translateY(-10px);  /* 从中间位置向上偏移 */
 }
 
 h1 {
