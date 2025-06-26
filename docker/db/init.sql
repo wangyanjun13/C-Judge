@@ -23,6 +23,13 @@ CREATE TABLE student_class (
     PRIMARY KEY (student_id, class_id)
 );
 
+-- 创建教师-班级关联表
+CREATE TABLE teacher_class (
+    teacher_id INTEGER REFERENCES users(id),
+    class_id INTEGER REFERENCES classes(id),
+    PRIMARY KEY (teacher_id, class_id)
+);
+
 -- 创建课程表
 CREATE TABLE courses (
     id SERIAL PRIMARY KEY,

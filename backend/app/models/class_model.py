@@ -13,6 +13,14 @@ student_class = Table(
     Column("class_id", Integer, ForeignKey("classes.id"), primary_key=True)
 )
 
+# 教师-班级关联表
+teacher_class = Table(
+    "teacher_class",
+    Base.metadata,
+    Column("teacher_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("class_id", Integer, ForeignKey("classes.id"), primary_key=True)
+)
+
 # 班级与课程的多对多关系
 class_course = Table(
     "class_course",
@@ -33,8 +41,19 @@ class Class(Base):
     students = relationship(
         "User",
         secondary=student_class,
-        back_populates="classes"
+        back_populates="classes",
+        primaryjoin="Class.id==student_class.c.class_id",
+        secondaryjoin="and_(User.id==student_class.c.student_id, User.role=='student')"
     )
+    
+    teachers = relationship(
+        "User",
+        secondary=teacher_class,
+        back_populates="teaching_classes",
+        primaryjoin="Class.id==teacher_class.c.class_id",
+        secondaryjoin="and_(User.id==teacher_class.c.teacher_id, User.role=='teacher')"
+    )
+    
     courses = relationship(
         "Course",
         secondary=class_course,

@@ -9,6 +9,7 @@
         <div class="dropdown">
           <button class="nav-item dropdown-btn">管理</button>
           <div class="dropdown-content">
+            <router-link to="/teacher/management?tab=classes" class="dropdown-item">班级管理</router-link>
             <router-link to="/teacher/management?tab=courses" class="dropdown-item">课程竞赛</router-link>
             <router-link to="/teacher/management?tab=students" class="dropdown-item">学生管理</router-link>
           </div>
