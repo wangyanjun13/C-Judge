@@ -391,7 +391,7 @@ async def delete_student(
 @router.post("/import")
 async def import_students(
     file: UploadFile = File(...),
-    class_id: int = Form(...),
+    class_id: str = Form(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -400,10 +400,15 @@ async def import_students(
     if current_user.role == "student":
         raise HTTPException(status_code=403, detail="学生无权导入账号")
     
+    try:
+        class_id_int = int(class_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="班级ID必须是整数")
+    
     # 检查班级是否存在
-    class_item = db.query(Class).filter(Class.id == class_id).first()
+    class_item = db.query(Class).filter(Class.id == class_id_int).first()
     if not class_item:
-        raise HTTPException(status_code=404, detail="班级不存在")
+        raise HTTPException(status_code=404, detail=f"班级不存在 (ID: {class_id_int})")
     
     # 如果是教师，检查是否有权限操作该班级
     if current_user.role == "teacher":
@@ -412,15 +417,23 @@ async def import_students(
             for cls in course.classes:
                 teacher_class_ids.add(cls.id)
         
-        if class_id not in teacher_class_ids:
+        if class_id_int not in teacher_class_ids:
             raise HTTPException(status_code=403, detail="无权向此班级导入学生")
     
     # 读取文件内容
-    content = await file.read()
     try:
-        text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="文件编码错误，请使用UTF-8编码")
+        content = await file.read()
+        # 尝试不同编码读取文件
+        for encoding in ['utf-8', 'gbk', 'gb2312', 'latin1']:
+            try:
+                text = content.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:  # 如果所有编码都尝试失败
+            raise HTTPException(status_code=400, detail="文件编码错误")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"读取文件失败: {str(e)}")
     
     # 解析CSV数据
     reader = csv.reader(io.StringIO(text))
@@ -435,6 +448,15 @@ async def import_students(
             continue
         
         username, password, real_name = row
+        
+        # 去除空白
+        username = username.strip()
+        password = password.strip()
+        real_name = real_name.strip()
+        
+        if not username or not password or not real_name:
+            error_messages.append(f"第{i+1}行: 学号、密码或姓名不能为空")
+            continue
         
         # 检查用户名是否已存在
         existing_user = db.query(User).filter(User.username == username).first()
@@ -452,26 +474,35 @@ async def import_students(
                 role="student"
             )
             db.add(new_student)
-            db.flush()  # 分配ID但不提交事务
+            db.flush()
             
             # 添加班级关联
             new_student.classes.append(class_item)
             
             success_count += 1
         except Exception as e:
-            error_messages.append(f"第{i+1}行: 创建失败，错误: {str(e)}")
+            error_messages.append(f"第{i+1}行: 创建失败")
     
     # 提交事务
-    db.commit()
-    
-    # 记录操作日志
-    log = OperationLog(
-        user_id=current_user.id,
-        operation="批量导入学生",
-        target=class_item.name
-    )
-    db.add(log)
-    db.commit()
+    if success_count > 0:
+        try:
+            db.commit()
+            
+            # 记录操作日志
+            now = datetime.now()
+            log = OperationLog(
+                user_id=current_user.id,
+                operation="批量导入学生",
+                target=class_item.name,
+                created_at=now
+            )
+            db.add(log)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="保存数据失败")
+    else:
+        db.rollback()
     
     return {
         "message": f"导入完成，成功导入{success_count}名学生",

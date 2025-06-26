@@ -422,33 +422,51 @@
     <div v-if="importModalVisible" class="modal-overlay" @click="importModalVisible = false">
       <div class="modal" @click.stop>
         <h3>批量导入学生</h3>
-        <div class="import-instructions">
-          <p>请选择包含学生信息的TXT文件，每行一条记录，格式为：</p>
-          <pre>学号,密码,真实姓名</pre>
-          <p>例如：</p>
-          <pre>20210001,password123,张三
+        
+        <!-- 导入结果显示 -->
+        <div v-if="importResult" class="import-result">
+          <h4>导入结果</h4>
+          <p class="success-count">成功导入: <span>{{ importResult.success_count }}</span> 名学生</p>
+          
+          <div v-if="importResult.errors && importResult.errors.length > 0" class="error-list">
+            <p class="error-title">导入过程中有以下错误:</p>
+            <ul>
+              <li v-for="(error, index) in importResult.errors" :key="index" class="error-item">{{ error }}</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- 导入表单 -->
+        <div v-if="!importResult">
+          <div class="import-instructions">
+            <p>请选择包含学生信息的TXT或CSV文件，每行一条记录，格式为：</p>
+            <pre>学号,密码,真实姓名</pre>
+            <p>例如：</p>
+            <pre>20210001,password123,张三
 20210002,password456,李四
 20210003,password789,王五</pre>
-        </div>
-        
-        <div class="form-group">
-          <label for="import-class">选择班级</label>
-          <select id="import-class" v-model="importForm.class_id" required>
-            <option value="">请选择班级</option>
-            <option v-for="classItem in classes" :key="classItem.id" :value="classItem.id">
-              {{ classItem.name }}
-            </option>
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label for="import-file">选择文件</label>
-          <input type="file" id="import-file" @change="handleFileChange" accept=".txt" required />
+          </div>
+          
+          <div class="form-group">
+            <label for="import-class">选择班级</label>
+            <select id="import-class" v-model="importForm.class_id" required>
+              <option value="">请选择班级</option>
+              <option v-for="classItem in classes" :key="classItem.id" :value="classItem.id">
+                {{ classItem.name }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="import-file">选择文件</label>
+            <input type="file" id="import-file" @change="handleFileChange" accept=".txt,.csv" required />
+          </div>
         </div>
         
         <div class="form-actions">
-          <button type="button" @click="importModalVisible = false">取消</button>
-          <button type="button" class="btn-primary" @click="importStudents">导入</button>
+          <button type="button" @click="importModalVisible = false">{{ importResult ? '关闭' : '取消' }}</button>
+          <button v-if="!importResult" type="button" class="btn-primary" @click="importStudents">导入</button>
+          <button v-else type="button" class="btn-secondary" @click="importResult = null">重新导入</button>
         </div>
       </div>
     </div>
@@ -561,6 +579,9 @@ const importForm = ref({
   class_id: '',
   file: null
 });
+
+// 添加导入结果状态
+const importResult = ref(null);
 
 // 切换标签
 const switchTab = async (tab) => {
@@ -965,7 +986,7 @@ const showStudentModal = () => {
     confirmPassword: '',
     real_name: '', 
     role: 'student', 
-    class_ids: studentFilters.value.classId ? [studentFilters.value.classId] : []
+    class_ids: studentFilters.value && studentFilters.value.classId ? [studentFilters.value.classId] : []
   };
   studentModalVisible.value = true;
   
@@ -1061,17 +1082,46 @@ const submitStudentForm = async () => {
 };
 
 const showImportModal = () => {
+  // 初始化导入表单
   importForm.value = {
-    class_id: '',
+    class_id: studentFilters.value && studentFilters.value.classId ? studentFilters.value.classId : '',
     file: null
   };
   importModalVisible.value = true;
   
-  if (classes.value.length === 0) fetchClasses();
+  // 如果班级列表为空，则获取班级
+  if (classes.value.length === 0) {
+    fetchClasses();
+  }
 };
 
 const handleFileChange = (event) => {
-  importForm.value.file = event.target.files[0];
+  const file = event.target.files[0];
+  if (!file) {
+    importForm.value.file = null;
+    return;
+  }
+  
+  // 验证文件类型
+  const fileName = file.name.toLowerCase();
+  if (!fileName.endsWith('.txt') && !fileName.endsWith('.csv')) {
+    ElMessage.error('请选择TXT或CSV文件');
+    event.target.value = ''; // 清空选择
+    importForm.value.file = null;
+    return;
+  }
+  
+  // 验证文件大小，限制为5MB
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.error('文件过大，请选择5MB以下的文件');
+    event.target.value = ''; // 清空选择
+    importForm.value.file = null;
+    return;
+  }
+  
+  console.log('已选择文件:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
+  importForm.value.file = file;
+  ElMessage.success(`已选择文件: ${file.name}`);
 };
 
 const importStudents = async () => {
@@ -1088,11 +1138,13 @@ const importStudents = async () => {
   try {
     const formData = new FormData();
     formData.append('file', importForm.value.file);
-    formData.append('class_id', importForm.value.class_id);
-    await axios.post('/api/users/import', formData);
+    formData.append('class_id', String(importForm.value.class_id));
+    
+    const response = await axios.post('/api/users/import', formData);
     
     logUserOperation(OperationType.IMPORT_STUDENTS, `导入学生到班级ID: ${importForm.value.class_id}`);
-    ElMessage.success('学生导入成功');
+    ElMessage.success(`学生导入成功，共导入 ${response.data.success_count || 0} 名学生`);
+    
     importModalVisible.value = false;
     await fetchStudents();
   } catch (error) {
@@ -1550,5 +1602,63 @@ th {
   color: #409eff;
   cursor: pointer;
   text-decoration: underline;
+}
+
+.selected-class-info {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+}
+
+.file-format-info {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+}
+
+.import-result {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f8f9;
+  border-radius: 4px;
+}
+
+.import-result h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #303133;
+}
+
+.success-count {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.success-count span {
+  font-weight: bold;
+  color: #67c23a;
+}
+
+.error-list {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #fef0f0;
+  border-radius: 4px;
+  border-left: 4px solid #f56c6c;
+}
+
+.error-title {
+  margin-top: 0;
+  font-weight: bold;
+  color: #f56c6c;
+}
+
+.error-list ul {
+  margin: 10px 0 0 0;
+  padding-left: 20px;
+}
+
+.error-list li {
+  margin-bottom: 5px;
 }
 </style> 

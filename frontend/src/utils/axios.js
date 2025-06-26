@@ -14,23 +14,23 @@ const instance = axios.create({
 // 请求拦截器
 instance.interceptors.request.use(
   config => {
-    // 从localStorage获取token并添加到请求头
-    const token = localStorage.getItem('token')
+    // 当Content-Type为multipart/form-data时，不要设置Content-Type，让浏览器自动设置
+    if (config.data instanceof FormData) {
+      // 使用FormData时，删除Content-Type让浏览器自动设置boundary
+      delete config.headers['Content-Type'];
+    }
+    
+    console.log('API请求: ', config);
+    
+    // 从localStorage获取token
+    const token = localStorage.getItem('token');
+    
+    // 如果token存在，添加到请求头中
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // 输出请求详情到控制台（仅开发环境）
-    if (import.meta.env.DEV) {
-      console.log('API请求:', {
-        url: config.url,
-        method: config.method,
-        headers: config.headers,
-        data: config.data
-      })
-    }
-    
-    return config
+    return config;
   },
   error => {
     console.error('请求错误:', error)
