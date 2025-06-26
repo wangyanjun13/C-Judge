@@ -25,6 +25,11 @@ class User(Base):
     
     # 教师关系
     courses = relationship("Course", back_populates="teacher")
+    teaching_classes = relationship(
+        "Class",
+        secondary="teacher_class",
+        back_populates="teachers"
+    )
     
     # 学生关系 - 通过 student_class 关联表关联到 classes
     # 数据库中没有 class_id 字段，使用多对多关系

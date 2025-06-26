@@ -32,6 +32,7 @@
           <thead>
             <tr>
               <th>班级名称</th>
+              <th>授课教师</th>
               <th>学生数量</th>
               <th>操作</th>
             </tr>
@@ -39,6 +40,11 @@
           <tbody>
             <tr v-for="classItem in classes" :key="classItem.id">
               <td>{{ classItem.name }}</td>
+              <td>
+                <span v-for="(teacher, index) in classItem.teachers" :key="teacher.id">
+                  {{ teacher.username }} ({{ teacher.real_name }}){{ index < classItem.teachers.length - 1 ? ', ' : '' }}
+                </span>
+              </td>
               <td>{{ classItem.student_count || 0 }}</td>
               <td>
                 <button class="btn btn-sm btn-edit" @click="editClass(classItem)">修改</button>
@@ -216,6 +222,21 @@
               v-model="classForm.name"
               required
             />
+          </div>
+          
+          <div class="form-group">
+            <label for="class-teacher">授课教师</label>
+            <div class="checkbox-group">
+              <div v-for="teacher in teachers" :key="teacher.id" class="checkbox-item">
+                <input
+                  type="checkbox"
+                  :id="`teacher-${teacher.id}`"
+                  :value="teacher.id"
+                  v-model="classForm.teacher_ids"
+                />
+                <label :for="`teacher-${teacher.id}`">{{ teacher.username }} ({{ teacher.real_name }})</label>
+              </div>
+            </div>
           </div>
           
           <div class="form-actions">
@@ -531,7 +552,8 @@ const deleteItem = ref(null);
 // 表单数据
 const classForm = ref({
   id: null,
-  name: ''
+  name: '',
+  teacher_ids: []
 });
 
 // 教师相关表单数据
@@ -671,14 +693,33 @@ const fetchClasses = async () => {
 // 显示班级添加对话框
 const showClassModal = () => {
   isEditing.value = false;
-  classForm.value = { id: null, name: '' };
+  classForm.value = { 
+    id: null, 
+    name: '', 
+    teacher_ids: [] 
+  };
   classModalVisible.value = true;
+  
+  // 确保教师列表已加载
+  if (teachers.value.length === 0) {
+    fetchTeachers();
+  }
 };
 
 // 显示班级编辑对话框
-const editClass = (classItem) => {
+const editClass = async (classItem) => {
   isEditing.value = true;
-  classForm.value = { id: classItem.id, name: classItem.name };
+  
+  // 确保教师列表已加载
+  if (teachers.value.length === 0) {
+    await fetchTeachers();
+  }
+  
+  classForm.value = { 
+    id: classItem.id, 
+    name: classItem.name,
+    teacher_ids: classItem.teachers ? classItem.teachers.map(t => t.id) : []
+  };
   classModalVisible.value = true;
 };
 
@@ -692,14 +733,20 @@ const confirmDeleteClass = (classItem) => {
 // 提交班级表单
 const submitClassForm = async () => {
   try {
+    // 构建提交数据
+    const postData = {
+      name: classForm.value.name,
+      teacher_ids: classForm.value.teacher_ids || []
+    };
+    
     if (isEditing.value) {
       // 更新班级
-      await axios.put(`/api/classes/${classForm.value.id}`, classForm.value);
+      await axios.put(`/api/classes/${classForm.value.id}`, postData);
       logUserOperation(OperationType.UPDATE_CLASS, `班级: ${classForm.value.name}`);
       ElMessage.success('班级更新成功');
     } else {
       // 创建班级
-      await axios.post('/api/classes/', classForm.value);
+      await axios.post('/api/classes/', postData);
       logUserOperation(OperationType.CREATE_CLASS, `班级: ${classForm.value.name}`);
       ElMessage.success('班级创建成功');
     }

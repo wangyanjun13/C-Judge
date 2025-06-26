@@ -1,6 +1,6 @@
 from app.models.database import Base, get_db
 from app.models.user import User
-from app.models.class_model import Class, class_course, student_class
+from app.models.class_model import Class, class_course, student_class, teacher_class
 from app.models.course import Course
 from app.models.exercise import Exercise
 from app.models.problem import Problem, ProblemCategory
@@ -12,7 +12,7 @@ from app.models.system_setting import SystemSetting
 __all__ = [
     "Base", "get_db",
     "User",
-    "Class", "class_course", "student_class",
+    "Class", "class_course", "student_class", "teacher_class",
     "Course",
     "Exercise",
     "Problem", "ProblemCategory",
