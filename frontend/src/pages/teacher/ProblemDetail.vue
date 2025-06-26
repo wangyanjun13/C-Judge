@@ -340,7 +340,9 @@ onMounted(() => {
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   min-height: calc(100vh - 120px);
+  height: auto;
   margin-bottom: 60px;
+  overflow: visible;
 }
 
 .loading, .error {
@@ -363,7 +365,9 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 3fr 2fr;
   gap: 20px;
-  height: calc(100vh - 155px);
+  min-height: 500px;
+  height: auto;
+  overflow: visible;
 }
 
 @media (max-width: 768px) {
@@ -400,7 +404,8 @@ onMounted(() => {
 .code-submission {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto;
+  min-height: 600px;
 }
 
 .language-selector {
@@ -417,6 +422,8 @@ onMounted(() => {
 .code-editor {
   flex-grow: 1;
   margin-bottom: 15px;
+  position: relative;
+  min-height: 500px;
 }
 
 .editor-header {
@@ -458,6 +465,9 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  padding: 15px 0;
+  position: relative;
+  z-index: 5;
 }
 
 .btn {
