@@ -111,7 +111,12 @@
     <div v-else-if="activeTab === 'students'" class="tab-content">
       <div class="content-header">
         <h3>学生管理</h3>
-        <button class="btn btn-primary" @click="showStudentModal">添加学生</button>
+        <div class="action-buttons">
+          <button class="btn btn-primary" @click="showStudentModal">添加学生</button>
+          <button class="btn btn-secondary" @click="showImportModal">批量导入</button>
+          <button class="btn btn-secondary" @click="exportStudents">导出</button>
+          <button class="btn btn-danger" @click="confirmClearStudents">清空</button>
+        </div>
       </div>
       
       <div class="filter-section">
@@ -323,6 +328,71 @@
         </form>
       </div>
     </div>
+
+    <!-- 批量导入学生对话框 -->
+    <div v-if="importModalVisible" class="modal-overlay" @click="importModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>批量导入学生</h3>
+        
+        <!-- 导入结果显示 -->
+        <div v-if="importResult" class="import-result">
+          <h4>导入结果</h4>
+          <p class="success-count">成功导入: <span>{{ importResult.success_count }}</span> 名学生</p>
+          
+          <div v-if="importResult.errors && importResult.errors.length > 0" class="error-list">
+            <p class="error-title">导入过程中有以下错误:</p>
+            <ul>
+              <li v-for="(error, index) in importResult.errors" :key="index" class="error-item">{{ error }}</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- 导入表单 -->
+        <div v-if="!importResult">
+          <div class="import-instructions">
+            <p>请选择包含学生信息的.txt文件，每行一条记录(逗号必须为英文逗号)，格式为：</p>
+            <pre>学号,密码,真实姓名</pre>
+            <p>例如：</p>
+            <pre>20210001,password123,张三
+20210002,password456,李四
+20210003,password789,王五</pre>
+          </div>
+          
+          <div class="form-group">
+            <label for="import-class">选择班级</label>
+            <select id="import-class" v-model="importForm.class_id" required>
+              <option value="">请选择班级</option>
+              <option v-for="classItem in classes" :key="classItem.id" :value="classItem.id">
+                {{ classItem.name }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="import-file">选择文件</label>
+            <input type="file" id="import-file" @change="handleFileChange" accept=".txt,.csv" required />
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" @click="importModalVisible = false">{{ importResult ? '关闭' : '取消' }}</button>
+          <button v-if="!importResult" type="button" class="btn-primary" @click="importStudents">导入</button>
+          <button v-else type="button" class="btn-secondary" @click="importResult = null">重新导入</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 确认清空对话框 -->
+    <div v-if="clearModalVisible" class="modal-overlay" @click="clearModalVisible = false">
+      <div class="modal" @click.stop>
+        <h3>确认清空</h3>
+        <p>您确定要清空所有学生数据吗？此操作不可撤销。</p>
+        <div class="form-actions">
+          <button @click="clearModalVisible = false">取消</button>
+          <button class="btn-danger" @click="clearStudents">清空</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -367,6 +437,8 @@ const studentModalVisible = ref(false);
 const courseModalVisible = ref(false);
 const classModalVisible = ref(false);
 const deleteModalVisible = ref(false);
+const importModalVisible = ref(false);
+const clearModalVisible = ref(false);
 const isEditing = ref(false);
 const deleteType = ref('');
 const deleteItem = ref(null);
@@ -375,6 +447,14 @@ const deleteItem = ref(null);
 const studentFilters = ref({
   classId: ''
 });
+
+// 添加导入相关状态
+const selectedFile = ref(null);
+const importForm = ref({
+  class_id: '',
+  file: null
+});
+const importResult = ref(null);
 
 // 学生表单
 const studentForm = ref({
@@ -908,6 +988,137 @@ const confirmDeleteClass = (classItem) => {
   deleteItem.value = classItem;
   deleteModalVisible.value = true;
 };
+
+// 显示批量导入对话框
+const showImportModal = () => {
+  // 初始化导入表单
+  importForm.value = {
+    class_id: studentFilters.value && studentFilters.value.classId ? studentFilters.value.classId : '',
+    file: null
+  };
+  importModalVisible.value = true;
+  importResult.value = null;
+  
+  // 如果班级列表为空，则获取班级
+  if (classes.value.length === 0) {
+    fetchClasses();
+  }
+};
+
+// 处理文件变化
+const handleFileChange = (event) => {
+  const file = event.target.files[0];
+  if (!file) {
+    importForm.value.file = null;
+    return;
+  }
+  
+  // 验证文件类型
+  const fileName = file.name.toLowerCase();
+  if (!fileName.endsWith('.txt') && !fileName.endsWith('.csv')) {
+    ElMessage.error('请选择TXT或CSV文件');
+    event.target.value = ''; // 清空选择
+    importForm.value.file = null;
+    return;
+  }
+  
+  // 验证文件大小，限制为5MB
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.error('文件过大，请选择5MB以下的文件');
+    event.target.value = ''; // 清空选择
+    importForm.value.file = null;
+    return;
+  }
+  
+  console.log('已选择文件:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
+  importForm.value.file = file;
+  ElMessage.success(`已选择文件: ${file.name}`);
+};
+
+// 导入学生
+const importStudents = async () => {
+  if (!importForm.value.class_id) {
+    ElMessage.warning('请选择班级');
+    return;
+  }
+  
+  if (!importForm.value.file) {
+    ElMessage.warning('请选择文件');
+    return;
+  }
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', importForm.value.file);
+    formData.append('class_id', String(importForm.value.class_id));
+    
+    const response = await axios.post('/api/users/import', formData);
+    
+    await logUserOperation(OperationType.IMPORT_STUDENTS, `导入学生到班级ID: ${importForm.value.class_id}`);
+    
+    // 保存导入结果
+    importResult.value = response.data;
+    
+    ElMessage.success(`学生导入成功，共导入 ${response.data.success_count || 0} 名学生`);
+    
+    if (response.data.success_count > 0) {
+      await fetchStudents(); // 重新加载学生列表
+    }
+  } catch (error) {
+    console.error('导入学生失败', error);
+    ElMessage.error(error.response?.data?.detail || '导入学生失败');
+  }
+};
+
+// 确认清空学生
+const confirmClearStudents = () => {
+  clearModalVisible.value = true;
+};
+
+// 清空学生
+const clearStudents = async () => {
+  try {
+    let url = '/api/users/clear';
+    if (studentFilters.value.classId) {
+      url += `?class_id=${studentFilters.value.classId}`;
+    }
+    
+    await axios.delete(url);
+    
+    await logUserOperation(OperationType.CLEAR_STUDENTS, studentFilters.value.classId ? `清空班级ID: ${studentFilters.value.classId} 的学生` : '清空所有学生');
+    ElMessage.success('学生数据已清空');
+    clearModalVisible.value = false;
+    await fetchStudents();
+  } catch (error) {
+    console.error('清空学生失败', error);
+    ElMessage.error('清空学生失败');
+  }
+};
+
+// 导出学生
+const exportStudents = async () => {
+  try {
+    let url = '/api/users/export';
+    if (studentFilters.value.classId) {
+      url += `?class_id=${studentFilters.value.classId}`;
+    }
+    
+    const res = await axios.get(url);
+    
+    // 创建下载链接
+    const blob = new Blob([res.data.content], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = res.data.filename;
+    link.click();
+    
+    await logUserOperation(OperationType.EXPORT_STUDENTS, studentFilters.value.classId ? `导出班级ID: ${studentFilters.value.classId} 的学生` : '导出所有学生');
+    ElMessage.success('学生数据导出成功');
+  } catch (error) {
+    console.error('导出学生失败', error);
+    ElMessage.error('导出学生失败');
+  }
+};
 </script>
 
 <style scoped>
@@ -1205,5 +1416,71 @@ th {
   color: #606266;
   min-height: 36px;
   line-height: 20px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.import-instructions {
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f8f8f8;
+  border-radius: 4px;
+}
+
+.import-instructions pre {
+  background-color: #eee;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  margin: 10px 0;
+}
+
+.import-result {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f8f9;
+  border-radius: 4px;
+}
+
+.import-result h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #303133;
+}
+
+.success-count {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.success-count span {
+  font-weight: bold;
+  color: #67c23a;
+}
+
+.error-list {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #fef0f0;
+  border-radius: 4px;
+  border-left: 4px solid #f56c6c;
+}
+
+.error-title {
+  margin-top: 0;
+  font-weight: bold;
+  color: #f56c6c;
+}
+
+.error-list ul {
+  margin: 10px 0 0 0;
+  padding-left: 20px;
+}
+
+.error-item {
+  margin-bottom: 5px;
 }
 </style> 

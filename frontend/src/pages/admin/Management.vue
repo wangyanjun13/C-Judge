@@ -460,7 +460,7 @@
         <!-- 导入表单 -->
         <div v-if="!importResult">
           <div class="import-instructions">
-            <p>请选择包含学生信息的TXT或CSV文件，每行一条记录，格式为：</p>
+            <p>请选择包含学生信息的.txt文件，每行一条记录(逗号必须为英文逗号)，格式为：</p>
             <pre>学号,密码,真实姓名</pre>
             <p>例如：</p>
             <pre>20210001,password123,张三
