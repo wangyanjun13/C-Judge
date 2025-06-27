@@ -96,29 +96,33 @@ class JudgeService:
     @staticmethod
     def compare_outputs(expected_str, actual_str) -> bool:
         """
-        智能比较输出，处理特殊情况
+        比较期望输出和实际输出是否匹配
+        - 移除 BOM 字符
+        - 规范化换行符
+        - 移除行尾空白字符
+        - 移除开头和结尾的空行
         """
-        # 规范化处理
-        norm_expected = JudgeService._normalize_output(expected_str)
-        norm_actual = JudgeService._normalize_output(actual_str)
+        def normalize_string(s: str) -> str:
+            # 移除 UTF-8 BOM
+            if s.startswith('\ufeff'):
+                s = s[1:]
+            # 规范化换行符
+            s = s.replace('\r\n', '\n').replace('\r', '\n')
+            # 处理每一行
+            lines = s.split('\n')
+            # 移除每行末尾的空白字符
+            lines = [line.rstrip() for line in lines]
+            # 移除开头和结尾的空行
+            while lines and not lines[0].strip():
+                lines.pop(0)
+            while lines and not lines[-1].strip():
+                lines.pop()
+            return '\n'.join(lines)
+
+        normalized_expected = normalize_string(expected_str)
+        normalized_actual = normalize_string(actual_str)
         
-        # 截断日志输出，防止过长输出
-        truncated_expected = JudgeService._truncate_log_output(norm_expected)
-        truncated_actual = JudgeService._truncate_log_output(norm_actual)
-        
-        print(f"规范化期望输出: '{truncated_expected}'")
-        print(f"规范化实际输出: '{truncated_actual}'")
-        
-        # 没有鞍点的情况
-        if norm_expected == "NO_SADDLE_POINT" and norm_actual == "NO_SADDLE_POINT":
-            return True
-        
-        # 处理空输出
-        if not norm_expected or not norm_actual:
-            return expected_str.strip() == actual_str.strip()
-        
-        # 比较规范化后的结果
-        return norm_expected == norm_actual
+        return normalized_expected == normalized_actual
     
     @staticmethod
     def run_code_check(code: str, language: str) -> Dict[str, Any]:
@@ -578,13 +582,17 @@ class JudgeService:
                                 print(f"[Judge] 测试用例 {test_number} 通过")
                                 results.append({
                                     "test_case": test_number,
-                                    "result": 0  # 0表示通过
+                                    "result": 0,  # 0表示通过
+                                    "input": JudgeService._decode_output(input_data),
+                                    "expected": expected_output_str,
+                                    "actual": actual_output_str
                                 })
                             else:
                                 print(f"[Judge] 测试用例 {test_number} 失败: 输出不匹配")
                                 results.append({
                                     "test_case": test_number,
                                     "result": -1,  # -1表示输出不匹配
+                                    "input": JudgeService._decode_output(input_data),
                                     "expected": expected_output_str,
                                     "actual": actual_output_str
                                 })
@@ -593,7 +601,9 @@ class JudgeService:
                             print(f"[Judge] 测试用例 {test_number} 超时")
                             results.append({
                                 "test_case": test_number,
-                                "result": 1  # 1表示超时
+                                "result": 1,  # 1表示超时
+                                "input": JudgeService._decode_output(input_data),
+                                "message": "程序运行超时"
                             })
                         except Exception as e:
                             # 其他错误
@@ -601,6 +611,7 @@ class JudgeService:
                             results.append({
                                 "test_case": test_number,
                                 "result": 2,  # 2表示运行错误
+                                "input": JudgeService._decode_output(input_data),
                                 "message": "程序运行错误"
                             })
                     except Exception as e:
@@ -647,3 +658,32 @@ class JudgeService:
             # 暂不支持其他语言
             print(f"[Judge] 暂不支持的语言: {language}")
             return None 
+
+    @staticmethod
+    def get_test_cases(data_path: str) -> List[Dict[str, str]]:
+        """
+        获取测试用例数据
+        """
+        test_cases = []
+        try:
+            # 遍历测试用例文件
+            i = 1
+            while True:
+                input_file = os.path.join(data_path, f"{i}.in")
+                if not os.path.exists(input_file):
+                    break
+                    
+                # 读取输入数据
+                with open(input_file, 'r') as f:
+                    input_data = f.read().strip()
+                    
+                test_cases.append({
+                    "test_case": i,
+                    "input": input_data
+                })
+                i += 1
+                
+            return test_cases
+        except Exception as e:
+            print(f"读取测试用例失败: {e}")
+            return [] 

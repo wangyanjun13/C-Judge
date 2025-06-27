@@ -30,6 +30,7 @@ class SubmissionResponse(BaseModel):
 class SubmissionDetail(SubmissionResponse):
     code: str
     result: Optional[Dict[str, Any]] = None
+    test_cases: Optional[List[Dict[str, Any]]] = None
 
     class Config:
         orm_mode = True

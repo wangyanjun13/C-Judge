@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 
 from app.models.database import get_db
-from app.models import Submission, User, Exercise
+from app.models import Submission, User, Exercise, Problem
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, SubmissionDetail
 from app.services.judge_service import JudgeService
 from app.utils.auth import get_current_user
@@ -77,6 +77,16 @@ async def get_submission(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="没有权限查看其他用户的提交记录"
         )
+    
+    # 获取测试用例数据
+    try:
+        problem = db.query(Problem).filter(Problem.id == submission.problem_id).first()
+        if problem and problem.data_path:
+            test_cases = JudgeService.get_test_cases(problem.data_path)
+            submission.test_cases = test_cases
+    except Exception as e:
+        print(f"获取测试用例数据失败: {e}")
+        submission.test_cases = None
     
     return submission
 
