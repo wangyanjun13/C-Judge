@@ -223,8 +223,8 @@ class ExerciseService:
         if not exercise:
             return False
         
-        # 检查教师是否是练习的发布者
-        return exercise.publisher_id == user_id
+        # 检查教师是否是练习的发布者或课程的教师
+        return exercise.publisher_id == user_id or exercise.course.teacher_id == user_id
     
     @staticmethod
     def log_operation(db: Session, user_id: int, operation: str, target: str) -> None:
