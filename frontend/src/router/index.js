@@ -32,6 +32,9 @@ const AdminManagement = () => import('../pages/admin/Management.vue')
 const AdminMaintenance = () => import('../pages/admin/Maintenance.vue')
 const AdminSystem = () => import('../pages/admin/System.vue')
 
+// 通用页面
+const SubmissionDetail = () => import('../pages/common/SubmissionDetail.vue')
+
 const routes = [
   {
     path: '/login',
@@ -42,6 +45,18 @@ const routes = [
   {
     path: '/',
     redirect: '/login'
+  },
+  
+  // 提交详情页面（所有角色可访问）
+  {
+    path: '/submission-detail/:id',
+    name: 'SubmissionDetail',
+    component: SubmissionDetail,
+    meta: { 
+      requiresAuth: true, 
+      title: '提交详情',
+      allowAllRoles: true  // 添加标记，表示所有角色都可访问
+    }
   },
   
   // 学生路由
@@ -202,6 +217,7 @@ router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiredRole = to.matched.find(record => record.meta.role)?.meta.role
+  const allowAllRoles = to.matched.some(record => record.meta.allowAllRoles)
   
   // 如果有token但没有用户信息，尝试恢复会话
   if (authStore.token && !authStore.user) {
@@ -211,11 +227,11 @@ router.beforeEach(async (to, from, next) => {
   if (requiresAuth && !authStore.isAuthenticated) {
     // 需要认证但未登录，重定向到登录页
     next('/login')
-  } else if (requiresAuth && requiredRole && authStore.userRole !== requiredRole && authStore.userRole !== 'admin') {
-    // 需要特定角色但没有权限（管理员可以访问所有页面）
+  } else if (requiresAuth && requiredRole && !allowAllRoles && authStore.userRole !== requiredRole && authStore.userRole !== 'admin') {
+    // 需要特定角色但没有权限（管理员可以访问所有页面），且不是允许所有角色访问的路由
     next(`/${authStore.userRole}/exercises`)
   } else {
-    // 已登录且有权限，或不需要认证
+    // 已登录且有权限，或不需要认证，或是允许所有角色访问的路由
     next()
   }
 })

@@ -31,9 +31,7 @@
           <h3>题目列表</h3>
           <div class="action-buttons">
             <button @click="showAddProblemModal" class="btn btn-primary">添加题目</button>
-            <button @click="showStatisticsModal" class="btn btn-info">试题答题统计</button>
-            <button @click="evaluateExercise" class="btn btn-success">测评练习</button>
-            <button @click="checkPlagiarism" class="btn btn-warning">查抄袭</button>
+            <button @click="showStatisticsModal" class="btn btn-statistics">试题答题统计</button>
             <button @click="clearExercise" class="btn btn-danger">清空</button>
           </div>
         </div>
@@ -166,7 +164,7 @@
     <div v-if="statisticsModalVisible" class="modal-overlay" @click="statisticsModalVisible = false">
       <div class="modal large-modal" @click.stop>
         <h3>试题答题统计</h3>
-        <p>此功能正在开发中...</p>
+        <ExerciseStatistics :exerciseId="exerciseId" :includeSpecialUsers="true" />
         <div class="form-actions">
           <button @click="statisticsModalVisible = false" class="btn btn-primary">关闭</button>
         </div>
@@ -182,6 +180,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { getExerciseDetail, updateExercise, removeProblemFromExercise, updateProblem, addProblemsToExercise, clearExerciseProblems } from '../../api/exercises';
 import { getSubmissions } from '../../api/submissions';
 import ProblemSelector from '../../components/ProblemSelector.vue';
+import ExerciseStatistics from '../../components/ExerciseStatistics.vue';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
 
@@ -436,6 +435,8 @@ const handleAddProblems = async (data) => {
 // 显示试题答题统计对话框
 const showStatisticsModal = () => {
   statisticsModalVisible.value = true;
+  // 记录查看统计的操作
+  logUserOperation(OperationType.VIEW_STATISTICS, `查看练习 ${exercise.value.name} 的答题统计`);
 };
 
 // 清空练习
@@ -457,18 +458,6 @@ const clearExercise = async () => {
       ElMessage.error('清空题目失败');
     }
   }
-};
-
-// 测评练习
-const evaluateExercise = () => {
-  ElMessage.info('测评练习功能正在开发中...');
-  logUserOperation(OperationType.EVALUATE_EXERCISE, `测评练习: ${exercise.value.name}`);
-};
-
-// 检查抄袭
-const checkPlagiarism = () => {
-  ElMessage.info('检查抄袭功能正在开发中...');
-  logUserOperation(OperationType.CHECK_PLAGIARISM, `检查练习抄袭: ${exercise.value.name}`);
 };
 
 // 在script setup部分添加计算练习时间的函数
@@ -740,6 +729,21 @@ onMounted(() => {
   background-color: #a6a9ad;
 }
 
+.btn-statistics {
+  background-color: #409eff;
+  color: white;
+  font-weight: bold;
+  padding: 8px 16px;
+  border: 2px solid #3a8ee6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-statistics:hover {
+  background-color: #66b1ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
 .btn-success {
   background-color: #67c23a;
   color: white;
@@ -851,8 +855,19 @@ onMounted(() => {
 }
 
 .large-modal {
-  width: 80%;
+  width: 90%;
+  max-width: 1400px;
   max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.large-modal h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #303133;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
 }
 
 /* 如果练习已截止，使表格显示半透明 */
