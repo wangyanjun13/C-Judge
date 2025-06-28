@@ -5,7 +5,38 @@
 </template>
 
 <script setup>
-// 根组件不需要特殊逻辑
+import { onMounted, onUnmounted, ref } from 'vue';
+import { useAuthStore } from './store/auth';
+import { authApi } from './api/auth';
+
+const authStore = useAuthStore();
+const heartbeatInterval = ref(null);
+
+// 设置心跳
+const setupHeartbeat = () => {
+  // 清除之前的心跳
+  if (heartbeatInterval.value) {
+    clearInterval(heartbeatInterval.value);
+  }
+  
+  // 每60秒发送一次心跳
+  heartbeatInterval.value = setInterval(() => {
+    // 只有登录状态下才发送心跳
+    if (authStore.isLoggedIn) {
+      authApi.sendHeartbeat();
+    }
+  }, 60000); // 60秒
+};
+
+onMounted(() => {
+  setupHeartbeat();
+});
+
+onUnmounted(() => {
+  if (heartbeatInterval.value) {
+    clearInterval(heartbeatInterval.value);
+  }
+});
 </script>
 
 <style>

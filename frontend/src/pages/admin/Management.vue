@@ -1330,7 +1330,15 @@ const goToStudentsByClass = (classId) => {
   // 设置学生筛选的班级ID
   studentFilters.value.classId = classId;
   // 切换到学生管理标签
-  switchTab('students');
+  router.push({ 
+    path: '/admin/management',
+    query: { tab: 'students' }
+  });
+  // 确保数据加载
+  nextTick(() => {
+    activeTab.value = 'students';
+    loadTabData('students');
+  });
 };
 </script>
 

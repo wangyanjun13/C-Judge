@@ -13,6 +13,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     role: str = "student"
+    real_name: Optional[str] = None
 
 # 更新用户请求
 class UserUpdate(BaseModel):
@@ -31,6 +32,18 @@ class UserResponse(UserBase):
     is_online: bool
     register_time: datetime
 
+    class Config:
+        orm_mode = True
+
+# 在线用户响应模型
+class OnlineUserResponse(BaseModel):
+    id: int
+    username: str
+    real_name: Optional[str] = None
+    role: str
+    is_online: bool = True
+    register_time: datetime
+    
     class Config:
         orm_mode = True
 

@@ -227,9 +227,19 @@ router.beforeEach(async (to, from, next) => {
   if (requiresAuth && !authStore.isAuthenticated) {
     // 需要认证但未登录，重定向到登录页
     next('/login')
-  } else if (requiresAuth && requiredRole && !allowAllRoles && authStore.userRole !== requiredRole && authStore.userRole !== 'admin') {
-    // 需要特定角色但没有权限（管理员可以访问所有页面），且不是允许所有角色访问的路由
-    next(`/${authStore.userRole}/exercises`)
+  } else if (requiresAuth && requiredRole && !allowAllRoles) {
+    // 检查用户角色权限
+    if (authStore.userRole === 'admin') {
+      // 管理员可以访问所有页面
+      next()
+    } else if (authStore.userRole === requiredRole) {
+      // 用户角色与路由要求角色一致
+      next()
+    } else {
+      // 无权限访问，重定向到用户对应的首页
+      console.log('权限不足，重定向到:', `/${authStore.userRole}/exercises`)
+      next(`/${authStore.userRole}/exercises`)
+    }
   } else {
     // 已登录且有权限，或不需要认证，或是允许所有角色访问的路由
     next()

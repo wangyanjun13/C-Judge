@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from typing import List
 
 from app.models import User, get_db, OperationLog
-from app.schemas.user import UserCreate, UserLogin, Token, UserResponse
-from app.utils.auth import verify_password, get_password_hash, create_access_token, get_current_active_user
+from app.schemas.user import UserCreate, UserLogin, Token, UserResponse, OnlineUserResponse
+from app.utils.auth import verify_password, get_password_hash, create_access_token, get_current_active_user, get_teacher_user, get_admin_user
 from config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["认证"])
@@ -174,6 +175,61 @@ async def logout(current_user: User = Depends(get_current_active_user), db: Sess
 async def logout_simple():
     """简化版登出 - 不需要身份验证"""
     return {"message": "登出成功"}
+
+@router.post("/heartbeat")
+async def heartbeat(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+    """更新用户在线状态的心跳"""
+    # 更新用户在线状态
+    current_user.is_online = True
+    db.commit()
+    
+    return {"status": "ok"}
+
+@router.get("/online-users", response_model=List[OnlineUserResponse])
+async def get_online_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """获取在线用户列表（仅管理员和教师可访问）"""
+    # 检查权限
+    if current_user.role not in ["admin", "teacher"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只有管理员和教师可以查看在线用户"
+        )
+    
+    # 计算5分钟前的时间点
+    five_minutes_ago = datetime.now() - timedelta(minutes=5)
+    
+    # 获取所有标记为在线的用户
+    online_users_query = db.query(User).filter(User.is_online == True)
+    
+    # 检查这些用户的最近操作日志
+    for user in online_users_query:
+        # 获取用户最近的操作日志
+        latest_log = db.query(OperationLog).filter(
+            OperationLog.user_id == user.id
+        ).order_by(OperationLog.created_at.desc()).first()
+        
+        # 如果用户在5分钟内没有任何操作，将其标记为离线
+        if not latest_log or latest_log.created_at < five_minutes_ago:
+            user.is_online = False
+            db.commit()
+    
+    # 再次查询在线用户（已更新状态）
+    online_users = db.query(User).filter(User.is_online == True).all()
+    
+    # 记录操作日志
+    log = OperationLog(
+        user_id=current_user.id,
+        operation="查看在线用户",
+        target="在线用户列表",
+        created_at=datetime.now()
+    )
+    db.add(log)
+    db.commit()
+    
+    return online_users
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_active_user)):

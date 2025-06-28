@@ -27,12 +27,37 @@ export const authApi = {
   
   // 登出
   logout: () => {
-    return axios.post('/api/auth/logout-simple');
+    return axios.post('/api/auth/logout');
   },
   
   // 获取当前用户信息
   getCurrentUser: () => {
     return axios.get('/api/auth/me');
+  },
+  
+  // 获取在线用户列表
+  getOnlineUsers: () => {
+    return axios.get('/api/auth/online-users')
+      .then(response => {
+        return response.data;
+      })
+      .catch(error => {
+        console.error('获取在线用户列表失败:', error);
+        throw error;
+      });
+  },
+  
+  // 发送心跳，更新用户在线状态
+  sendHeartbeat: () => {
+    return axios.post('/api/auth/heartbeat')
+      .then(response => {
+        return response.data;
+      })
+      .catch(error => {
+        // 静默失败，不显示错误
+        console.error('发送心跳失败:', error);
+        return { status: 'error' };
+      });
   }
 };
 

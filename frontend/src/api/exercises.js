@@ -264,4 +264,21 @@ export const getExerciseStatistics = async (exerciseId, classId = null, includeS
     console.error('获取练习统计数据失败:', error);
     throw error;
   }
+};
+
+/**
+ * 获取练习的活跃学生列表
+ * @param {number} exerciseId - 练习ID
+ * @param {number} classId - 班级ID（可选）
+ * @returns {Promise<Array>} - 活跃学生列表
+ */
+export const getExerciseActiveStudents = async (exerciseId, classId = null) => {
+  try {
+    const params = classId ? { class_id: classId } : {};
+    const response = await axios.get(`/api/exercises/${exerciseId}/active-students`, { params });
+    return response.data;
+  } catch (error) {
+    console.error('获取练习活跃学生数据失败:', error);
+    throw error;
+  }
 }; 

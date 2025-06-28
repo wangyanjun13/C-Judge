@@ -1,0 +1,48 @@
+/* 图标样式 */
+.icon-add:before {
+  content: "+";
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.icon-stats:before {
+  content: "📊";
+  margin-right: 5px;
+}
+
+.icon-monitor:before {
+  content: "👁️";
+  margin-right: 5px;
+}
+
+.icon-clear:before {
+  content: "🗑️";
+  margin-right: 5px;
+}
+
+/* 按钮样式 */
+.btn-info {
+  background-color: #409eff;
+  color: white;
+}
+
+.btn-info:hover {
+  background-color: #66b1ff;
+}
+
+.btn-success {
+  background-color: #67c23a;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #85ce61;
+}
+
+/* 大型模态框样式 */
+.large-modal {
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+} 

@@ -45,6 +45,10 @@ export const OperationType = {
   // 提交相关
   SUBMIT_CODE: '提交代码',
   
+  // 统计相关
+  VIEW_STATISTICS: '查看统计',
+  VIEW_ONLINE_USERS: '查看在线用户',
+  
   // 管理相关
   CREATE_STUDENT: '创建学生',
   UPDATE_STUDENT: '更新学生',
