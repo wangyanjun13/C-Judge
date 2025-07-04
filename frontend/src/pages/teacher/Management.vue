@@ -112,7 +112,7 @@
       <div class="content-header">
         <h3>学生管理</h3>
         <div class="action-buttons">
-          <button class="btn btn-primary" @click="showStudentModal">添加学生</button>
+        <button class="btn btn-primary" @click="showStudentModal">添加学生</button>
           <button class="btn btn-secondary" @click="showImportModal">批量导入</button>
           <button class="btn btn-secondary" @click="exportStudents">导出</button>
           <button class="btn btn-danger" @click="confirmClearStudents">清空</button>
@@ -831,11 +831,11 @@ const submitStudentForm = async () => {
 const confirmDelete = async () => {
   try {
     if (deleteType.value === 'student') {
-      // 删除学生
-      await axios.delete(`/api/users/student/${deleteItem.value.id}`);
-      await logUserOperation(OperationType.DELETE_STUDENT, `学生: ${deleteItem.value.real_name} (${deleteItem.value.username})`);
-      ElMessage.success('学生删除成功');
-      await fetchStudents();
+    // 删除学生
+    await axios.delete(`/api/users/student/${deleteItem.value.id}`);
+    await logUserOperation(OperationType.DELETE_STUDENT, `学生: ${deleteItem.value.real_name} (${deleteItem.value.username})`);
+    ElMessage.success('学生删除成功');
+    await fetchStudents();
     } else if (deleteType.value === 'course') {
       // 删除课程
       await axios.delete(`/api/courses/${deleteItem.value.id}`);
