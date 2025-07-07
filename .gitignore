@@ -38,6 +38,11 @@
 /docker/data/
 /docker/data/*
 !/docker/data/.gitkeep
+/docker/postgres-14-alpine.tar
+/docker/redis-alpine.tar
+/docker/python-3.9.tar
+/docker/node-18-alpine.tar
+/docker/judge-1.6.1.tar
 
 # 题库相关
 /题库/
