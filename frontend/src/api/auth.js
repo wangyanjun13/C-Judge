@@ -4,18 +4,14 @@ import axios from '../utils/axios';
 export const authApi = {
   // 登录
   login: (username, password) => {
-    const formData = new URLSearchParams();
+    const formData = new FormData();
     formData.append('username', username);
     formData.append('password', password);
     
-    return axios.post('/api/auth/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    });
+    return axios.post('/api/auth/login', formData);
   },
   
-  // 注册（仅开发环境使用）
+  // 注册
   register: (userData) => {
     return axios.post('/api/auth/register', userData);
   },
@@ -30,34 +26,34 @@ export const authApi = {
     return axios.post('/api/auth/logout');
   },
   
+  // 简单登出（不需要验证）
+  logoutSimple: () => {
+    return axios.post('/api/auth/logout-simple');
+  },
+  
   // 获取当前用户信息
   getCurrentUser: () => {
     return axios.get('/api/auth/me');
   },
   
-  // 获取在线用户列表
+  // 获取在线用户
   getOnlineUsers: () => {
     return axios.get('/api/auth/online-users')
       .then(response => {
-        return response.data;
+        return {
+          data: response.data,
+          status: response.status
+        };
       })
       .catch(error => {
-        console.error('获取在线用户列表失败:', error);
+        console.warn('获取在线用户列表失败:', error);
         throw error;
       });
   },
   
-  // 发送心跳，更新用户在线状态
-  sendHeartbeat: () => {
-    return axios.post('/api/auth/heartbeat')
-      .then(response => {
-        return response.data;
-      })
-      .catch(error => {
-        // 静默失败，不显示错误
-        console.error('发送心跳失败:', error);
-        return { status: 'error' };
-      });
+  // 心跳检测
+  heartbeat: () => {
+    return axios.post('/api/auth/heartbeat');
   }
 };
 

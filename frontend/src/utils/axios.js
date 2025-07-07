@@ -44,8 +44,19 @@ instance.interceptors.response.use(
     return response
   },
   error => {
-    // 如果是操作日志相关的请求，静默处理错误
-    if (error.config && error.config.url && error.config.url.includes('/api/operation-logs')) {
+    // 下面这些请求出错时不显示全局提示
+    const silentPaths = [
+      '/api/auth/heartbeat',
+      '/api/auth/online-users',
+      '/api/operation-logs'
+    ];
+    
+    // 检查当前请求是否应该静默处理
+    const shouldBeSilent = silentPaths.some(path => 
+      error.config && error.config.url && error.config.url.includes(path)
+    );
+    
+    if (shouldBeSilent) {
       return Promise.reject(error);
     }
     
@@ -59,7 +70,11 @@ instance.interceptors.response.use(
           message = data.detail || '请求参数错误'
           break
         case 401:
-          message = '未授权'
+          message = '未授权，请重新登录'
+          // 如果是401错误，可能是token过期，清除本地token
+          if (!error.config.url.includes('/api/auth/login')) {
+            localStorage.removeItem('token');
+          }
           break
         case 403:
           message = '拒绝访问'

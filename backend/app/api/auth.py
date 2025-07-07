@@ -181,9 +181,21 @@ async def heartbeat(current_user: User = Depends(get_current_active_user), db: S
     """更新用户在线状态的心跳"""
     # 更新用户在线状态
     current_user.is_online = True
+    
+    # 记录最后活动时间
+    now = datetime.now()  # 使用不带时区的本地时间
+    
+    # 记录心跳操作日志
+    log = OperationLog(
+        user_id=current_user.id,
+        operation="心跳检测",
+        target="系统",
+        created_at=now
+    )
+    db.add(log)
     db.commit()
     
-    return {"status": "ok"}
+    return {"status": "ok", "timestamp": now.isoformat()}
 
 @router.get("/online-users", response_model=List[OnlineUserResponse])
 async def get_online_users(
@@ -198,38 +210,83 @@ async def get_online_users(
             detail="只有管理员和教师可以查看在线用户"
         )
     
-    # 计算5分钟前的时间点
-    five_minutes_ago = datetime.now() - timedelta(minutes=5)
-    
-    # 获取所有标记为在线的用户
-    online_users_query = db.query(User).filter(User.is_online == True)
-    
-    # 检查这些用户的最近操作日志
-    for user in online_users_query:
-        # 获取用户最近的操作日志
-        latest_log = db.query(OperationLog).filter(
-            OperationLog.user_id == user.id
-        ).order_by(OperationLog.created_at.desc()).first()
+    try:
+        # 计算2分钟前的时间点 (不带时区信息)
+        now = datetime.now()
+        two_minutes_ago = now - timedelta(minutes=2)
         
-        # 如果用户在5分钟内没有任何操作，将其标记为离线
-        if not latest_log or latest_log.created_at < five_minutes_ago:
-            user.is_online = False
-            db.commit()
-    
-    # 再次查询在线用户（已更新状态）
-    online_users = db.query(User).filter(User.is_online == True).all()
-    
-    # 记录操作日志
-    log = OperationLog(
-        user_id=current_user.id,
-        operation="查看在线用户",
-        target="在线用户列表",
-        created_at=datetime.now()
-    )
-    db.add(log)
-    db.commit()
-    
-    return online_users
+        # 获取所有用户
+        all_users = db.query(User).all()
+        
+        # 处理结果列表
+        result = []
+        
+        for user in all_users:
+            # 获取用户最近的操作日志
+            latest_log = db.query(OperationLog).filter(
+                OperationLog.user_id == user.id
+            ).order_by(OperationLog.created_at.desc()).first()
+            
+            # 如果用户在2分钟内有操作，认为其在线
+            is_online = False
+            last_activity = None
+            
+            if latest_log:
+                last_activity = latest_log.created_at
+                
+                # 确保时区一致性
+                if hasattr(last_activity, 'tzinfo') and last_activity.tzinfo is not None:
+                    # 如果日期带有时区信息，转换为不带时区的本地时间
+                    last_activity = last_activity.replace(tzinfo=None)
+                
+                is_online = last_activity >= two_minutes_ago
+                
+            # 更新用户在线状态
+            if user.is_online != is_online:
+                user.is_online = is_online
+                db.commit()
+            
+            # 构建响应对象
+            user_response = {
+                "id": user.id,
+                "username": user.username,
+                "real_name": user.real_name,
+                "role": user.role,
+                "is_online": user.is_online,
+                "register_time": user.register_time,
+                "last_activity": last_activity
+            }
+            
+            result.append(user_response)
+        
+        # 记录操作日志 - 仅当正常查询时
+        log = OperationLog(
+            user_id=current_user.id,
+            operation="查看在线用户",
+            target="在线用户列表",
+            created_at=now  # 使用之前创建的now变量，确保时区一致
+        )
+        db.add(log)
+        db.commit()
+        
+        return result
+        
+    except Exception as e:
+        # 捕获所有异常，保证API稳定性
+        error_msg = str(e)
+        print(f"获取在线用户出错: {error_msg}")
+        
+        # 针对时区问题提供更具体的错误信息
+        if "offset-naive and offset-aware datetimes" in error_msg:
+            error_detail = "时区比较错误，请检查数据库和应用时区设置"
+        else:
+            error_detail = "获取在线用户列表时出错"
+            
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_detail
+        )
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_active_user)):

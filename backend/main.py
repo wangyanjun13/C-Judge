@@ -10,7 +10,7 @@ Base.metadata.create_all(bind=engine)
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="C-Judge API",
+    title="Just For Fun API",
     description="C语言评测系统API",
     version="1.0.0"
 )

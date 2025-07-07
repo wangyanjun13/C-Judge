@@ -43,6 +43,7 @@ class OnlineUserResponse(BaseModel):
     role: str
     is_online: bool = True
     register_time: datetime
+    last_activity: Optional[datetime] = None
     
     class Config:
         orm_mode = True

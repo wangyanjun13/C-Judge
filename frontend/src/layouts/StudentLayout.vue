@@ -1,7 +1,7 @@
 <template>
   <div class="layout">
     <header class="header">
-      <div class="logo">C-Judge测评系统(C语言)</div>
+      <div class="logo">Just For Fun-测评系统(C语言)</div>
       <nav class="nav">
         <router-link to="/student/exercises" class="nav-item">练习</router-link>
         <router-link to="/student/operation-logs" class="nav-item">操作记录</router-link>
