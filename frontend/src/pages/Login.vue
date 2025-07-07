@@ -1,7 +1,7 @@
 <template>
   <div class="login-container">
     <div class="login-box">
-      <h1>C-Judge测评系统</h1>
+      <h1>Just For Fun</h1>
       <div class="form-group">
         <label for="username">用户名</label>
         <input 
@@ -37,9 +37,9 @@
     </div>
     
     <div class="login-footer">
-      <p>© {{ currentYear }} 王彦军 & 北京语言大学 C-Judge 测评系统</p>
+      <p>© {{ currentYear }}  Just For Fun - 编程评测系统</p>
       <p class="license-text">
-        <span class="license-link" @click="showLicense">MIT License - 根据 MIT 许可证</span>
+        <span class="license-link" @click="showLicense">MIT License -  MIT 许可证</span>
       </p>
     </div>
     
@@ -187,7 +187,7 @@ const handleLogin = async () => {
   min-height: 100vh;
   width: 100%;
   background-color: #f5f5f5;
-  background-image: url('/background.svg');
+  background-image: url('/backup2.png');
   background-size: cover;
   background-position: center;
   position: relative;
@@ -250,7 +250,7 @@ input {
 .login-button {
   width: 100%;
   padding: 12px;
-  background-color: #1890ff;
+  background-color: #191970;
   color: white;
   border: none;
   border-radius: 4px;
@@ -260,7 +260,7 @@ input {
 }
 
 .login-button:hover {
-  background-color: #40a9ff;
+  background-color: #191970;
 }
 
 .login-button:disabled {
@@ -276,7 +276,7 @@ input {
 .text-button {
   background: none;
   border: none;
-  color: #1890ff;
+  color: #191970;
   text-decoration: underline;
   cursor: pointer;
   font-size: 14px;
@@ -375,7 +375,7 @@ input {
 
 .license-modal h3 {
   margin-top: 0;
-  color: #1890ff;
+  color: #191970;
   border-bottom: 1px solid #eee;
   padding-bottom: 10px;
 }
@@ -389,7 +389,7 @@ input {
 
 .license-modal button {
   padding: 8px 16px;
-  background-color: #1890ff;
+  background-color: #191970;
   color: white;
   border: none;
   border-radius: 4px;
@@ -398,6 +398,6 @@ input {
 }
 
 .license-modal button:hover {
-  background-color: #40a9ff;
+  background-color: #191970;
 }
 </style> 

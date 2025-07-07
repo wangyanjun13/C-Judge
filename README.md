@@ -1,6 +1,6 @@
-# C-Judge
+# Just For Fun
 
-C语言测评系统，支持学生、教师和管理员三种角色，提供练习管理、课程管理、班级管理和题目评测等功能。
+just for fun评测系统，支持学生、教师和管理员三种角色，提供练习管理、课程管理、班级管理和题目评测等功能。
 
 ## 功能特点
 
@@ -16,7 +16,7 @@ C语言测评系统，支持学生、教师和管理员三种角色，提供练�
 ## 项目结构
 
 ```
-C-Judge/
+Just For Fun/
 ├── docker/             # Docker配置文件
 ├── backend/            # 后端代码
 ├── frontend/           # 前端代码
@@ -61,11 +61,11 @@ C-Judge/
 
 数据库：![1749479270436](image/README/1749479270436.png)
 
-# C-Judge
+# Just For Fun
 
 用于c语言测评的系统（教育场景）
 
-C-Judge/
+Just For Fun/
 ├── docker/
 │   ├── judge/                # 评测服务配置（已有）
 │   │   └── docker-compose.yml

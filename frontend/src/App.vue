@@ -5,37 +5,52 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import { useAuthStore } from './store/auth';
-import { authApi } from './api/auth';
+import { startHeartbeat, stopHeartbeat } from './utils/heartbeat';
 
 const authStore = useAuthStore();
-const heartbeatInterval = ref(null);
 
-// 设置心跳
-const setupHeartbeat = () => {
-  // 清除之前的心跳
-  if (heartbeatInterval.value) {
-    clearInterval(heartbeatInterval.value);
-  }
+// 初始化认证状态
+onMounted(async () => {
+  // 从本地存储中尝试恢复会话
+  const token = localStorage.getItem('token');
+  const userData = localStorage.getItem('user');
   
-  // 每60秒发送一次心跳
-  heartbeatInterval.value = setInterval(() => {
-    // 只有登录状态下才发送心跳
-    if (authStore.isLoggedIn) {
-      authApi.sendHeartbeat();
+  if (token && userData) {
+    try {
+      // 将数据设置到store中
+      authStore.setAuth({
+        access_token: token,
+        user: JSON.parse(userData)
+      });
+      
+      // 验证会话有效性
+      const isSessionValid = await authStore.restoreSession();
+      
+      // 如果会话有效，启动心跳
+      if (isSessionValid) {
+        startHeartbeat();
+      }
+    } catch (error) {
+      console.error('会话恢复失败:', error);
+      stopHeartbeat();
     }
-  }, 60000); // 60秒
-};
-
-onMounted(() => {
-  setupHeartbeat();
+  }
 });
 
-onUnmounted(() => {
-  if (heartbeatInterval.value) {
-    clearInterval(heartbeatInterval.value);
+// 监听登录状态变化
+watch(() => authStore.isAuthenticated, (newValue) => {
+  if (newValue) {
+    startHeartbeat();
+  } else {
+    stopHeartbeat();
   }
+});
+
+// 组件卸载时停止心跳检测
+onUnmounted(() => {
+  stopHeartbeat();
 });
 </script>
 

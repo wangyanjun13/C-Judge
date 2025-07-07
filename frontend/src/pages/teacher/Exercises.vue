@@ -11,7 +11,9 @@
         </select>
       </div>
       <div class="actions">
-        <button class="btn btn-info" @click="showOnlineUsersModal">查看在线用户</button>
+        <button class="btn btn-success" @click="showOnlineUsersModal">
+          <i class="el-icon-user"></i> 在线用户
+        </button>
         <button class="btn btn-primary" @click="showCreateModal">新建练习</button>
       </div>
     </div>
@@ -187,13 +189,13 @@
     </div>
 
     <!-- 在线用户对话框 -->
-    <div v-if="onlineUsersModalVisible" class="modal-overlay" @click="onlineUsersModalVisible = false">
-      <div class="modal large-modal" @click.stop>
-        <h3>在线用户列表</h3>
-        <OnlineUsers />
-        <div class="form-actions">
-          <button @click="onlineUsersModalVisible = false" class="btn btn-primary">关闭</button>
+    <div v-if="onlineUsersModalVisible" class="modal-overlay" @click="closeOnlineUsersModal">
+      <div class="modal online-users-modal" @click.stop>
+        <div class="modal-header">
+          <h3>在线用户列表</h3>
+          <button class="close-btn" @click="closeOnlineUsersModal">×</button>
         </div>
+        <OnlineUsers />
       </div>
     </div>
   </div>
@@ -467,7 +469,14 @@ const saveNote = () => {
 const showOnlineUsersModal = () => {
   onlineUsersModalVisible.value = true;
   // 记录查看在线用户的操作
-  logUserOperation(OperationType.VIEW_ONLINE_USERS, "查看在线用户列表");
+  logUserOperation(OperationType.VIEW_ONLINE_USERS, "查看在线用户列表").catch(err => {
+    console.warn('记录操作失败:', err);
+  });
+};
+
+// 关闭在线用户对话框
+const closeOnlineUsersModal = () => {
+  onlineUsersModalVisible.value = false;
 };
 
 onMounted(() => {
@@ -739,5 +748,65 @@ th {
   margin-top: 5px;
   color: #909399;
   font-size: 12px;
+}
+
+.online-users-modal {
+  width: 800px;
+  max-width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 15px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1890ff;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  font-weight: bold;
+  color: #909399;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  color: #f56c6c;
+}
+
+.btn-info {
+  background-color: #909399;
+  color: white;
+}
+
+.btn-info:hover {
+  background-color: #a6a9ad;
+}
+
+.btn-success {
+  background-color: #67c23a;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #85ce61;
+}
+
+.online-users-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 </style> 

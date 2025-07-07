@@ -1,7 +1,7 @@
 <template>
   <footer class="app-footer">
     <div class="footer-content">
-      <p>© {{ currentYear }} 王彦军 & 北京语言大学 C-Judge 测评系统</p>
+      <p>© {{ currentYear }} Just For Fun - 编程系统</p>
       <p class="license">
         <span class="license-link" @click="showLicense">MIT License - MIT 许可证</span>
       </p>
