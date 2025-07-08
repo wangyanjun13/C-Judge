@@ -1,7 +1,7 @@
 <template>
   <div class="active-students-monitor">
     <div class="header">
-      <h3>{{ exerciseName }} - 实时答题监控</h3>
+      <h3>{{ exerciseName }} - 当前练习-实时答题监控</h3>
       <div class="filter-section" v-if="classes.length > 1">
         <label for="class-select">班级：</label>
         <select id="class-select" v-model="selectedClassId" @change="fetchActiveStudents">
@@ -86,7 +86,7 @@ const props = defineProps({
   },
   refreshInterval: {
     type: Number,
-    default: 10000 // 默认10秒刷新一次
+    default: 5000 // 默认5秒刷新一次，更频繁地更新活动状态
   }
 });
 
