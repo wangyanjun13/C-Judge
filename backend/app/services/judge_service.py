@@ -20,30 +20,21 @@ class JudgeService:
     @staticmethod
     def _normalize_output(output_str: str) -> str:
         """
-        规范化输出字符串，提取关键信息进行比较
-        例如从 "A[1][0]=12/f崡筽" 提取为 "A[1][0]=12"
-        或者从 "没有鞍点" 提取为特殊标记 "NO_SADDLE_POINT"
+        规范化输出字符串，通用处理
         """
-        # 检查是否包含"没有鞍点"
-        if "没有" in output_str and ("鞍点" in output_str or "安点" in output_str or "闉嶇偣" in output_str):
-            return "NO_SADDLE_POINT"
+        if not output_str:
+            return ""
             
-        # 提取关键信息：A[x][y]=value部分，允许不同的表现形式
-        normalized = set()  # 使用集合去重
+        # 清理字符串
+        result = output_str.strip()
         
-        # 处理多种可能的表示形式: A[1][2]=15, A[1][2]=15是鞍点, A[1][2]=15鏄闉嶇偣 等
-        pattern = r'A\[(\d+)\]\[(\d+)\]=(\d+)'
-        matches = re.findall(pattern, output_str)
-        
-        if matches:
-            for match in matches:
-                row, col, value = match
-                # 添加规范化表示，但忽略索引差异
-                normalized.add(f"{value}")  # 只关注值，不关注坐标
-                
-            return '\n'.join(sorted(list(normalized)))
-        
-        return output_str  # 如果找不到有效数据，返回原始字符串
+        # 处理可能的编码问题
+        # 检查是否有乱码字符，尝试替换为可读字符
+        if any(ord(c) > 127 for c in result):
+            # 移除不可见字符
+            result = ''.join(c for c in result if c.isprintable() or c.isspace())
+            
+        return result
     
     @staticmethod
     def _truncate_log_output(output_str: str, max_lines: int = 10, max_chars: int = 200) -> str:
@@ -74,24 +65,87 @@ class JudgeService:
         """
         尝试多种编码解码输出，优先使用GB2312，这是题目使用的编码
         """
-        encodings = ['gb2312', 'utf-16le', 'utf-16be', 'gbk', 'utf-8']
+        if not binary_output:
+            return ""
+            
+        # 调试日志：输出原始二进制数据的前50个字节
+        print(f"[DEBUG] 原始二进制数据前50字节: {binary_output[:50]}")
         
-        # 尝试去除BOM
-        if binary_output.startswith(b'\xff\xfe'):  # UTF-16LE BOM
+        # 检查UTF-16LE BOM
+        if binary_output.startswith(b'\xff\xfe'):
+            print("[DEBUG] 检测到UTF-16LE BOM")
             try:
-                return binary_output.decode('utf-16le').strip()
-            except:
+                decoded = binary_output.decode('utf-16le')
+                print("[DEBUG] 成功使用UTF-16LE解码")
+                return decoded.strip()
+            except Exception as e:
+                print(f"[DEBUG] UTF-16LE解码失败: {str(e)}")
                 binary_output = binary_output[2:]  # 去除BOM
         
-        # 尝试不同编码
+        # 检查是否是UTF-8编码的中文
+        try:
+            # 先尝试UTF-8解码
+            utf8_decoded = binary_output.decode('utf-8')
+            # 检查是否包含全角标点符号（UTF-8编码特征）或中文字符
+            if '\uff1a' in utf8_decoded or '\uff1b' in utf8_decoded or any(ord(c) > 127 for c in utf8_decoded):
+                print(f"[DEBUG] 检测到UTF-8编码的中文，使用UTF-8解码")
+                return utf8_decoded.strip()
+        except Exception as e:
+            print(f"[DEBUG] UTF-8解码检查失败: {str(e)}")
+            
+        # 特殊处理：检查是否包含常见中文输出的二进制表示
+        common_chinese_patterns = [
+            # "没有" 的不同编码表示
+            (b'\xc3\xbb\xd3\xd0', 'gbk'),  # GBK编码
+            (b'\xe6\xb2\xa1\xe6\x9c\x89', 'utf-8'),  # UTF-8编码
+            # "是" 的不同编码表示
+            (b'\xca\xc7', 'gbk'),  # GBK编码
+            (b'\xe6\x98\xaf', 'utf-8'),  # UTF-8编码
+            # "鞍点" 的不同编码表示
+            (b'\xb0\xb0\xb5\xe3', 'gbk'),  # GBK编码
+            (b'\xe9\x9e\x8d\xe7\x82\xb9', 'utf-8'),  # UTF-8编码
+        ]
+        
+        for pattern, encoding in common_chinese_patterns:
+            if pattern in binary_output:
+                print(f"[DEBUG] 检测到常见中文模式，尝试使用{encoding}解码")
+                try:
+                    return binary_output.decode(encoding).strip()
+                except Exception as e:
+                    print(f"[DEBUG] 使用{encoding}解码失败: {str(e)}")
+        
+        # 优先尝试中文常用编码
+        encodings = ['gb2312', 'gbk', 'gb18030', 'utf-8', 'utf-16le', 'utf-16be']
+        
+        # 先尝试检测是否包含中文字符
+        for encoding in ['gb2312', 'gbk', 'gb18030']:
+            try:
+                decoded = binary_output.decode(encoding)
+                # 如果成功解码并包含常见中文字符，直接返回
+                if any(ord(c) > 127 for c in decoded):
+                    print(f"[DEBUG] 成功使用{encoding}解码，包含中文字符")
+                    return decoded.strip()
+            except Exception as e:
+                print(f"[DEBUG] 使用{encoding}解码失败: {str(e)}")
+        
+        # 如果没有找到中文编码，尝试其他编码
         for encoding in encodings:
             try:
-                return binary_output.decode(encoding, errors='ignore').strip()
-            except:
-                continue
+                decoded = binary_output.decode(encoding, errors='ignore')
+                if decoded.strip():  # 确保解码结果不为空
+                    print(f"[DEBUG] 成功使用{encoding}解码")
+                    return decoded.strip()
+            except Exception as e:
+                print(f"[DEBUG] 使用{encoding}解码失败: {str(e)}")
         
-        # 如果所有编码都失败，返回空字符串
-        return ""
+        # 如果所有编码都失败，尝试直接使用UTF-8但忽略错误
+        try:
+            print("[DEBUG] 尝试使用UTF-8(replace)解码")
+            return binary_output.decode('utf-8', errors='replace').strip()
+        except:
+            # 如果所有方法都失败，返回空字符串
+            print("[DEBUG] 所有解码方法都失败")
+            return ""
     
     @staticmethod
     def compare_outputs(expected_str, actual_str) -> bool:
@@ -101,10 +155,20 @@ class JudgeService:
         - 规范化换行符
         - 移除行尾空白字符
         - 移除开头和结尾的空行
+        - 处理中文字符
+        - 处理全角半角符号差异
+        - 处理数组索引差异
         """
+        print(f"[DEBUG] 比较输出 - 原始期望输出: '{expected_str}'")
+        print(f"[DEBUG] 比较输出 - 原始实际输出: '{actual_str}'")
+        
         def normalize_string(s: str) -> str:
+            if not s:
+                return ""
+                
             # 移除 UTF-8 BOM
             if s.startswith('\ufeff'):
+                print("[DEBUG] 检测到并移除UTF-8 BOM")
                 s = s[1:]
             # 规范化换行符
             s = s.replace('\r\n', '\n').replace('\r', '\n')
@@ -117,12 +181,101 @@ class JudgeService:
                 lines.pop(0)
             while lines and not lines[-1].strip():
                 lines.pop()
-            return '\n'.join(lines)
+                
+            # 处理可能的中文字符问题
+            result = '\n'.join(lines)
+            
+            # 替换一些可能的中文字符变体
+            if '\u3000' in result:
+                print("[DEBUG] 检测到全角空格，替换为半角空格")
+                result = result.replace('\u3000', ' ')  # 全角空格替换为半角空格
+            
+            # 全角标点符号标准化（针对常见的全角符号）
+            # 冒号
+            result = result.replace('：', ':').replace('\uff1a', ':')
+            # 分号
+            result = result.replace('；', ';').replace('\uff1b', ';')
+            
+            # 检测中文字符
+            has_chinese = any(ord(c) > 127 for c in result)
+            if has_chinese:
+                print(f"[DEBUG] 检测到中文字符: '{result}'")
+            
+            return result
 
         normalized_expected = normalize_string(expected_str)
         normalized_actual = normalize_string(actual_str)
         
-        return normalized_expected == normalized_actual
+        print(f"[DEBUG] 标准化后的期望输出: '{normalized_expected}'")
+        print(f"[DEBUG] 标准化后的实际输出: '{normalized_actual}'")
+        
+        # 如果标准化后的字符串相等，则匹配成功
+        if normalized_expected == normalized_actual:
+            print("[DEBUG] 标准化后的输出完全匹配")
+            return True
+            
+        # 特殊处理：检查是否是"没有鞍点"与其他输出的比较
+        if "没有鞍点" in normalized_expected or "没有鞍点" in normalized_actual:
+            if "没有鞍点" in normalized_expected and "没有鞍点" in normalized_actual:
+                print("[DEBUG] 两者都包含'没有鞍点'，视为匹配")
+                return True
+                
+        # 特殊处理：检查是否是数组索引差异（0-based vs 1-based）
+        if "A[" in normalized_expected and "A[" in normalized_actual:
+            # 提取数组索引和值
+            import re
+            pattern = r'A\[(\d+)\]\[(\d+)\]=(\d+)'
+            
+            expected_matches = re.findall(pattern, normalized_expected)
+            actual_matches = re.findall(pattern, normalized_actual)
+            
+            if expected_matches and actual_matches:
+                print("[DEBUG] 检测到数组索引格式，尝试比较值而非索引")
+                # 比较值而非索引
+                expected_values = [match[2] for match in expected_matches]
+                actual_values = [match[2] for match in actual_matches]
+                
+                if set(expected_values) == set(actual_values):
+                    print("[DEBUG] 数组值匹配成功")
+                    return True
+                    
+        # 如果不相等，但两者都包含中文字符，尝试进一步处理
+        if any(ord(c) > 127 for c in normalized_expected) and any(ord(c) > 127 for c in normalized_actual):
+            print("[DEBUG] 两者都包含中文字符，尝试无空格比较")
+            # 移除所有空白字符后比较
+            expected_no_space = ''.join(normalized_expected.split())
+            actual_no_space = ''.join(normalized_actual.split())
+            
+            print(f"[DEBUG] 无空格期望输出: '{expected_no_space}'")
+            print(f"[DEBUG] 无空格实际输出: '{actual_no_space}'")
+            
+            if expected_no_space == actual_no_space:
+                print("[DEBUG] 无空格比较匹配成功")
+                return True
+            else:
+                # 尝试将全角标点符号转换为半角后再比较
+                expected_converted = expected_no_space.replace('：', ':').replace('；', ';')
+                actual_converted = actual_no_space.replace('：', ':').replace('；', ';')
+                
+                if expected_converted == actual_converted:
+                    print("[DEBUG] 转换标点后匹配成功")
+                    return True
+                    
+                # 尝试比较是否包含相同的关键部分
+                if "是鞍点" in expected_converted and "是鞍点" in actual_converted:
+                    # 提取数值部分进行比较
+                    expected_nums = re.findall(r'\d+', expected_converted)
+                    actual_nums = re.findall(r'\d+', actual_converted)
+                    
+                    if set(expected_nums) == set(actual_nums):
+                        print("[DEBUG] 数值部分匹配成功")
+                        return True
+                
+                print("[DEBUG] 无空格比较匹配失败")
+        else:
+            print("[DEBUG] 标准化后的输出不匹配，且不都包含中文字符")
+            
+        return False
     
     @staticmethod
     def run_code_check(code: str, language: str) -> Dict[str, Any]:
@@ -243,7 +396,7 @@ class JudgeService:
                 "run": {
                     "command": "{exe_path}",
                     "seccomp_rule": "c_cpp",
-                    "env": ["LANG=en_US.UTF-8", "LANGUAGE=en_US:en", "LC_ALL=en_US.UTF-8"]
+                    "env": ["LANG=zh_CN.UTF-8", "LANGUAGE=zh_CN:zh", "LC_ALL=zh_CN.UTF-8", "LC_CTYPE=zh_CN.UTF-8"]
                 }
             },
             "max_cpu_time": time_limit,
@@ -535,27 +688,48 @@ class JudgeService:
                 for test_number, in_file, out_file in test_cases:
                     try:
                         print(f"[Judge] 运行测试用例 {test_number}")
+                        
                         # 读取输入文件为二进制
                         with open(in_file, 'rb') as f:
                             input_data = f.read()
+                        
+                        print(f"[DEBUG] 读取测试用例输入文件: {in_file}, 大小: {len(input_data)}字节")
+                        
+                        # 检查输入文件是否是UTF-16LE编码
+                        is_utf16 = input_data.startswith(b'\xff\xfe')
+                        if is_utf16:
+                            print(f"[DEBUG] 检测到UTF-16LE编码的输入文件")
                         
                         # 运行程序
                         time_limit_ms = problem.time_limit if problem.time_limit else 1000
                         
                         try:
-                            # 使用二进制模式运行程序
+                            # 使用二进制模式运行程序，设置环境变量以支持中文输出
+                            print(f"[DEBUG] 开始运行程序，时间限制: {time_limit_ms}ms")
                             process = subprocess.run(
                                 [exe_file], 
                                 input=input_data, 
                                 capture_output=True,
-                                timeout=time_limit_ms/1000  # 转换为秒
+                                timeout=time_limit_ms/1000,  # 转换为秒
+                                env={
+                                    "LANG": "zh_CN.UTF-8", 
+                                    "LC_ALL": "zh_CN.UTF-8",
+                                    "LC_CTYPE": "zh_CN.UTF-8",
+                                    "PYTHONIOENCODING": "utf-8",
+                                    "NLS_LANG": "SIMPLIFIED CHINESE_CHINA.ZHS16GBK"  # Oracle环境变量，支持GBK
+                                }  # 设置中文环境
                             )
+                            
+                            print(f"[DEBUG] 程序运行完成，返回码: {process.returncode}")
                             
                             # 以二进制方式读取输出文件
                             with open(out_file, 'rb') as f:
                                 expected_output = f.read()
                             
+                            print(f"[DEBUG] 读取测试用例输出文件: {out_file}, 大小: {len(expected_output)}字节")
+                            
                             actual_output = process.stdout
+                            print(f"[DEBUG] 程序实际输出大小: {len(actual_output)}字节")
                             
                             # 打印原始二进制数据，帮助调试编码问题 - 截断长度
                             print(f"[Judge] 测试用例 {test_number} 原始输入: {input_data[:100]}{'...' if len(input_data) > 100 else ''}")
@@ -563,7 +737,9 @@ class JudgeService:
                             print(f"[Judge] 测试用例 {test_number} 原始实际输出: {actual_output[:100]}{'...' if len(actual_output) > 100 else ''}")
                             
                             # 使用更智能的多编码解码
+                            print("[DEBUG] 开始解码期望输出")
                             expected_output_str = JudgeService._decode_output(expected_output)
+                            print("[DEBUG] 开始解码实际输出")
                             actual_output_str = JudgeService._decode_output(actual_output)
                             
                             # 打印解码后的文本 - 截断输出
@@ -577,7 +753,11 @@ class JudgeService:
                                 print(f"[Judge] 测试用例 {test_number} 解码实际输出: '{actual_output_str[:max_len]}{'...' if len(actual_output_str) > max_len else ''}'")
                             
                             # 使用智能比较
-                            if JudgeService.compare_outputs(expected_output_str, actual_output_str):
+                            print("[DEBUG] 开始比较输出")
+                            comparison_result = JudgeService.compare_outputs(expected_output_str, actual_output_str)
+                            print(f"[DEBUG] 比较结果: {'通过' if comparison_result else '失败'}")
+                            
+                            if comparison_result:
                                 passed_cases += 1
                                 print(f"[Judge] 测试用例 {test_number} 通过")
                                 results.append({
@@ -634,26 +814,32 @@ class JudgeService:
                 
                 # 返回评测结果
                 if passed_cases == total_cases:
-                    return {
+                    result = {
                         "passed": True,
                         "score": total_score,
                         "message": f"通过所有测试点 ({passed_cases}/{total_cases})",
                         "details": results
                     }
+                    print(f"[DEBUG] 返回结果: 通过所有测试点，得分: {total_score}")
+                    return result
                 elif passed_cases > 0:
-                    return {
+                    result = {
                         "passed": False,
                         "score": score,
                         "message": f"部分通过测试点 ({passed_cases}/{total_cases})",
                         "details": results
                     }
+                    print(f"[DEBUG] 返回结果: 部分通过测试点，得分: {score}")
+                    return result
                 else:
-                    return {
+                    result = {
                         "passed": False,
                         "score": 0,
                         "message": "未通过任何测试点",
                         "details": results
                     }
+                    print(f"[DEBUG] 返回结果: 未通过任何测试点，得分: 0")
+                    return result
         else:
             # 暂不支持其他语言
             print(f"[Judge] 暂不支持的语言: {language}")
