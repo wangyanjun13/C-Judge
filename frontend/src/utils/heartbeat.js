@@ -42,8 +42,8 @@ export const stopHeartbeat = () => {
  * 发送心跳
  */
 const sendHeartbeat = async () => {
-  // 检查token是否存在
-  const token = localStorage.getItem('token');
+  // 检查token是否存在，优先使用sessionStorage
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
   if (!token) {
     stopHeartbeat();
     return;

@@ -48,6 +48,7 @@ export const OperationType = {
   // 统计相关
   VIEW_STATISTICS: '查看统计',
   VIEW_ONLINE_USERS: '查看在线用户',
+  VIEW_ACTIVE_STUDENTS: '查看在线答题用户',
   
   // 管理相关
   CREATE_STUDENT: '创建学生',

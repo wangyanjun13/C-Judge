@@ -149,13 +149,14 @@ export const useAuthStore = defineStore('auth', {
       this.token = token;
       this.user = user;
       
-      // 保存到本地存储
+      // 保存到会话存储，使用sessionStorage而不是localStorage
+      // 这样不同标签页的登录不会互相影响
       if (token) {
-        localStorage.setItem('token', token);
+        sessionStorage.setItem('token', token);
       }
       
       if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
+        sessionStorage.setItem('user', JSON.stringify(user));
       }
     },
     
@@ -164,9 +165,9 @@ export const useAuthStore = defineStore('auth', {
       this.user = null;
       this.token = null;
       
-      // 从本地存储中移除
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // 从会话存储中移除
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
     },
     
     // 修复存储数据

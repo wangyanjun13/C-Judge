@@ -22,8 +22,8 @@ instance.interceptors.request.use(
     
     console.log('API请求: ', config);
     
-    // 从localStorage获取token
-    const token = localStorage.getItem('token');
+    // 从sessionStorage获取token，优先使用sessionStorage
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     
     // 如果token存在，添加到请求头中
     if (token) {
@@ -71,8 +71,9 @@ instance.interceptors.response.use(
           break
         case 401:
           message = '未授权，请重新登录'
-          // 如果是401错误，可能是token过期，清除本地token
+          // 如果是401错误，可能是token过期，清除token
           if (!error.config.url.includes('/api/auth/login')) {
+            sessionStorage.removeItem('token');
             localStorage.removeItem('token');
           }
           break
