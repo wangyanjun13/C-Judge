@@ -45,6 +45,9 @@
               <div v-if="isExerciseEnded" class="deadline-notice">
                 <span>练习已截止，无法提交</span>
               </div>
+              <div v-else-if="!isExerciseStarted" class="not-started-notice">
+                <span>练习尚未开始，无法提交</span>
+              </div>
               <template v-else>
                 <div class="button-group">
                   <button v-if="!isSubmitted || isRedoing" @click="submitCode" class="btn btn-submit" :disabled="submitting">
@@ -246,6 +249,12 @@ const isExerciseEnded = computed(() => {
   return new Date(exercise.value.end_time) <= new Date();
 });
 
+// 判断练习是否已开始
+const isExerciseStarted = computed(() => {
+  if (!exercise.value || !exercise.value.start_time) return true; // 如果没有开始时间，默认为已开始
+  return new Date(exercise.value.start_time) <= new Date();
+});
+
 // 代码模板
 const codeTemplates = {
   'c': '#include <stdio.h>'
@@ -360,6 +369,12 @@ const submitCode = async () => {
     return;
   }
   
+  // 检查练习是否已开始
+  if (!isExerciseStarted.value) {
+    ElMessage.warning('练习尚未开始，无法提交');
+    return;
+  }
+  
   // 检查练习是否已截止
   if (isExerciseEnded.value) {
     ElMessage.warning('练习已截止，无法提交');
@@ -394,7 +409,7 @@ const submitCode = async () => {
     }
   } catch (error) {
     console.error('提交代码失败', error);
-    ElMessage.error(`提交失败: ${error.response?.data?.detail || error.message}`);
+    ElMessage.error(error.message || '提交失败，请稍后重试');
   } finally {
     submitting.value = false;
   }
@@ -402,6 +417,12 @@ const submitCode = async () => {
 
 // 重做提交
 const redoSubmission = () => {
+  // 检查练习是否已开始
+  if (!isExerciseStarted.value) {
+    ElMessage.warning('练习尚未开始，无法重做');
+    return;
+  }
+  
   // 检查练习是否已截止
   if (isExerciseEnded.value) {
     ElMessage.warning('练习已截止，无法重做');
@@ -848,6 +869,15 @@ onMounted(() => {
 /* 添加已截止样式 */
 .deadline-notice {
   background-color: #909399;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.not-started-notice {
+  background-color: #e6a23c;
   color: white;
   padding: 10px 15px;
   border-radius: 4px;

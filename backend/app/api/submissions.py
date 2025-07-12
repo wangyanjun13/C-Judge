@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.database import get_db
 from app.models import Submission, User, Exercise, Problem
@@ -24,19 +24,40 @@ async def submit_code(
     if current_user.role == "student" and submission.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="没有权限提交其他用户的代码"
+            detail="您只能提交自己的代码"
         )
-    
-    # 如果是练习的提交，检查练习是否已截止
+
+    # 检查练习是否存在
     if submission.exercise_id:
         exercise = db.query(Exercise).filter(Exercise.id == submission.exercise_id).first()
-        
         if not exercise:
-            raise HTTPException(status_code=404, detail="练习不存在")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="练习不存在"
+            )
         
-        # 检查练习是否已截止，所有用户都不能在截止后提交
-        if exercise.end_time and datetime.now() > exercise.end_time:
-            raise HTTPException(status_code=403, detail="练习已截止，无法提交")
+        # 检查练习是否已开始
+        now = datetime.now().replace(tzinfo=None)
+        if exercise.start_time and now < exercise.start_time.replace(tzinfo=None):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="练习尚未开始，无法提交"
+            )
+        
+        # 检查练习是否已截止
+        if exercise.end_time and now > exercise.end_time.replace(tzinfo=None):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="练习已截止，无法提交"
+            )
+
+    # 检查题目是否存在
+    problem = db.query(Problem).filter(Problem.id == submission.problem_id).first()
+    if not problem:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="题目不存在"
+        )
     
     try:
         # 使用评测服务进行提交
