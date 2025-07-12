@@ -102,6 +102,10 @@ export const updateExercise = (exerciseId, exerciseData) => {
     apiData.end_time = apiData.deadline;
     delete apiData.deadline;
   }
+  // 确保start_time字段被正确传递
+  if (apiData.start_time) {
+    apiData.start_time = apiData.start_time;
+  }
   // 删除note字段
   delete apiData.note;
   

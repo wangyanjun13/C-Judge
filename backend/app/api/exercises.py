@@ -85,19 +85,14 @@ async def create_exercise(
     current_user: User = Depends(get_teacher_user)
 ):
     """创建练习（教师或管理员）"""
-    # 检查课程是否存在
-    course = db.query(Course).filter(Course.id == exercise_data.course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="课程不存在")
-    
-    # 检查权限（教师只能为自己的课程创建练习）
-    if current_user.role == "teacher" and course.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权为此课程创建练习")
-    
-    # 确保end_time字段有值，如果为None，设置为当前时间一年后
-    end_time = exercise_data.end_time
-    if not end_time:
+    # 如果没有提供end_time，则设置为一年后
+    if not exercise_data.end_time:
         end_time = datetime.now() + timedelta(days=365)  # 默认一年后截止
+    else:
+        end_time = exercise_data.end_time
+    
+    # 获取开始时间
+    start_time = getattr(exercise_data, 'start_time', None)
     
     # 创建练习
     exercise = ExerciseService.create_exercise(
@@ -108,7 +103,8 @@ async def create_exercise(
         end_time,
         exercise_data.is_online_judge,
         exercise_data.note,
-        exercise_data.allowed_languages
+        exercise_data.allowed_languages,
+        start_time
     )
     
     # 记录操作日志

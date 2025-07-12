@@ -66,9 +66,12 @@
                 <td>{{ problem.runtime_score || 80 }}</td>
                 <td>{{ formatScoreMethod(problem.score_method) }}</td>
                 <td>
-                  <button @click="viewProblem(problem.id)" class="btn btn-primary">
+                  <button @click="viewProblem(problem.id)" class="btn btn-primary" 
+                    :disabled="!isExerciseStarted" 
+                    :title="!isExerciseStarted ? '练习尚未开始，无法查看题目' : ''">
                     查看
                     <span v-if="isExerciseEnded" class="deadline-badge">已截止</span>
+                    <span v-else-if="!isExerciseStarted" class="not-started-badge">未开始</span>
                   </button>
                 </td>
               </tr>
@@ -492,6 +495,16 @@ onMounted(() => {
   margin-left: 5px;
   padding: 2px 5px;
   background-color: #909399;
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.not-started-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 2px 5px;
+  background-color: #e6a23c;
   color: white;
   font-size: 12px;
   border-radius: 4px;
