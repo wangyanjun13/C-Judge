@@ -251,7 +251,7 @@ const fetchStatistics = async () => {
     }
   } catch (err) {
     console.error('获取统计数据失败:', err);
-    error.value = err.message || '获取统计数据失败';
+    error.value = err.response?.data?.detail || '获取统计数据失败，请稍后重试';
     ElMessage.error(error.value);
   } finally {
     loading.value = false;

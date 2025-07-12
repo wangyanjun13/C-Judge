@@ -126,8 +126,8 @@ const fetchActiveStudents = async () => {
     classes.value = Array.from(uniqueClasses.entries()).map(([id, name]) => ({ id, name }));
   } catch (err) {
     console.error('获取活跃学生数据失败:', err);
-    error.value = '获取活跃学生数据失败，请稍后重试';
-    ElMessage.error('获取活跃学生数据失败');
+    error.value = err.response?.data?.detail || '获取活跃学生数据失败，请稍后重试';
+    ElMessage.error(error.value);
   } finally {
     loading.value = false;
   }
