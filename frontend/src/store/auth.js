@@ -33,6 +33,9 @@ export const useAuthStore = defineStore('auth', {
         if (response && response.data) {
           this.setAuth(response.data);
           
+          // 添加日志确认token存储
+          console.log('Token已存储 - sessionStorage:', !!sessionStorage.getItem('token'), 'localStorage:', !!localStorage.getItem('token'));
+          
           // 记录登录操作
           await logUserOperation(OperationType.LOGIN);
           
@@ -149,14 +152,15 @@ export const useAuthStore = defineStore('auth', {
       this.token = token;
       this.user = user;
       
-      // 保存到会话存储，使用sessionStorage而不是localStorage
-      // 这样不同标签页的登录不会互相影响
+      // 同时保存到sessionStorage和localStorage
       if (token) {
         sessionStorage.setItem('token', token);
+        localStorage.setItem('token', token);
       }
       
       if (user) {
         sessionStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(user));
       }
     },
     
@@ -165,9 +169,11 @@ export const useAuthStore = defineStore('auth', {
       this.user = null;
       this.token = null;
       
-      // 从会话存储中移除
+      // 同时从sessionStorage和localStorage中移除
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     },
     
     // 修复存储数据
