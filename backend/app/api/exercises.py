@@ -368,7 +368,7 @@ async def get_exercise_active_students(
                 latest_activity = last_active.strftime("%Y-%m-%d %H:%M:%S")
                 
                 # 计算距离现在的时间
-                time_diff = datetime.now() - last_active
+                time_diff = datetime.now().replace(tzinfo=None) - last_active.replace(tzinfo=None)
                 if time_diff.days > 0:
                     last_active_time_ago = f"{time_diff.days}天前"
                 elif time_diff.seconds > 3600:
