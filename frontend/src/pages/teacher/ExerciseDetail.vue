@@ -32,6 +32,7 @@
           <div class="action-buttons">
             <button @click="showAddProblemModal" class="btn btn-primary">添加题目</button>
             <button @click="showStatisticsModal" class="btn btn-statistics">试题答题统计</button>
+            <button @click="showActiveStudentsModal" class="btn btn-success">在线答题用户</button>
             <button @click="clearExercise" class="btn btn-danger">清空</button>
           </div>
         </div>
@@ -170,6 +171,17 @@
         </div>
       </div>
     </div>
+
+    <!-- 在线答题用户对话框 -->
+    <div v-if="activeStudentsModalVisible" class="modal-overlay" @click="activeStudentsModalVisible = false">
+      <div class="modal large-modal" @click.stop>
+        <h3>在线答题用户</h3>
+        <ActiveStudentsMonitor :exerciseId="exerciseId" :exerciseName="exercise.name" />
+        <div class="form-actions">
+          <button @click="activeStudentsModalVisible = false" class="btn btn-primary">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -181,6 +193,7 @@ import { getExerciseDetail, updateExercise, removeProblemFromExercise, updatePro
 import { getSubmissions } from '../../api/submissions';
 import ProblemSelector from '../../components/ProblemSelector.vue';
 import ExerciseStatistics from '../../components/ExerciseStatistics.vue';
+import ActiveStudentsMonitor from '../../components/ActiveStudentsMonitor.vue';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
 
@@ -195,6 +208,7 @@ const error = ref(null);
 const addProblemModalVisible = ref(false);
 const editProblemModalVisible = ref(false);
 const statisticsModalVisible = ref(false);
+const activeStudentsModalVisible = ref(false);
 const submissionMap = ref({}); // 保存题目ID到提交记录的映射
 
 // 编辑题目表单
@@ -488,6 +502,13 @@ const showStatisticsModal = () => {
   statisticsModalVisible.value = true;
   // 记录查看统计的操作
   logUserOperation(OperationType.VIEW_STATISTICS, `查看练习 ${exercise.value.name} 的答题统计`);
+};
+
+// 显示在线答题用户对话框
+const showActiveStudentsModal = () => {
+  activeStudentsModalVisible.value = true;
+  // 记录查看在线用户的操作
+  logUserOperation(OperationType.VIEW_ACTIVE_STUDENTS, `查看练习 ${exercise.value.name} 的在线答题用户`);
 };
 
 // 清空练习

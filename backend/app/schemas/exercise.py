@@ -22,6 +22,7 @@ class ProblemBrief(BaseModel):
 class ExerciseCreate(BaseModel):
     name: str
     course_id: int
+    start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     is_online_judge: bool = True
     note: Optional[str] = None
@@ -30,6 +31,7 @@ class ExerciseCreate(BaseModel):
 # 更新练习请求
 class ExerciseUpdate(BaseModel):
     name: Optional[str] = None
+    start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     is_online_judge: Optional[bool] = None
     note: Optional[str] = None

@@ -20,14 +20,24 @@ instance.interceptors.request.use(
       delete config.headers['Content-Type'];
     }
     
-    console.log('API请求: ', config);
-    
-    // 从localStorage获取token
-    const token = localStorage.getItem('token');
+    // 从sessionStorage和localStorage获取token
+    const sessionToken = sessionStorage.getItem('token');
+    const localToken = localStorage.getItem('token');
+    const token = sessionToken || localToken;
     
     // 如果token存在，添加到请求头中
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      
+      // 仅在非心跳和在线用户请求时记录日志
+      if (!config.url.includes('/api/auth/heartbeat') && !config.url.includes('/api/auth/online-users')) {
+        console.log(`API请求: ${config.url}，使用token来源: ${sessionToken ? 'sessionStorage' : 'localStorage'}`);
+      }
+    } else {
+      // 仅在非心跳和在线用户请求时记录日志
+      if (!config.url.includes('/api/auth/heartbeat') && !config.url.includes('/api/auth/online-users')) {
+        console.warn(`API请求: ${config.url}，未找到token`);
+      }
     }
     
     return config;
@@ -71,8 +81,9 @@ instance.interceptors.response.use(
           break
         case 401:
           message = '未授权，请重新登录'
-          // 如果是401错误，可能是token过期，清除本地token
+          // 如果是401错误，可能是token过期，清除token
           if (!error.config.url.includes('/api/auth/login')) {
+            sessionStorage.removeItem('token');
             localStorage.removeItem('token');
           }
           break

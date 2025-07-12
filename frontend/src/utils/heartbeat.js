@@ -42,9 +42,10 @@ export const stopHeartbeat = () => {
  * 发送心跳
  */
 const sendHeartbeat = async () => {
-  // 检查token是否存在
-  const token = localStorage.getItem('token');
+  // 检查token是否存在，优先使用sessionStorage，然后是localStorage
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
   if (!token) {
+    console.warn('心跳检测: 未找到token，停止心跳');
     stopHeartbeat();
     return;
   }
@@ -54,6 +55,7 @@ const sendHeartbeat = async () => {
   } catch (error) {
     // 如果返回401错误，说明token无效，停止心跳
     if (error.response && error.response.status === 401) {
+      console.warn('心跳检测: 收到401错误，停止心跳');
       stopHeartbeat();
     }
   }

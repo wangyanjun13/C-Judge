@@ -85,19 +85,14 @@ async def create_exercise(
     current_user: User = Depends(get_teacher_user)
 ):
     """创建练习（教师或管理员）"""
-    # 检查课程是否存在
-    course = db.query(Course).filter(Course.id == exercise_data.course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="课程不存在")
-    
-    # 检查权限（教师只能为自己的课程创建练习）
-    if current_user.role == "teacher" and course.teacher_id != current_user.id:
-        raise HTTPException(status_code=403, detail="无权为此课程创建练习")
-    
-    # 确保end_time字段有值，如果为None，设置为当前时间一年后
-    end_time = exercise_data.end_time
-    if not end_time:
+    # 如果没有提供end_time，则设置为一年后
+    if not exercise_data.end_time:
         end_time = datetime.now() + timedelta(days=365)  # 默认一年后截止
+    else:
+        end_time = exercise_data.end_time
+    
+    # 获取开始时间
+    start_time = getattr(exercise_data, 'start_time', None)
     
     # 创建练习
     exercise = ExerciseService.create_exercise(
@@ -108,7 +103,8 @@ async def create_exercise(
         end_time,
         exercise_data.is_online_judge,
         exercise_data.note,
-        exercise_data.allowed_languages
+        exercise_data.allowed_languages,
+        start_time
     )
     
     # 记录操作日志
@@ -282,6 +278,138 @@ async def clear_exercise_problems(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"清空题目失败: {str(e)}")
+
+@router.get("/{exercise_id}/active-students", response_model=List[Dict[str, Any]])
+async def get_exercise_active_students(
+    exercise_id: int,
+    class_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_teacher_user)
+):
+    """
+    获取当前练习的活跃学生列表
+    如果提供了class_id，则只返回该班级的活跃学生
+    """
+    try:
+            
+        # 获取练习详情
+        exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+        if not exercise:
+            raise HTTPException(
+                status_code=404,
+                detail="练习不存在"
+            )
+            
+        # 获取练习的所有题目
+        problems = exercise.problems
+        if not problems:
+            return []
+            
+        # 获取与该练习关联的班级
+        course = exercise.course
+        if not course:
+            raise HTTPException(
+                status_code=404,
+                detail="练习未关联课程"
+            )
+            
+        classes = course.classes
+        if class_id:
+            # 如果指定了班级，则只返回该班级的数据
+            classes = [cls for cls in classes if cls.id == class_id]
+            if not classes:
+                raise HTTPException(
+                    status_code=404,
+                    detail="未找到指定班级或该班级未关联此课程"
+                )
+                
+        # 获取所有相关学生
+        students = []
+        for cls in classes:
+            students.extend(cls.students)
+            
+        # 去重
+        students = list({student.id: student for student in students}.values())
+        
+        # 获取所有学生在所有题目上的提交记录及活动状态
+        active_students = []
+        
+        for student in students:
+            # 获取该学生在该练习中的所有提交记录
+            submissions = db.query(Submission).filter(
+                Submission.user_id == student.id,
+                Submission.exercise_id == exercise_id
+            ).order_by(Submission.submitted_at.desc()).all()
+            
+            # 计算完成题目数量
+            completed_problems = set()
+            for sub in submissions:
+                if sub.status == "Accepted":
+                    completed_problems.add(sub.problem_id)
+            
+            # 判断活动时间 - 同时考虑提交记录和操作日志
+            last_active = None
+            latest_activity = "尚未活动"
+            last_active_time_ago = "未知"
+            
+            # 获取学生的最近操作日志（包括心跳检测）
+            recent_logs = db.query(OperationLog).filter(
+                OperationLog.user_id == student.id
+            ).order_by(OperationLog.created_at.desc()).limit(10).all()
+            
+            # 获取最后活动时间 - 从提交记录和操作日志中找出最近的时间
+            submission_times = [sub.submitted_at for sub in submissions] if submissions else []
+            log_times = [log.created_at for log in recent_logs] if recent_logs else []
+            
+            # 合并所有时间并找出最近的一个
+            all_times = submission_times + log_times
+            if all_times:
+                last_active = max(all_times)
+                latest_activity = last_active.strftime("%Y-%m-%d %H:%M:%S")
+                
+                # 计算距离现在的时间
+                time_diff = datetime.now() - last_active
+                if time_diff.days > 0:
+                    last_active_time_ago = f"{time_diff.days}天前"
+                elif time_diff.seconds > 3600:
+                    last_active_time_ago = f"{time_diff.seconds // 3600}小时前"
+                elif time_diff.seconds > 60:
+                    last_active_time_ago = f"{time_diff.seconds // 60}分钟前"
+                else:
+                    last_active_time_ago = f"{time_diff.seconds}秒前"
+            
+            # 创建学生活动记录
+            student_data = {
+                "student_id": student.id,
+                "username": student.username,
+                "real_name": student.real_name or student.username,
+                "class_names": [cls.name for cls in student.classes],
+                "is_online": student.is_online,  # 使用数据库中的在线状态
+                "latest_activity": latest_activity,
+                "last_active_time_ago": last_active_time_ago,
+                "completed_problems_count": len(completed_problems),
+                "total_problems_count": len(problems)
+            }
+            
+            active_students.append(student_data)
+            
+        # 按活跃时间和在线状态排序
+        active_students.sort(key=lambda x: (not x["is_online"], x["latest_activity"] == "尚未活动", x["latest_activity"]), reverse=True)
+        
+        # 记录操作日志
+        ExerciseService.log_operation(db, current_user.id, "查看在线答题用户", f"练习ID: {exercise_id}")
+            
+        return active_students
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        # 记录错误
+        print(f"获取练习活跃学生数据出错: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取活跃学生数据失败: {str(e)}"
+        )
 
 @router.get("/{exercise_id}/statistics", response_model=Dict[str, Any])
 async def get_exercise_statistics(
