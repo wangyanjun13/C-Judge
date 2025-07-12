@@ -122,14 +122,14 @@ class ExerciseService:
     @staticmethod
     def create_exercise(db: Session, user_id: int, name: str, course_id: int, end_time: Optional[datetime] = None,
                         is_online_judge: bool = True, note: Optional[str] = None, 
-                        allowed_languages: str = "c") -> Exercise:
+                        allowed_languages: str = "c", start_time: Optional[datetime] = None) -> Exercise:
         """创建练习"""
         # 创建练习
         new_exercise = Exercise(
             name=name,
             course_id=course_id,
             publisher_id=user_id,
-            start_time=datetime.now(),
+            start_time=start_time if start_time else datetime.now(),
             end_time=end_time,
             is_online_judge=is_online_judge,
             note=note,

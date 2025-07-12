@@ -20,30 +20,21 @@ class JudgeService:
     @staticmethod
     def _normalize_output(output_str: str) -> str:
         """
-        规范化输出字符串，提取关键信息进行比较
-        例如从 "A[1][0]=12/f崡筽" 提取为 "A[1][0]=12"
-        或者从 "没有鞍点" 提取为特殊标记 "NO_SADDLE_POINT"
+        规范化输出字符串，通用处理
         """
-        # 检查是否包含"没有鞍点"
-        if "没有" in output_str and ("鞍点" in output_str or "安点" in output_str or "闉嶇偣" in output_str):
-            return "NO_SADDLE_POINT"
+        if not output_str:
+            return ""
             
-        # 提取关键信息：A[x][y]=value部分，允许不同的表现形式
-        normalized = set()  # 使用集合去重
+        # 清理字符串
+        result = output_str.strip()
         
-        # 处理多种可能的表示形式: A[1][2]=15, A[1][2]=15是鞍点, A[1][2]=15鏄闉嶇偣 等
-        pattern = r'A\[(\d+)\]\[(\d+)\]=(\d+)'
-        matches = re.findall(pattern, output_str)
-        
-        if matches:
-            for match in matches:
-                row, col, value = match
-                # 添加规范化表示，但忽略索引差异
-                normalized.add(f"{value}")  # 只关注值，不关注坐标
-                
-            return '\n'.join(sorted(list(normalized)))
-        
-        return output_str  # 如果找不到有效数据，返回原始字符串
+        # 处理可能的编码问题
+        # 检查是否有乱码字符，尝试替换为可读字符
+        if any(ord(c) > 127 for c in result):
+            # 移除不可见字符
+            result = ''.join(c for c in result if c.isprintable() or c.isspace())
+            
+        return result
     
     @staticmethod
     def _truncate_log_output(output_str: str, max_lines: int = 10, max_chars: int = 200) -> str:
@@ -74,24 +65,75 @@ class JudgeService:
         """
         尝试多种编码解码输出，优先使用GB2312，这是题目使用的编码
         """
-        encodings = ['gb2312', 'utf-16le', 'utf-16be', 'gbk', 'utf-8']
-        
-        # 尝试去除BOM
-        if binary_output.startswith(b'\xff\xfe'):  # UTF-16LE BOM
+        if not binary_output:
+            return ""
+            
+        # 检查UTF-16LE BOM
+        if binary_output.startswith(b'\xff\xfe'):
             try:
-                return binary_output.decode('utf-16le').strip()
-            except:
+                decoded = binary_output.decode('utf-16le')
+                return decoded.strip()
+            except Exception:
                 binary_output = binary_output[2:]  # 去除BOM
         
-        # 尝试不同编码
+        # 检查是否是UTF-8编码的中文
+        try:
+            # 先尝试UTF-8解码
+            utf8_decoded = binary_output.decode('utf-8')
+            # 检查是否包含全角标点符号（UTF-8编码特征）或中文字符
+            if '\uff1a' in utf8_decoded or '\uff1b' in utf8_decoded or any(ord(c) > 127 for c in utf8_decoded):
+                return utf8_decoded.strip()
+        except Exception:
+            pass
+            
+        # 特殊处理：检查是否包含常见中文输出的二进制表示
+        common_chinese_patterns = [
+            # "没有" 的不同编码表示
+            (b'\xc3\xbb\xd3\xd0', 'gbk'),  # GBK编码
+            (b'\xe6\xb2\xa1\xe6\x9c\x89', 'utf-8'),  # UTF-8编码
+            # "是" 的不同编码表示
+            (b'\xca\xc7', 'gbk'),  # GBK编码
+            (b'\xe6\x98\xaf', 'utf-8'),  # UTF-8编码
+            # "鞍点" 的不同编码表示
+            (b'\xb0\xb0\xb5\xe3', 'gbk'),  # GBK编码
+            (b'\xe9\x9e\x8d\xe7\x82\xb9', 'utf-8'),  # UTF-8编码
+        ]
+        
+        for pattern, encoding in common_chinese_patterns:
+            if pattern in binary_output:
+                try:
+                    return binary_output.decode(encoding).strip()
+                except Exception:
+                    pass
+        
+        # 优先尝试中文常用编码
+        encodings = ['gb2312', 'gbk', 'gb18030', 'utf-8', 'utf-16le', 'utf-16be']
+        
+        # 先尝试检测是否包含中文字符
+        for encoding in ['gb2312', 'gbk', 'gb18030']:
+            try:
+                decoded = binary_output.decode(encoding)
+                # 如果成功解码并包含常见中文字符，直接返回
+                if any(ord(c) > 127 for c in decoded):
+                    return decoded.strip()
+            except Exception:
+                pass
+        
+        # 如果没有找到中文编码，尝试其他编码
         for encoding in encodings:
             try:
-                return binary_output.decode(encoding, errors='ignore').strip()
-            except:
-                continue
+                decoded = binary_output.decode(encoding, errors='ignore')
+                if decoded.strip():  # 确保解码结果不为空
+                    return decoded.strip()
+            except Exception:
+                pass
         
-        # 如果所有编码都失败，返回空字符串
-        return ""
+        # 如果所有编码都失败，尝试直接使用UTF-8但忽略错误
+        try:
+            return binary_output.decode('utf-8', errors='replace').strip()
+        except Exception:
+            # 如果所有方法都失败，返回空字符串
+            return ""
     
     @staticmethod
     def compare_outputs(expected_str, actual_str) -> bool:
@@ -101,8 +143,14 @@ class JudgeService:
         - 规范化换行符
         - 移除行尾空白字符
         - 移除开头和结尾的空行
+        - 处理中文字符
+        - 处理全角半角符号差异
+        - 处理数组索引差异
         """
         def normalize_string(s: str) -> str:
+            if not s:
+                return ""
+                
             # 移除 UTF-8 BOM
             if s.startswith('\ufeff'):
                 s = s[1:]
@@ -117,12 +165,76 @@ class JudgeService:
                 lines.pop(0)
             while lines and not lines[-1].strip():
                 lines.pop()
-            return '\n'.join(lines)
+                
+            # 处理可能的中文字符问题
+            result = '\n'.join(lines)
+            
+            # 替换一些可能的中文字符变体
+            if '\u3000' in result:
+                result = result.replace('\u3000', ' ')  # 全角空格替换为半角空格
+            
+            # 全角标点符号标准化（针对常见的全角符号）
+            # 冒号
+            result = result.replace('：', ':').replace('\uff1a', ':')
+            # 分号
+            result = result.replace('；', ';').replace('\uff1b', ';')
+            
+            return result
 
         normalized_expected = normalize_string(expected_str)
         normalized_actual = normalize_string(actual_str)
         
-        return normalized_expected == normalized_actual
+        # 如果标准化后的字符串相等，则匹配成功
+        if normalized_expected == normalized_actual:
+            return True
+            
+        # 特殊处理：检查是否是"没有鞍点"与其他输出的比较
+        if "没有鞍点" in normalized_expected or "没有鞍点" in normalized_actual:
+            if "没有鞍点" in normalized_expected and "没有鞍点" in normalized_actual:
+                return True
+                
+        # 特殊处理：检查是否是数组索引差异（0-based vs 1-based）
+        if "A[" in normalized_expected and "A[" in normalized_actual:
+            # 提取数组索引和值
+            pattern = r'A\[(\d+)\]\[(\d+)\]=(\d+)'
+            
+            expected_matches = re.findall(pattern, normalized_expected)
+            actual_matches = re.findall(pattern, normalized_actual)
+            
+            if expected_matches and actual_matches:
+                # 比较值而非索引
+                expected_values = [match[2] for match in expected_matches]
+                actual_values = [match[2] for match in actual_matches]
+                
+                if set(expected_values) == set(actual_values):
+                    return True
+                    
+        # 如果不相等，但两者都包含中文字符，尝试进一步处理
+        if any(ord(c) > 127 for c in normalized_expected) and any(ord(c) > 127 for c in normalized_actual):
+            # 移除所有空白字符后比较
+            expected_no_space = ''.join(normalized_expected.split())
+            actual_no_space = ''.join(normalized_actual.split())
+            
+            if expected_no_space == actual_no_space:
+                return True
+            else:
+                # 尝试将全角标点符号转换为半角后再比较
+                expected_converted = expected_no_space.replace('：', ':').replace('；', ';')
+                actual_converted = actual_no_space.replace('：', ':').replace('；', ';')
+                
+                if expected_converted == actual_converted:
+                    return True
+                    
+                # 尝试比较是否包含相同的关键部分
+                if "是鞍点" in expected_converted and "是鞍点" in actual_converted:
+                    # 提取数值部分进行比较
+                    expected_nums = re.findall(r'\d+', expected_converted)
+                    actual_nums = re.findall(r'\d+', actual_converted)
+                    
+                    if set(expected_nums) == set(actual_nums):
+                        return True
+                
+        return False
     
     @staticmethod
     def run_code_check(code: str, language: str) -> Dict[str, Any]:
@@ -192,19 +304,15 @@ class JudgeService:
         """
         调用评测服务，运行测试用例(80分)
         """
-        print(f"[Judge] 开始评测题目 {problem.id}:{problem.name}")
-        
         # 首先尝试直接读取题目目录下的测试用例
         try:
             result = JudgeService.run_judge_with_local_testcases(problem, code, language)
             if result:
-                print(f"[Judge] 本地测试评测完成，得分: {result.get('score', 0)}")
                 return result
         except Exception as e:
             # 本地测试失败，记录错误但继续尝试使用评测服务
             print(f"[Judge] 本地测试用例评测失败: {str(e)}")
 
-        print(f"[Judge] 尝试使用评测服务进行评测")
         # 如果本地测试失败，继续使用原有的评测服务逻辑
         # 检查测试数据路径是否存在
         test_case_dir = os.path.join("/root_project", problem.data_path) if problem.data_path else ""
@@ -243,7 +351,7 @@ class JudgeService:
                 "run": {
                     "command": "{exe_path}",
                     "seccomp_rule": "c_cpp",
-                    "env": ["LANG=en_US.UTF-8", "LANGUAGE=en_US:en", "LC_ALL=en_US.UTF-8"]
+                    "env": ["LANG=zh_CN.UTF-8", "LANGUAGE=zh_CN:zh", "LC_ALL=zh_CN.UTF-8", "LC_CTYPE=zh_CN.UTF-8"]
                 }
             },
             "max_cpu_time": time_limit,
@@ -376,12 +484,9 @@ class JudgeService:
         """
         提交代码并评测
         """
-        print(f"[Judge] 收到新的提交: user_id={user_id}, problem_id={problem_id}, exercise_id={exercise_id}, language={language}")
-
         # 获取问题信息
         problem = db.query(Problem).filter(Problem.id == problem_id).first()
         if not problem:
-            print(f"[Judge] 问题不存在: ID {problem_id}")
             raise ValueError(f"问题不存在: ID {problem_id}")
         
         # 创建提交记录
@@ -397,14 +502,10 @@ class JudgeService:
         db.commit()
         db.refresh(submission)
         
-        print(f"[Judge] 创建提交记录: submission_id={submission.id}")
-        
         try:
             # 进行代码检查
             code_check_result = JudgeService.run_code_check(code, language)
             code_check_score = code_check_result.get("score", 0)
-            
-            print(f"[Judge] 代码检查完成: passed={code_check_result.get('passed', False)}, score={code_check_score}")
             
             # 如果代码检查未通过，则不进行运行测试
             if not code_check_result.get("passed", False):
@@ -417,14 +518,11 @@ class JudgeService:
                     "runtime": {"passed": False, "score": 0, "message": "编译失败，未运行测试"}
                 }
                 db.commit()
-                print(f"[Judge] 提交评测完成: submission_id={submission.id}, status={submission.status}, total_score={submission.total_score}")
                 return submission
             
             # 进行运行测试
             runtime_result = JudgeService.run_judge(problem, code, language)
             runtime_score = runtime_result.get("score", 0)
-            
-            print(f"[Judge] 运行测试完成: passed={runtime_result.get('passed', False)}, score={runtime_score}")
             
             # 更新提交记录
             submission.code_check_score = code_check_score
@@ -444,7 +542,6 @@ class JudgeService:
             }
             
             db.commit()
-            print(f"[Judge] 提交评测完成: submission_id={submission.id}, status={submission.status}, total_score={submission.total_score}")
             return submission
             
         except Exception as e:
@@ -469,8 +566,6 @@ class JudgeService:
         """
         # 构建完整的题目路径
         problem_path = os.path.join(PROBLEMS_ROOT, problem.data_path)
-        
-        print(f"[Judge] 开始评测题目 {problem.id}:{problem.name}, 路径: {problem_path}")
         
         # 检查问题路径是否存在
         if not os.path.exists(problem_path):
@@ -497,7 +592,7 @@ class JudgeService:
             print(f"[Judge] 未找到有效的测试用例文件: {problem_path}")
             return None
         
-        print(f"[Judge] 找到 {len(test_cases)} 个测试用例文件: {[tc[0] for tc in test_cases]}")
+        print(f"[Judge] 找到 {len(test_cases)} 个测试用例文件")
         
         # 根据语言编译代码
         if language.lower() == 'c':
@@ -510,7 +605,6 @@ class JudgeService:
                 with open(source_file, 'w') as f:
                     f.write(code)
                 
-                print(f"[Judge] 开始编译代码")
                 # 编译代码
                 compile_cmd = ['gcc', '-o', exe_file, source_file]
                 compile_process = subprocess.run(compile_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -526,7 +620,6 @@ class JudgeService:
                         "details": []
                     }
                 
-                print(f"[Judge] 编译成功，开始运行测试用例")
                 # 运行测试用例
                 results = []
                 passed_cases = 0
@@ -534,21 +627,30 @@ class JudgeService:
                 
                 for test_number, in_file, out_file in test_cases:
                     try:
-                        print(f"[Judge] 运行测试用例 {test_number}")
                         # 读取输入文件为二进制
                         with open(in_file, 'rb') as f:
                             input_data = f.read()
+                        
+                        # 检查输入文件是否是UTF-16LE编码
+                        is_utf16 = input_data.startswith(b'\xff\xfe')
                         
                         # 运行程序
                         time_limit_ms = problem.time_limit if problem.time_limit else 1000
                         
                         try:
-                            # 使用二进制模式运行程序
+                            # 使用二进制模式运行程序，设置环境变量以支持中文输出
                             process = subprocess.run(
                                 [exe_file], 
                                 input=input_data, 
                                 capture_output=True,
-                                timeout=time_limit_ms/1000  # 转换为秒
+                                timeout=time_limit_ms/1000,  # 转换为秒
+                                env={
+                                    "LANG": "zh_CN.UTF-8", 
+                                    "LC_ALL": "zh_CN.UTF-8",
+                                    "LC_CTYPE": "zh_CN.UTF-8",
+                                    "PYTHONIOENCODING": "utf-8",
+                                    "NLS_LANG": "SIMPLIFIED CHINESE_CHINA.ZHS16GBK"  # Oracle环境变量，支持GBK
+                                }  # 设置中文环境
                             )
                             
                             # 以二进制方式读取输出文件
@@ -557,29 +659,15 @@ class JudgeService:
                             
                             actual_output = process.stdout
                             
-                            # 打印原始二进制数据，帮助调试编码问题 - 截断长度
-                            print(f"[Judge] 测试用例 {test_number} 原始输入: {input_data[:100]}{'...' if len(input_data) > 100 else ''}")
-                            print(f"[Judge] 测试用例 {test_number} 原始期望输出: {expected_output[:100]}{'...' if len(expected_output) > 100 else ''}")
-                            print(f"[Judge] 测试用例 {test_number} 原始实际输出: {actual_output[:100]}{'...' if len(actual_output) > 100 else ''}")
-                            
                             # 使用更智能的多编码解码
                             expected_output_str = JudgeService._decode_output(expected_output)
                             actual_output_str = JudgeService._decode_output(actual_output)
                             
-                            # 打印解码后的文本 - 截断输出
-                            if hasattr(JudgeService, '_truncate_log_output'):
-                                print(f"[Judge] 测试用例 {test_number} 解码期望输出: '{JudgeService._truncate_log_output(expected_output_str)}'")
-                                print(f"[Judge] 测试用例 {test_number} 解码实际输出: '{JudgeService._truncate_log_output(actual_output_str)}'")
-                            else:
-                                # 如果没有截断函数，限制输出长度
-                                max_len = 200
-                                print(f"[Judge] 测试用例 {test_number} 解码期望输出: '{expected_output_str[:max_len]}{'...' if len(expected_output_str) > max_len else ''}'")
-                                print(f"[Judge] 测试用例 {test_number} 解码实际输出: '{actual_output_str[:max_len]}{'...' if len(actual_output_str) > max_len else ''}'")
-                            
                             # 使用智能比较
-                            if JudgeService.compare_outputs(expected_output_str, actual_output_str):
+                            comparison_result = JudgeService.compare_outputs(expected_output_str, actual_output_str)
+                            
+                            if comparison_result:
                                 passed_cases += 1
-                                print(f"[Judge] 测试用例 {test_number} 通过")
                                 results.append({
                                     "test_case": test_number,
                                     "result": 0,  # 0表示通过
@@ -588,7 +676,6 @@ class JudgeService:
                                     "actual": actual_output_str
                                 })
                             else:
-                                print(f"[Judge] 测试用例 {test_number} 失败: 输出不匹配")
                                 results.append({
                                     "test_case": test_number,
                                     "result": -1,  # -1表示输出不匹配
@@ -598,7 +685,6 @@ class JudgeService:
                                 })
                         except subprocess.TimeoutExpired:
                             # 超时
-                            print(f"[Judge] 测试用例 {test_number} 超时")
                             results.append({
                                 "test_case": test_number,
                                 "result": 1,  # 1表示超时
@@ -607,7 +693,6 @@ class JudgeService:
                             })
                         except Exception as e:
                             # 其他错误
-                            print(f"[Judge] 测试用例 {test_number} 运行错误: {str(e)}")
                             results.append({
                                 "test_case": test_number,
                                 "result": 2,  # 2表示运行错误
@@ -634,26 +719,29 @@ class JudgeService:
                 
                 # 返回评测结果
                 if passed_cases == total_cases:
-                    return {
+                    result = {
                         "passed": True,
                         "score": total_score,
                         "message": f"通过所有测试点 ({passed_cases}/{total_cases})",
                         "details": results
                     }
+                    return result
                 elif passed_cases > 0:
-                    return {
+                    result = {
                         "passed": False,
                         "score": score,
                         "message": f"部分通过测试点 ({passed_cases}/{total_cases})",
                         "details": results
                     }
+                    return result
                 else:
-                    return {
+                    result = {
                         "passed": False,
                         "score": 0,
                         "message": "未通过任何测试点",
                         "details": results
                     }
+                    return result
         else:
             # 暂不支持其他语言
             print(f"[Judge] 暂不支持的语言: {language}")

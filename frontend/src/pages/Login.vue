@@ -106,12 +106,21 @@ onMounted(() => {
     // 清除可能存在的错误信息
     error.value = '';
     
-    // 如果已经登录，直接跳转
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
+    // 如果已经登录，直接跳转 - 优先使用sessionStorage
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    const userStr = sessionStorage.getItem('user') || localStorage.getItem('user');
     
     if (token && userStr) {
       try {
+        // 确保数据存储在sessionStorage中，以防是从localStorage读取的
+        if (!sessionStorage.getItem('token') && localStorage.getItem('token')) {
+          sessionStorage.setItem('token', token);
+          sessionStorage.setItem('user', userStr);
+          // 清除localStorage中的数据，防止跨标签页干扰
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+        
         const user = JSON.parse(userStr);
         if (user && user.role) {
           redirectToUserPage(user.role);
@@ -129,6 +138,9 @@ onMounted(() => {
 // 清除存储数据
 const clearStorage = () => {
   try {
+    // 同时清除sessionStorage和localStorage
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     ElMessage.success('登录状态已清除');

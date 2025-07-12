@@ -13,12 +13,21 @@ const authStore = useAuthStore();
 
 // 初始化认证状态
 onMounted(async () => {
-  // 从本地存储中尝试恢复会话
-  const token = localStorage.getItem('token');
-  const userData = localStorage.getItem('user');
+  // 优先从会话存储(sessionStorage)中恢复会话，如果没有再尝试从本地存储(localStorage)中恢复
+  const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+  const userData = sessionStorage.getItem('user') || localStorage.getItem('user');
   
   if (token && userData) {
     try {
+      // 确保数据存储在sessionStorage中，以防是从localStorage读取的
+      if (!sessionStorage.getItem('token')) {
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('user', userData);
+        // 清除localStorage中的数据，防止跨标签页干扰
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+      
       // 将数据设置到store中
       authStore.setAuth({
         access_token: token,
@@ -35,6 +44,11 @@ onMounted(async () => {
     } catch (error) {
       console.error('会话恢复失败:', error);
       stopHeartbeat();
+      // 清除无效的会话数据
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
   }
 });
