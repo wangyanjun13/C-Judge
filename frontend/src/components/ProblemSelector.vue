@@ -5,8 +5,20 @@
         <div class="filter-item">
           <label>题库分类：</label>
           <select v-model="selectedCategory" @change="loadProblems">
+            <option value="all">全部</option>
             <option v-for="category in categories" :key="category.path" :value="category.path">
               {{ category.name }}
+            </option>
+          </select>
+        </div>
+        
+        <!-- 动态显示所有标签类型 -->
+        <div v-for="tagType in tagTypes" :key="tagType.id" class="filter-item">
+          <label>{{ tagType.name }}标签：</label>
+          <select v-model="selectedTagIds[tagType.id]" @change="loadProblems">
+            <option value="">全部</option>
+            <option v-for="tag in getTagsByType(tagType.id)" :key="tag.id" :value="tag.id">
+              {{ tag.name }}
             </option>
           </select>
         </div>
@@ -41,7 +53,7 @@
             <th>试题中文名称</th>
             <th>时间限制</th>
             <th>内存限制</th>
-            <th>数据路径</th>
+            <th>标签</th>
           </tr>
         </thead>
         <tbody>
@@ -59,7 +71,24 @@
             <td>{{ problem.chinese_name }}</td>
             <td>{{ problem.time_limit }}</td>
             <td>{{ problem.memory_limit }}</td>
-            <td>{{ problem.data_path }}</td>
+            <td>
+              <div v-if="problem.tags && problem.tags.length > 0" class="problem-tags">
+                <template v-for="(tags, tagType) in groupTagsByType(problem.tags)" :key="tagType">
+                  <div class="tag-group">
+                    <span class="tag-type">{{ tagType }}:</span>
+                    <span 
+                      v-for="tag in tags" 
+                      :key="tag.id" 
+                      class="tag-badge"
+                      :style="{ backgroundColor: tag.tag_type_id ? `var(--tag-color-${tag.tag_type_id % 10})` : '#409eff' }"
+                    >
+                      {{ tag.name }}
+                    </span>
+                  </div>
+                </template>
+              </div>
+              <span v-else class="no-tags">暂无标签</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -75,6 +104,7 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getProblemCategories, getProblemsByCategory } from '../api/problems';
+import { getTagTypes, getTags, getProblemTags } from '../api/tags';
 
 // 组件接收的属性
 const props = defineProps({
@@ -95,6 +125,13 @@ const selectedProblems = ref([]);
 const loading = ref(false);
 const error = ref(null);
 
+// 标签相关状态
+const tagTypes = ref([]);
+const allTags = ref([]); // 存储所有标签
+const selectedTagIds = ref({}); // 存储每种标签类型的选中值
+const problemTags = ref({}); // 存储每个问题的标签
+const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
+
 // 加载题库分类
 const loadCategories = async () => {
   try {
@@ -102,13 +139,74 @@ const loadCategories = async () => {
     if (categories.value.length === 0) {
       ElMessage.warning('未找到题库分类，请确保题库目录已正确配置');
     } else {
-      // 自动选择第一个分类
-      selectedCategory.value = categories.value[0].path;
+      // 默认选择"全部"选项
+      selectedCategory.value = 'all';
       loadProblems();
     }
   } catch (err) {
     console.error('加载题库分类失败:', err);
     ElMessage.error('加载题库分类失败');
+  }
+};
+
+// 加载标签类型和标签
+const loadTags = async () => {
+  try {
+    // 加载标签类型
+    tagTypes.value = await getTagTypes();
+    
+    // 加载所有标签
+    allTags.value = await getTags();
+    
+    // 初始化selectedTagIds对象和tagTypeMap
+    tagTypes.value.forEach(tagType => {
+      selectedTagIds.value[tagType.id] = '';
+      tagTypeMap.value[tagType.id] = tagType.name;
+    });
+  } catch (err) {
+    console.error('加载标签失败:', err);
+    ElMessage.error('加载标签失败');
+  }
+};
+
+// 根据标签类型获取标签
+const getTagsByType = (tagTypeId) => {
+  return allTags.value.filter(tag => tag.tag_type_id === tagTypeId);
+};
+
+// 根据标签类型分组标签
+const groupTagsByType = (tags) => {
+  const grouped = {};
+  
+  if (!tags) return grouped;
+  
+  tags.forEach(tag => {
+    const typeName = tagTypeMap.value[tag.tag_type_id] || '未分类';
+    if (!grouped[typeName]) {
+      grouped[typeName] = [];
+    }
+    grouped[typeName].push(tag);
+  });
+  
+  return grouped;
+};
+
+// 加载所有问题的标签
+const loadProblemTags = async () => {
+  problemTags.value = {};
+  
+  for (const problem of problems.value) {
+    if (problem.data_path) {
+      try {
+        const tags = await getProblemTags(problem.data_path);
+        if (tags.length > 0) {
+          // 直接将标签添加到问题对象上
+          problem.tags = tags;
+        }
+      } catch (err) {
+        console.error(`获取问题 ${problem.data_path} 的标签失败:`, err);
+      }
+    }
   }
 };
 
@@ -123,7 +221,33 @@ const loadProblems = async () => {
   error.value = null;
   
   try {
-    problems.value = await getProblemsByCategory(selectedCategory.value);
+    // 构建过滤选项
+    const options = {};
+    
+    // 查找第一个被选中的标签
+    for (const tagTypeId in selectedTagIds.value) {
+      if (selectedTagIds.value[tagTypeId]) {
+        options.tagId = selectedTagIds.value[tagTypeId];
+        break; // 只使用第一个被选中的标签进行过滤
+      }
+    }
+    
+    if (selectedCategory.value === 'all') {
+      // 获取所有题库
+      let allProblems = [];
+      for (const category of categories.value) {
+        const categoryProblems = await getProblemsByCategory(category.path, options);
+        allProblems = [...allProblems, ...categoryProblems];
+      }
+      problems.value = allProblems;
+    } else {
+      // 获取指定分类的题库
+      problems.value = await getProblemsByCategory(selectedCategory.value, options);
+    }
+    
+    // 加载每个问题的标签
+    await loadProblemTags();
+    
     // 重置选择
     selectedProblems.value = [];
   } catch (err) {
@@ -179,9 +303,10 @@ const cancel = () => {
   emit('cancel');
 };
 
-// 页面加载时获取题库分类
-onMounted(() => {
-  loadCategories();
+// 页面加载时获取题库分类和标签
+onMounted(async () => {
+  await loadTags();
+  await loadCategories();
 });
 </script>
 
@@ -191,6 +316,16 @@ onMounted(() => {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  --tag-color-0: #409eff; /* 蓝色 */
+  --tag-color-1: #67c23a; /* 绿色 */
+  --tag-color-2: #e6a23c; /* 橙色 */
+  --tag-color-3: #f56c6c; /* 红色 */
+  --tag-color-4: #909399; /* 灰色 */
+  --tag-color-5: #9c27b0; /* 紫色 */
+  --tag-color-6: #2196f3; /* 浅蓝 */
+  --tag-color-7: #ff9800; /* 橙黄 */
+  --tag-color-8: #795548; /* 棕色 */
+  --tag-color-9: #607d8b; /* 蓝灰 */
 }
 
 .header-section {
@@ -299,5 +434,39 @@ onMounted(() => {
 
 .btn-cancel:hover {
   background-color: #e0e0e0;
+}
+
+.problem-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.tag-type {
+  font-weight: 500;
+  font-size: 0.8em;
+  color: #606266;
+}
+
+.tag-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: #409eff;
+  color: white;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.no-tags {
+  color: #909399;
+  font-size: 0.9em;
+  font-style: italic;
 }
 </style> 
