@@ -110,29 +110,24 @@ class TagService:
         # 尝试直接匹配
         problem = db.query(Problem).filter(Problem.data_path == problem_path).first()
         if problem:
-            logger.info(f"通过原始路径找到问题: {problem_path}")
             return problem
             
         # 尝试URL解码后再查询
         decoded_path = unquote(problem_path)
-        logger.info(f"尝试解码路径: {decoded_path}")
         problem = db.query(Problem).filter(Problem.data_path == decoded_path).first()
         if problem:
-            logger.info(f"通过解码路径找到问题: {decoded_path}")
             return problem
             
         # 尝试模糊匹配（结尾部分匹配）
-        logger.info(f"尝试模糊匹配路径结尾: {decoded_path}")
         problems = db.query(Problem).all()
         for p in problems:
             if p.data_path and decoded_path.endswith(p.data_path):
-                logger.info(f"通过路径结尾匹配找到问题: {p.data_path}")
                 return p
             if p.data_path and p.data_path.endswith(decoded_path):
-                logger.info(f"通过路径结尾反向匹配找到问题: {p.data_path}")
                 return p
                 
-        logger.error(f"未找到匹配的问题: {problem_path}")
+        # 只记录错误日志，但使用DEBUG级别减少日志量
+        logger.debug(f"未找到匹配的问题: {problem_path}")
         return None
     
     @staticmethod

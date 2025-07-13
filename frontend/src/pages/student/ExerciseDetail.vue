@@ -101,7 +101,7 @@
     <div v-if="statisticsModalVisible" class="modal-overlay" @click="statisticsModalVisible = false">
       <div class="modal large-modal" @click.stop>
         <h3>试题答题统计</h3>
-        <p>此功能正在开发中...</p>
+        <ExerciseStatistics :exerciseId="exerciseId" :includeSpecialUsers="false" />
         <div class="form-actions">
           <button @click="statisticsModalVisible = false" class="btn btn-primary">关闭</button>
         </div>
@@ -119,6 +119,7 @@ import { getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import { getProblemTags, getTagTypes } from '../../api/tags';
+import ExerciseStatistics from '../../components/ExerciseStatistics.vue';
 
 const route = useRoute();
 const router = useRouter();
