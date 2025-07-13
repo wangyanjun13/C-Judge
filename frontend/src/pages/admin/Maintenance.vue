@@ -258,7 +258,7 @@ const loadProblems = async () => {
       problems.value = allProblems;
     } else {
       // 获取指定分类的题库
-      problems.value = await getProblemsByCategory(selectedCategory.value, options);
+    problems.value = await getProblemsByCategory(selectedCategory.value, options);
     }
     
     // 加载每个问题的标签
@@ -453,6 +453,8 @@ const handleTagsUpdate = async () => {
 watch(() => route.query.tab, (newTab) => {
   if (newTab === 'upload') {
     activeTab.value = 'upload';
+  } else if (newTab === 'tags') {
+    activeTab.value = 'tags';
   } else {
     activeTab.value = 'problems';
   }

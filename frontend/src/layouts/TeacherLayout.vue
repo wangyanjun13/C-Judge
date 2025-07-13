@@ -19,7 +19,8 @@
           <button class="nav-item dropdown-btn">维护</button>
           <div class="dropdown-content">
             <router-link to="/teacher/maintenance?tab=upload" class="dropdown-item">上传题库</router-link>
-            <router-link to="/teacher/maintenance" class="dropdown-item">题库维护</router-link>
+            <router-link to="/teacher/maintenance?tab=problems" class="dropdown-item">题库维护</router-link>
+            <router-link to="/teacher/maintenance?tab=tags" class="dropdown-item">标签管理</router-link>
           </div>
         </div>
         

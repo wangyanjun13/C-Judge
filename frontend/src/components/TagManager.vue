@@ -170,7 +170,7 @@ const loadTags = async () => {
       tags.value = await getTags(selectedTagType.value.id);
     } else {
       // 否则加载所有标签
-      tags.value = await getTags();
+    tags.value = await getTags();
     }
   } catch (error) {
     console.error('加载标签失败:', error);
