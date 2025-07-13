@@ -7,6 +7,7 @@ from app.api.courses import router as courses_router
 from app.api.problems import router as problems_router
 from app.api.submissions import router as submissions_router
 from app.api.operation_logs import router as operation_logs_router
+from app.api.tags import router as tags_router
 
 # 创建主路由
 api_router = APIRouter(prefix="/api")
@@ -20,6 +21,7 @@ api_router.include_router(courses_router)
 api_router.include_router(problems_router)
 api_router.include_router(submissions_router)
 api_router.include_router(operation_logs_router)
+api_router.include_router(tags_router)
 
 # 导出API路由
 __all__ = ["api_router"] 

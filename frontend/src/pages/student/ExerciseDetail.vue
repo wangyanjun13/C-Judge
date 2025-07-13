@@ -44,9 +44,7 @@
                 <th>得分</th>
                 <th>时间限制</th>
                 <th>内存限制</th>
-                <th>代码检查总分</th>
-                <th>运行总分</th>
-                <th>总分计算方法</th>
+                <th>标签</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -62,9 +60,24 @@
                 </td>
                 <td>{{ problem.time_limit }}ms</td>
                 <td>{{ problem.memory_limit }}MB</td>
-                <td>{{ problem.code_check_score || 20 }}</td>
-                <td>{{ problem.runtime_score || 80 }}</td>
-                <td>{{ formatScoreMethod(problem.score_method) }}</td>
+                <td class="tags-cell">
+                  <div v-if="problem.tags && problem.tags.length > 0" class="problem-tags">
+                    <template v-for="(tags, tagType) in groupTagsByType(problem.tags)" :key="tagType">
+                      <div class="tag-group">
+                        <span class="tag-type">{{ tagType }}:</span>
+                        <span 
+                          v-for="tag in tags" 
+                          :key="tag.id" 
+                          class="tag-badge"
+                          :style="{ backgroundColor: getTagColor(tag.tag_type_id) }"
+                        >
+                          {{ tag.name }}
+                        </span>
+                      </div>
+                    </template>
+                  </div>
+                  <span v-else class="no-tags">暂无标签</span>
+                </td>
                 <td>
                   <button @click="viewProblem(problem.id)" class="btn btn-primary" 
                     :disabled="!isExerciseStarted" 
@@ -88,7 +101,7 @@
     <div v-if="statisticsModalVisible" class="modal-overlay" @click="statisticsModalVisible = false">
       <div class="modal large-modal" @click.stop>
         <h3>试题答题统计</h3>
-        <p>此功能正在开发中...</p>
+        <ExerciseStatistics :exerciseId="exerciseId" :includeSpecialUsers="false" />
         <div class="form-actions">
           <button @click="statisticsModalVisible = false" class="btn btn-primary">关闭</button>
         </div>
@@ -105,6 +118,8 @@ import { getExerciseDetail } from '../../api/exercises';
 import { getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
+import { getProblemTags, getTagTypes } from '../../api/tags';
+import ExerciseStatistics from '../../components/ExerciseStatistics.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -116,6 +131,7 @@ const loading = ref(true);
 const error = ref(null);
 const statisticsModalVisible = ref(false);
 const submissionMap = ref({}); // 保存题目ID到提交记录的映射
+const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
 
 // 在script setup部分添加计算练习时间的函数
 const isExerciseStarted = computed(() => {
@@ -191,6 +207,27 @@ const formatScoreMethod = (method) => {
   return '取总和';
 };
 
+// 根据标签类型生成颜色
+const getTagColor = (tagTypeId) => {
+  // 预定义一组好看的颜色
+  const colors = [
+    '#409eff', // 蓝色
+    '#67c23a', // 绿色
+    '#e6a23c', // 橙色
+    '#f56c6c', // 红色
+    '#909399', // 灰色
+    '#9c27b0', // 紫色
+    '#2196f3', // 浅蓝
+    '#ff9800', // 橙黄
+    '#795548', // 棕色
+    '#607d8b'  // 蓝灰
+  ];
+  
+  // 使用标签类型ID作为索引来选择颜色
+  const index = ((tagTypeId || 0) % colors.length);
+  return colors[index];
+};
+
 // 计算题目总分
 const calculateTotalScore = (problem) => {
   // 检查这个题目是否有提交记录
@@ -223,6 +260,11 @@ const fetchExerciseDetail = async () => {
     if (authStore.user && authStore.user.id) {
       await fetchSubmissions();
     }
+    
+    // 加载每个题目的标签
+    if (result.problems && result.problems.length > 0) {
+      await loadProblemTags();
+    }
   } catch (err) {
     console.error('获取练习详情失败', err);
     error.value = '获取练习详情失败，请稍后重试';
@@ -230,6 +272,51 @@ const fetchExerciseDetail = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// 加载所有问题的标签
+const loadProblemTags = async () => {
+  // 加载标签类型
+  try {
+    const tagTypes = await getTagTypes();
+    // 初始化tagTypeMap
+    tagTypes.forEach(tagType => {
+      tagTypeMap.value[tagType.id] = tagType.name;
+    });
+  } catch (err) {
+    console.error('加载标签类型失败:', err);
+  }
+  
+  for (const problem of exercise.value.problems) {
+    if (problem.data_path) {
+      try {
+        const tags = await getProblemTags(problem.data_path);
+        if (tags.length > 0) {
+          // 直接将标签添加到问题对象上
+          problem.tags = tags;
+        }
+      } catch (err) {
+        console.error(`获取问题 ${problem.data_path} 的标签失败:`, err);
+      }
+    }
+  }
+};
+
+// 根据标签类型分组标签
+const groupTagsByType = (tags) => {
+  const grouped = {};
+  
+  if (!tags) return grouped;
+  
+  tags.forEach(tag => {
+    const typeName = tagTypeMap.value[tag.tag_type_id] || '未分类';
+    if (!grouped[typeName]) {
+      grouped[typeName] = [];
+    }
+    grouped[typeName].push(tag);
+  });
+  
+  return grouped;
 };
 
 // 获取提交记录
@@ -508,6 +595,43 @@ onMounted(() => {
   color: white;
   font-size: 12px;
   border-radius: 4px;
+}
+
+.tags-cell {
+  max-width: 300px;
+}
+
+.problem-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.tag-type {
+  font-weight: 500;
+  font-size: 0.9em;
+  color: #606266;
+}
+
+.tag-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.no-tags {
+  color: #909399;
+  font-size: 0.9em;
+  font-style: italic;
 }
 
 /* 如果练习已截止，使表格显示灰色 */

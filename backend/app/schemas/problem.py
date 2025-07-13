@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from app.schemas.tag import Tag
 
 class ProblemCategory(BaseModel):
     """题库分类模型"""
@@ -16,6 +17,7 @@ class ProblemInfo(BaseModel):
     memory_limit: str
     data_path: str
     category: str
+    tags: List[Tag] = []
     
 class ProblemDelete(BaseModel):
     """试题删除响应模型"""
@@ -34,6 +36,7 @@ class ProblemDetail(BaseModel):
     code_check_score: int = 20
     runtime_score: int = 80
     score_method: str = "sum"
+    tags: List[Tag] = []
 
     class Config:
         orm_mode = True 
