@@ -60,6 +60,22 @@ CREATE TABLE exercises (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 创建标签类型表
+CREATE TABLE tag_types (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建标签表
+CREATE TABLE tags (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    tag_type_id INTEGER REFERENCES tag_types(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(name, tag_type_id)
+);
+
 -- 创建题目表
 CREATE TABLE problems (
     id SERIAL PRIMARY KEY,
@@ -75,6 +91,13 @@ CREATE TABLE problems (
     score_method VARCHAR(20) DEFAULT 'sum', -- 'sum' or 'max'
     data_path VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建问题-标签关联表
+CREATE TABLE problem_tag (
+    problem_id INTEGER REFERENCES problems(id) ON DELETE CASCADE,
+    tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (problem_id, tag_id)
 );
 
 -- 创建练习-题目关联表
@@ -127,3 +150,19 @@ INSERT INTO system_settings (key, value) VALUES
 ('rows_per_page', '10'),
 ('default_code_check_score', '0'),
 ('allow_student_change_password', 'true'); 
+
+-- 插入默认标签类型
+INSERT INTO tag_types (name) VALUES 
+('难度'),
+('知识点');
+
+-- 插入默认标签
+INSERT INTO tags (name, tag_type_id) VALUES 
+('高', 1),
+('中', 1),
+('低', 1),
+('数组', 2),
+('结构体', 2),
+('指针', 2),
+('函数', 2),
+('递归', 2); 
