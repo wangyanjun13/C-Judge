@@ -18,6 +18,7 @@
         <div class="filter-item">
           <label>题库分类：</label>
           <select v-model="selectedCategory" @change="loadProblems">
+            <option value="all">全部</option>
             <option v-for="category in categories" :key="category.path" :value="category.path">
               {{ category.name }}
             </option>
@@ -190,8 +191,8 @@ const loadCategories = async () => {
     if (categories.value.length === 0) {
       ElMessage.warning('未找到题库分类，请确保题库目录已正确配置');
     } else {
-      // 自动选择第一个分类
-      selectedCategory.value = categories.value[0].path;
+      // 默认选择"全部"选项
+      selectedCategory.value = 'all';
       loadProblems();
     }
   } catch (err) {
@@ -247,7 +248,18 @@ const loadProblems = async () => {
       }
     }
     
-    problems.value = await getProblemsByCategory(selectedCategory.value, options);
+    if (selectedCategory.value === 'all') {
+      // 获取所有题库
+      let allProblems = [];
+      for (const category of categories.value) {
+        const categoryProblems = await getProblemsByCategory(category.path, options);
+        allProblems = [...allProblems, ...categoryProblems];
+      }
+      problems.value = allProblems;
+    } else {
+      // 获取指定分类的题库
+      problems.value = await getProblemsByCategory(selectedCategory.value, options);
+    }
     
     // 加载每个问题的标签
     await loadProblemTags();
