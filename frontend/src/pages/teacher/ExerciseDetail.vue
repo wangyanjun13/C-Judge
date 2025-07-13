@@ -86,7 +86,8 @@
                     查看
                     <span v-if="isExerciseEnded" class="deadline-badge">已截止</span>
                   </button>
-                  <button @click="showEditProblemModal(problem)" class="btn btn-edit">修改</button>
+                  <!-- 暂时注释掉修改按钮，后续需要再开放 -->
+                  <!-- <button @click="showEditProblemModal(problem)" class="btn btn-edit">修改</button> -->
                   <button @click="removeProblem(problem.id)" class="btn btn-danger">删除</button>
                 </td>
               </tr>
