@@ -2,7 +2,7 @@
   <div class="statistics-container">
     <div class="header">
       <h3>{{ exerciseName }} - 答题统计</h3>
-      <div class="filter-section" v-if="classes.length > 1">
+      <div class="filter-section" v-if="classes.length > 1 && authStore.userRole !== 'student'">
         <label for="class-select">班级：</label>
         <select id="class-select" v-model="selectedClassId" @change="fetchStatistics">
           <option value="">全部班级</option>
@@ -30,7 +30,7 @@
             <tr>
               <th class="fixed-column">序号</th>
               <th class="fixed-column">用户名</th>
-              <th class="fixed-column">班级/角色</th>
+              <th class="fixed-column" v-if="authStore.userRole !== 'student'">班级/角色</th>
               <th class="fixed-column">总分</th>
               <th v-for="problem in problems" :key="problem.id" class="problem-column">
                 {{ problem.name }}
@@ -68,7 +68,7 @@
             </tr>
             
             <!-- 分隔行 -->
-            <tr v-if="specialUsers.length > 0 && statistics.length > 0" class="divider-row">
+            <tr v-if="specialUsers.length > 0 && statistics.length > 0 && authStore.userRole !== 'student'" class="divider-row">
               <td colspan="100%" class="divider-cell">
                 <div class="divider-text">班级学生</div>
               </td>
@@ -78,7 +78,7 @@
             <tr v-for="student in statistics" :key="student.student_id">
               <td class="fixed-column">{{ student.rank }}</td>
               <td class="fixed-column">{{ student.username }}{{ student.real_name ? ` (${student.real_name})` : '' }}</td>
-              <td class="fixed-column">{{ formatClassNames(student.class_names) }}</td>
+              <td class="fixed-column" v-if="authStore.userRole !== 'student'">{{ formatClassNames(student.class_names) }}</td>
               <td class="fixed-column total-score">{{ student.total_score || 0 }}</td>
               <td 
                 v-for="problem in problems" 
@@ -149,7 +149,14 @@ const fetchStatistics = async () => {
     // 更新组件数据
     exerciseName.value = data.exercise_name;
     problems.value = data.problems;
-    classes.value = data.classes;
+    classes.value = data.classes || [];
+    
+    // 如果是学生，直接使用返回的统计数据
+    if (authStore.userRole === 'student') {
+      statistics.value = data.statistics || [];
+      specialUsers.value = []; // 学生不显示特殊用户
+      return;
+    }
     
     // 分离特殊用户（管理员和教师）和学生
     if (data.statistics && data.statistics.length > 0) {
@@ -188,8 +195,6 @@ const fetchStatistics = async () => {
             total_score: 0,
             problem_scores: emptyProblemScores
           });
-          
-          console.log('添加当前用户到特殊用户列表:', specialUsers.value);
         }
       }
       
@@ -214,12 +219,7 @@ const fetchStatistics = async () => {
           total_score: 0,
           problem_scores: emptyProblemScores
         });
-        
-        console.log('添加课程教师到特殊用户列表:', specialUsers.value);
       }
-      
-      console.log('特殊用户:', specialUsers.value);
-      console.log('学生:', statistics.value);
     } else {
       specialUsers.value = [];
       statistics.value = [];
@@ -245,8 +245,6 @@ const fetchStatistics = async () => {
           total_score: 0,
           problem_scores: emptyProblemScores
         });
-        
-        console.log('添加当前用户到特殊用户列表（无数据情况）:', specialUsers.value);
       }
     }
   } catch (err) {

@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 
 from app.models.database import Base
 from .exercise import exercise_problem
+from .tag import problem_tag
 
 
 class Problem(Base):
@@ -30,6 +31,7 @@ class Problem(Base):
     # 使用secondary定义多对多关系
     exercise = relationship("Exercise", secondary=exercise_problem, back_populates="problems")
     submissions = relationship("Submission", back_populates="problem")
+    tags = relationship("Tag", secondary=problem_tag, back_populates="problems")
 
 # 保留ProblemCategory类，但修复与Problem的关系
 class ProblemCategory(Base):

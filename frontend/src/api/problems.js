@@ -19,12 +19,25 @@ export const getProblemCategories = async () => {
 /**
  * 获取指定分类下的试题列表
  * @param {String} categoryPath - 分类路径
+ * @param {Object} options - 过滤选项
+ * @param {Number} options.tagId - 按标签ID过滤（可选）
+ * @param {Number} options.tagTypeId - 按标签类型ID过滤（可选）
  * @returns {Promise} - 返回试题列表
  */
-export const getProblemsByCategory = async (categoryPath) => {
+export const getProblemsByCategory = async (categoryPath, options = {}) => {
   try {
     console.log('请求分类下的试题:', categoryPath);
-    const response = await axios.get(`/api/problems/list/${encodeURIComponent(categoryPath)}`);
+    const params = {};
+    
+    // 添加过滤参数
+    if (options.tagId) {
+      params.tag_id = options.tagId;
+    }
+    if (options.tagTypeId) {
+      params.tag_type_id = options.tagTypeId;
+    }
+    
+    const response = await axios.get(`/api/problems/list/${encodeURIComponent(categoryPath)}`, { params });
     console.log('试题列表API响应:', response.data);
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
@@ -48,6 +61,8 @@ export const updateProblem = async (problemPath, problemData) => {
     throw error;
   }
 }
+
+// 注意：setProblemTags函数已移至tags.js，避免重复定义
 
 /**
  * 删除试题

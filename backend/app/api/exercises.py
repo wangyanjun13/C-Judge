@@ -424,15 +424,9 @@ async def get_exercise_statistics(
     如果提供了class_id，则只返回该班级学生的统计数据
     否则返回与该练习关联的所有班级学生的统计数据
     如果include_special_users为True，则包含管理员和教师的答题情况
+    学生只能查看自己的答题情况
     """
     try:
-        # 检查用户权限
-        if current_user.role not in ['admin', 'teacher']:
-            raise HTTPException(
-                status_code=403,
-                detail="只有管理员和教师可以查看答题统计"
-            )
-            
         # 获取练习详情
         exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
         if not exercise:
@@ -451,102 +445,30 @@ async def get_exercise_statistics(
                 "statistics": []
             }
             
-        # 获取与该练习关联的班级
+        # 获取与该练习关联的课程
         course = exercise.course
         if not course:
             raise HTTPException(
                 status_code=404,
                 detail="练习未关联课程"
             )
-            
-        classes = course.classes
-        if class_id:
-            # 如果指定了班级，则只返回该班级的数据
-            classes = [cls for cls in classes if cls.id == class_id]
-            if not classes:
-                raise HTTPException(
-                    status_code=404,
-                    detail="未找到指定班级或该班级未关联此课程"
-                )
-                
-        # 获取所有相关学生
-        students = []
-        for cls in classes:
-            students.extend(cls.students)
-            
-        # 去重
-        students = list({student.id: student for student in students}.values())
         
-        # 获取所有学生在所有题目上的提交记录
-        statistics = []
-        
-        # 如果需要包含管理员和教师的答题情况
-        if include_special_users:
-            # 获取管理员
-            admins = db.query(User).filter(User.role == 'admin').all()
-            
-            # 获取课程关联的教师
-            teacher = course.teacher
-            
-            # 合并特殊用户（管理员和教师）
-            special_users = []
-            if admins:
-                special_users.extend(admins)
-            if teacher and teacher not in special_users:
-                special_users.append(teacher)
-                
-            # 获取特殊用户的答题情况
-            for user in special_users:
-                user_stats = {
-                    "user_id": user.id,
-                    "username": user.username,
-                    "real_name": user.real_name or user.username,
-                    "role": user.role,
-                    "total_score": 0,
-                    "problem_scores": {}
-                }
-                
-                # 获取该用户在该练习中的所有提交记录
-                submissions = db.query(Submission).filter(
-                    Submission.user_id == user.id,
-                    Submission.exercise_id == exercise_id
-                ).all()
-                
-                # 为每个题目找到最高分的提交
-                for problem in problems:
-                    problem_submissions = [s for s in submissions if s.problem_id == problem.id]
-                    if problem_submissions:
-                        # 取最高分的提交
-                        best_submission = max(problem_submissions, key=lambda s: s.total_score or 0)
-                        user_stats["problem_scores"][problem.id] = {
-                            "score": best_submission.total_score or 0,
-                            "submission_id": best_submission.id,
-                            "status": best_submission.status
-                        }
-                        user_stats["total_score"] += best_submission.total_score or 0
-                    else:
-                        user_stats["problem_scores"][problem.id] = {
-                            "score": None,
-                            "submission_id": None,
-                            "status": "未提交"
-                        }
-                
-                statistics.append(user_stats)
-        
-        # 添加学生统计数据
-        for student in students:
+        # 根据用户角色处理不同的逻辑
+        if current_user.role == 'student':
+            # 学生只能查看自己的答题情况
             student_stats = {
-                "student_id": student.id,
-                "username": student.username,
-                "real_name": student.real_name or student.username,
-                "class_names": [cls.name for cls in student.classes],
+                "student_id": current_user.id,
+                "username": current_user.username,
+                "real_name": current_user.real_name or current_user.username,
+                "class_names": [cls.name for cls in current_user.classes],
                 "total_score": 0,
-                "problem_scores": {}
+                "problem_scores": {},
+                "rank": 1  # 学生只看自己，默认排名为1
             }
             
             # 获取该学生在该练习中的所有提交记录
             submissions = db.query(Submission).filter(
-                Submission.user_id == student.id,
+                Submission.user_id == current_user.id,
                 Submission.exercise_id == exercise_id
             ).all()
             
@@ -569,49 +491,177 @@ async def get_exercise_statistics(
                         "status": "未提交"
                     }
             
-            statistics.append(student_stats)
-        
-        # 按总分排序
-        statistics.sort(key=lambda x: x["total_score"], reverse=True)
-        
-        # 添加序号（只为学生添加序号）
-        rank = 1
-        for stat in statistics:
-            if "student_id" in stat:  # 只为学生添加排名
-                stat["rank"] = rank
-                rank += 1
-        
-        # 构造返回数据
-        result = {
-            "exercise_name": exercise.name,
-            "problems": [
-                {
-                    "id": p.id,
-                    "name": p.name,
-                    "chinese_name": p.chinese_name,
-                    "code_check_score": p.code_check_score,
-                    "runtime_score": p.runtime_score,
-                    "total_score": p.code_check_score + p.runtime_score
-                } for p in problems
-            ],
-            "classes": [
-                {
-                    "id": cls.id,
-                    "name": cls.name
-                } for cls in classes
-            ],
-            "statistics": statistics
-        }
-        
-        # 如果是管理员，添加课程教师信息
-        if current_user.role == 'admin' and course.teacher:
-            result["course_teacher"] = {
-                "id": course.teacher.id,
-                "username": course.teacher.username,
-                "real_name": course.teacher.real_name
+            # 构造返回数据（只包含学生自己的数据）
+            return {
+                "exercise_name": exercise.name,
+                "problems": [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "chinese_name": p.chinese_name,
+                        "code_check_score": p.code_check_score,
+                        "runtime_score": p.runtime_score,
+                        "total_score": p.code_check_score + p.runtime_score
+                    } for p in problems
+                ],
+                "classes": [],  # 学生不需要班级选择器
+                "statistics": [student_stats]  # 只包含学生自己的统计数据
             }
-        
-        return result
+        else:
+            # 管理员和教师的原有逻辑
+            classes = course.classes
+            if class_id:
+                # 如果指定了班级，则只返回该班级的数据
+                classes = [cls for cls in classes if cls.id == class_id]
+                if not classes:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="未找到指定班级或该班级未关联此课程"
+                    )
+                    
+            # 获取所有相关学生
+            students = []
+            for cls in classes:
+                students.extend(cls.students)
+                
+            # 去重
+            students = list({student.id: student for student in students}.values())
+            
+            # 获取所有学生在所有题目上的提交记录
+            statistics = []
+            
+            # 如果需要包含管理员和教师的答题情况
+            if include_special_users:
+                # 获取管理员
+                admins = db.query(User).filter(User.role == 'admin').all()
+                
+                # 获取课程关联的教师
+                teacher = course.teacher
+                
+                # 合并特殊用户（管理员和教师）
+                special_users = []
+                if admins:
+                    special_users.extend(admins)
+                if teacher and teacher not in special_users:
+                    special_users.append(teacher)
+                    
+                # 获取特殊用户的答题情况
+                for user in special_users:
+                    user_stats = {
+                        "user_id": user.id,
+                        "username": user.username,
+                        "real_name": user.real_name or user.username,
+                        "role": user.role,
+                        "total_score": 0,
+                        "problem_scores": {}
+                    }
+                    
+                    # 获取该用户在该练习中的所有提交记录
+                    submissions = db.query(Submission).filter(
+                        Submission.user_id == user.id,
+                        Submission.exercise_id == exercise_id
+                    ).all()
+                    
+                    # 为每个题目找到最高分的提交
+                    for problem in problems:
+                        problem_submissions = [s for s in submissions if s.problem_id == problem.id]
+                        if problem_submissions:
+                            # 取最高分的提交
+                            best_submission = max(problem_submissions, key=lambda s: s.total_score or 0)
+                            user_stats["problem_scores"][problem.id] = {
+                                "score": best_submission.total_score or 0,
+                                "submission_id": best_submission.id,
+                                "status": best_submission.status
+                            }
+                            user_stats["total_score"] += best_submission.total_score or 0
+                        else:
+                            user_stats["problem_scores"][problem.id] = {
+                                "score": None,
+                                "submission_id": None,
+                                "status": "未提交"
+                            }
+                    
+                    statistics.append(user_stats)
+            
+            # 添加学生统计数据
+            for student in students:
+                student_stats = {
+                    "student_id": student.id,
+                    "username": student.username,
+                    "real_name": student.real_name or student.username,
+                    "class_names": [cls.name for cls in student.classes],
+                    "total_score": 0,
+                    "problem_scores": {}
+                }
+                
+                # 获取该学生在该练习中的所有提交记录
+                submissions = db.query(Submission).filter(
+                    Submission.user_id == student.id,
+                    Submission.exercise_id == exercise_id
+                ).all()
+                
+                # 为每个题目找到最高分的提交
+                for problem in problems:
+                    problem_submissions = [s for s in submissions if s.problem_id == problem.id]
+                    if problem_submissions:
+                        # 取最高分的提交
+                        best_submission = max(problem_submissions, key=lambda s: s.total_score or 0)
+                        student_stats["problem_scores"][problem.id] = {
+                            "score": best_submission.total_score or 0,
+                            "submission_id": best_submission.id,
+                            "status": best_submission.status
+                        }
+                        student_stats["total_score"] += best_submission.total_score or 0
+                    else:
+                        student_stats["problem_scores"][problem.id] = {
+                            "score": None,
+                            "submission_id": None,
+                            "status": "未提交"
+                        }
+                
+                statistics.append(student_stats)
+            
+            # 按总分排序
+            statistics.sort(key=lambda x: x["total_score"], reverse=True)
+            
+            # 添加序号（只为学生添加序号）
+            rank = 1
+            for stat in statistics:
+                if "student_id" in stat:  # 只为学生添加排名
+                    stat["rank"] = rank
+                    rank += 1
+            
+            # 构造返回数据
+            result = {
+                "exercise_name": exercise.name,
+                "problems": [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "chinese_name": p.chinese_name,
+                        "code_check_score": p.code_check_score,
+                        "runtime_score": p.runtime_score,
+                        "total_score": p.code_check_score + p.runtime_score
+                    } for p in problems
+                ],
+                "classes": [
+                    {
+                        "id": cls.id,
+                        "name": cls.name
+                    } for cls in classes
+                ],
+                "statistics": statistics
+            }
+            
+            # 如果是管理员，添加课程教师信息
+            if current_user.role == 'admin' and course.teacher:
+                result["course_teacher"] = {
+                    "id": course.teacher.id,
+                    "username": course.teacher.username,
+                    "real_name": course.teacher.real_name
+                }
+            
+            return result
         
     except Exception as e:
         # 记录错误
