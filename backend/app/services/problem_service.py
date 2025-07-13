@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional, Dict, Any
 from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDetail
 from sqlalchemy.orm import Session
-from app.models import Problem
+from app.models import Problem, Tag, TagType
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -201,6 +201,34 @@ class ProblemService:
         except Exception as e:
             logger.error(f"获取题目详情失败: {str(e)}")
             raise
+    
+    @staticmethod
+    def get_problems_by_tag(db: Session, tag_id: int) -> List[Problem]:
+        """根据标签获取问题列表"""
+        tag = db.query(Tag).filter(Tag.id == tag_id).first()
+        if not tag:
+            logger.error(f"标签不存在: ID {tag_id}")
+            return []
+        
+        return tag.problems
+    
+    @staticmethod
+    def get_problems_by_tag_type(db: Session, tag_type_id: int) -> List[Problem]:
+        """根据标签类型获取问题列表"""
+        # 获取该标签类型下的所有标签
+        tags = db.query(Tag).filter(Tag.tag_type_id == tag_type_id).all()
+        if not tags:
+            logger.error(f"标签类型下没有标签: ID {tag_type_id}")
+            return []
+        
+        # 获取所有问题
+        problems = []
+        for tag in tags:
+            for problem in tag.problems:
+                if problem not in problems:  # 避免重复
+                    problems.append(problem)
+        
+        return problems
     
     @staticmethod
     def get_problem_html_content(data_path: str) -> str:

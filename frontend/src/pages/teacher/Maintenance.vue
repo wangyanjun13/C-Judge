@@ -7,6 +7,9 @@
       <div class="tab" :class="{ active: activeTab === 'upload' }" @click="activeTab = 'upload'">
         上传题库
       </div>
+      <div class="tab" :class="{ active: activeTab === 'tags' }" @click="activeTab = 'tags'">
+        标签管理
+      </div>
     </div>
 
     <!-- 题库维护 -->
@@ -17,6 +20,17 @@
           <select v-model="selectedCategory" @change="loadProblems">
             <option v-for="category in categories" :key="category.path" :value="category.path">
               {{ category.name }}
+            </option>
+          </select>
+        </div>
+        
+        <!-- 动态显示所有标签类型 -->
+        <div v-for="tagType in tagTypes" :key="tagType.id" class="filter-item">
+          <label>{{ tagType.name }}标签：</label>
+          <select v-model="selectedTagIds[tagType.id]" @change="loadProblems">
+            <option value="">全部</option>
+            <option v-for="tag in getTagsByType(tagType.id)" :key="tag.id" :value="tag.id">
+              {{ tag.name }}
             </option>
           </select>
         </div>
@@ -53,7 +67,7 @@
             <tr v-for="(problem, index) in problems" :key="problem.name">
               <td>{{ index + 1 }}</td>
               <td>
-                <button @click="updateProblem(problem)" class="btn btn-edit">更新</button>
+                <button @click="openTagDialog(problem)" class="btn btn-edit">打标签</button>
                 <button @click="confirmDelete(problem)" class="btn btn-delete">删除</button>
               </td>
               <td>{{ problem.name }}</td>
@@ -85,6 +99,40 @@
         </div>
       </div>
     </div>
+    
+    <!-- 标签管理 -->
+    <div v-if="activeTab === 'tags'" class="tab-content">
+      <div class="tags-section">
+        <TagManager @update="handleTagsUpdate" />
+      </div>
+    </div>
+    
+    <!-- 打标签对话框 -->
+    <div v-if="showTagDialog" class="modal-overlay">
+      <div class="modal">
+        <h3>为"{{ selectedProblem?.chinese_name }}"设置标签</h3>
+        <div class="tag-dialog-content">
+          <div v-for="tagType in tagTypes" :key="tagType.id" class="tag-type-section">
+            <h4>{{ tagType.name }}</h4>
+            <div class="tag-list">
+              <div 
+                v-for="tag in getTagsByType(tagType.id)" 
+                :key="tag.id" 
+                class="tag-item"
+                :class="{ selected: selectedTagsForProblem.includes(tag.id) }"
+                @click="toggleTag(tag.id)"
+              >
+                {{ tag.name }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button @click="closeTagDialog" class="btn">取消</button>
+          <button @click="saveProblemTags" class="btn btn-primary">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -94,6 +142,8 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { getProblemCategories, getProblemsByCategory, updateProblem as updateProblemAPI, deleteProblem as deleteProblemAPI } from '../../api/problems';
 import { useRoute } from 'vue-router';
 import { logUserOperation, OperationType } from '../../utils/logger';
+import TagManager from '../../components/TagManager.vue';
+import { getTagTypes, getTags, getProblemTags, setProblemTags } from '../../api/tags';
 
 // 获取路由参数
 const route = useRoute();
@@ -107,6 +157,16 @@ const loading = ref(false);
 const error = ref(null);
 const selectedFile = ref(null);
 const uploadStatus = ref('');
+
+// 打标签相关状态
+const showTagDialog = ref(false);
+const selectedProblem = ref(null);
+const selectedTagsForProblem = ref([]);
+
+// 标签相关状态
+const tagTypes = ref([]);
+const allTags = ref([]); // 存储所有标签
+const selectedTagIds = ref({}); // 存储每种标签类型的选中值
 
 // 加载题库分类
 const loadCategories = async () => {
@@ -125,6 +185,30 @@ const loadCategories = async () => {
   }
 };
 
+// 加载标签类型和标签
+const loadTags = async () => {
+  try {
+    // 加载标签类型
+    tagTypes.value = await getTagTypes();
+    
+    // 加载所有标签
+    allTags.value = await getTags();
+    
+    // 初始化selectedTagIds对象
+    tagTypes.value.forEach(tagType => {
+      selectedTagIds.value[tagType.id] = '';
+    });
+  } catch (err) {
+    console.error('加载标签失败:', err);
+    ElMessage.error('加载标签失败');
+  }
+};
+
+// 根据标签类型获取标签
+const getTagsByType = (tagTypeId) => {
+  return allTags.value.filter(tag => tag.tag_type_id === tagTypeId);
+};
+
 // 加载试题列表
 const loadProblems = async () => {
   if (!selectedCategory.value) {
@@ -136,7 +220,18 @@ const loadProblems = async () => {
   error.value = null;
   
   try {
-    problems.value = await getProblemsByCategory(selectedCategory.value);
+    // 构建过滤选项
+    const options = {};
+    
+    // 查找第一个被选中的标签
+    for (const tagTypeId in selectedTagIds.value) {
+      if (selectedTagIds.value[tagTypeId]) {
+        options.tagId = selectedTagIds.value[tagTypeId];
+        break; // 只使用第一个被选中的标签进行过滤
+      }
+    }
+    
+    problems.value = await getProblemsByCategory(selectedCategory.value, options);
   } catch (err) {
     console.error('加载试题列表失败:', err);
     error.value = '加载试题列表失败';
@@ -146,10 +241,63 @@ const loadProblems = async () => {
   }
 };
 
-// 更新试题
-const updateProblem = (problem) => {
-  ElMessage.info('更新试题功能正在开发中...');
-  logUserOperation(OperationType.UPDATE_PROBLEM, `试题: ${problem.chinese_name}`);
+// 打开标签对话框
+const openTagDialog = async (problem) => {
+  selectedProblem.value = problem;
+  showTagDialog.value = true;
+  
+  try {
+    // 使用data_path作为唯一标识符
+    if (!problem.data_path) {
+      console.error('问题缺少data_path字段:', problem);
+      ElMessage.error('无法获取问题标识符');
+      return;
+    }
+    
+    // 获取问题已有的标签
+    const problemPath = encodeURIComponent(problem.data_path);
+    const problemTags = await getProblemTags(problemPath);
+    selectedTagsForProblem.value = problemTags.map(tag => tag.id);
+  } catch (error) {
+    console.error('获取问题标签失败:', error);
+    selectedTagsForProblem.value = [];
+  }
+};
+
+// 关闭标签对话框
+const closeTagDialog = () => {
+  showTagDialog.value = false;
+  selectedProblem.value = null;
+  selectedTagsForProblem.value = [];
+};
+
+// 切换标签选择状态
+const toggleTag = (tagId) => {
+  const index = selectedTagsForProblem.value.indexOf(tagId);
+  if (index === -1) {
+    // 如果标签不在选中列表中，则添加
+    selectedTagsForProblem.value.push(tagId);
+  } else {
+    // 如果标签已在选中列表中，则移除
+    selectedTagsForProblem.value.splice(index, 1);
+  }
+};
+
+// 保存问题标签
+const saveProblemTags = async () => {
+  if (!selectedProblem.value || !selectedProblem.value.data_path) return;
+  
+  try {
+    const problemPath = encodeURIComponent(selectedProblem.value.data_path);
+    await setProblemTags(problemPath, selectedTagsForProblem.value);
+    ElMessage.success('标签设置成功');
+    logUserOperation(OperationType.UPDATE_PROBLEM_TAGS, `试题: ${selectedProblem.value.chinese_name}`);
+    closeTagDialog();
+    loadProblems(); // 重新加载试题列表
+  } catch (error) {
+    console.error('设置问题标签失败:', error);
+    ElMessage.error('设置问题标签失败');
+  }
 };
 
 // 确认删除试题
@@ -197,6 +345,14 @@ const uploadProblemBank = () => {
   // 此处实现文件上传逻辑
 };
 
+// 处理标签更新
+const handleTagsUpdate = async () => {
+  ElMessage.success('标签更新成功');
+  // 重新加载标签和题目列表
+  await loadTags();
+  await loadProblems();
+};
+
 // 监听路由参数变化
 watch(() => route.query.tab, (newTab) => {
   if (newTab === 'upload') {
@@ -206,9 +362,10 @@ watch(() => route.query.tab, (newTab) => {
   }
 }, { immediate: true });
 
-// 页面加载时获取题库分类
-onMounted(() => {
-  loadCategories();
+// 页面加载时获取题库分类和标签
+onMounted(async () => {
+  await loadCategories();
+  await loadTags();
 });
 </script>
 
@@ -339,5 +496,84 @@ onMounted(() => {
 .upload-status {
   margin-top: 10px;
   color: #409eff;
+}
+
+/* 打标签对话框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.tag-dialog-content {
+  overflow-y: auto;
+  max-height: 60vh;
+  padding-right: 10px;
+}
+
+.tag-type-section {
+  margin-bottom: 20px;
+}
+
+.tag-type-section h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #606266;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tag-item {
+  padding: 6px 12px;
+  background-color: #f4f4f5;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.tag-item:hover {
+  background-color: #e9e9eb;
+}
+
+.tag-item.selected {
+  background-color: #409eff;
+  color: white;
+}
+
+.dialog-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 </style> 

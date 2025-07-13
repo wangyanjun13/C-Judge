@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from typing import List
+from typing import List, Optional
 from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail
 from app.services.problem_service import ProblemService
 from app.models import get_db, Problem
 from sqlalchemy.orm import Session
-from fastapi import Depends
+from fastapi import Depends, Query
 import logging
 
 # 创建路由
@@ -26,10 +26,34 @@ async def get_problem_categories():
         raise HTTPException(status_code=500, detail=f"读取题库分类失败: {str(e)}")
 
 @router.get("/list/{category_path:path}", response_model=List[ProblemInfo])
-async def get_problems_by_category(category_path: str):
-    """获取指定分类下的所有试题"""
+async def get_problems_by_category(
+    category_path: str,
+    tag_id: Optional[int] = Query(None, description="按标签ID过滤"),
+    tag_type_id: Optional[int] = Query(None, description="按标签类型ID过滤"),
+    db: Session = Depends(get_db)
+):
+    """获取指定分类下的所有试题，可以按标签或标签类型过滤"""
     try:
-        return ProblemService.get_problems_by_category(category_path)
+        # 首先获取分类下的所有试题
+        problems = ProblemService.get_problems_by_category(category_path)
+        
+        # 如果指定了标签ID，则过滤出包含该标签的试题
+        if tag_id is not None:
+            tag_problems = ProblemService.get_problems_by_tag(db, tag_id)
+            # 获取数据路径列表，用于过滤
+            tag_problem_paths = [p.data_path for p in tag_problems if p.data_path]
+            # 过滤问题列表
+            problems = [p for p in problems if p.data_path in tag_problem_paths]
+        
+        # 如果指定了标签类型ID，则过滤出包含该类型标签的试题
+        elif tag_type_id is not None:
+            type_problems = ProblemService.get_problems_by_tag_type(db, tag_type_id)
+            # 获取数据路径列表，用于过滤
+            type_problem_paths = [p.data_path for p in type_problems if p.data_path]
+            # 过滤问题列表
+            problems = [p for p in problems if p.data_path in type_problem_paths]
+        
+        return problems
     except FileNotFoundError as e:
         # 返回空列表而不是抛出异常
         logger.warning(f"题库分类不存在: {category_path}, 错误: {str(e)}")
