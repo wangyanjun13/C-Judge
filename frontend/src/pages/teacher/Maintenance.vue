@@ -56,11 +56,9 @@
               <th>操作</th>
               <th>试题名称</th>
               <th>试题中文名称</th>
-              <th>所有者</th>
-              <th>状态</th>
               <th>时间限制</th>
               <th>内存限制</th>
-              <th>数据路径</th>
+              <th>标签</th>
             </tr>
           </thead>
           <tbody>
@@ -72,11 +70,26 @@
               </td>
               <td>{{ problem.name }}</td>
               <td>{{ problem.chinese_name }}</td>
-              <td>{{ problem.owner }}</td>
-              <td>{{ problem.is_shared ? '共享' : '私有' }}</td>
               <td>{{ problem.time_limit }}</td>
               <td>{{ problem.memory_limit }}</td>
-              <td>{{ problem.data_path }}</td>
+              <td class="tags-cell">
+                <div v-if="problemTags[problem.data_path]" class="problem-tags">
+                  <template v-for="(tags, tagType) in groupTagsByType(problemTags[problem.data_path])" :key="tagType">
+                    <div class="tag-group">
+                      <span class="tag-type">{{ tagType }}:</span>
+                      <span 
+                        v-for="tag in tags" 
+                        :key="tag.id" 
+                        class="tag-badge"
+                        :style="{ backgroundColor: getTagColor(tag.tag_type_id) }"
+                      >
+                        {{ tag.name }}
+                      </span>
+                    </div>
+                  </template>
+                </div>
+                <span v-else class="no-tags">暂无标签</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -167,6 +180,8 @@ const selectedTagsForProblem = ref([]);
 const tagTypes = ref([]);
 const allTags = ref([]); // 存储所有标签
 const selectedTagIds = ref({}); // 存储每种标签类型的选中值
+const problemTags = ref({}); // 存储每个问题的标签
+const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
 
 // 加载题库分类
 const loadCategories = async () => {
@@ -194,9 +209,10 @@ const loadTags = async () => {
     // 加载所有标签
     allTags.value = await getTags();
     
-    // 初始化selectedTagIds对象
+    // 初始化selectedTagIds对象和tagTypeMap
     tagTypes.value.forEach(tagType => {
       selectedTagIds.value[tagType.id] = '';
+      tagTypeMap.value[tagType.id] = tagType.name;
     });
   } catch (err) {
     console.error('加载标签失败:', err);
@@ -232,6 +248,9 @@ const loadProblems = async () => {
     }
     
     problems.value = await getProblemsByCategory(selectedCategory.value, options);
+    
+    // 加载每个问题的标签
+    await loadProblemTags();
   } catch (err) {
     console.error('加载试题列表失败:', err);
     error.value = '加载试题列表失败';
@@ -239,6 +258,63 @@ const loadProblems = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// 加载所有问题的标签
+const loadProblemTags = async () => {
+  problemTags.value = {};
+  
+  for (const problem of problems.value) {
+    if (problem.data_path) {
+      try {
+        const encodedPath = encodeURIComponent(problem.data_path);
+        const tags = await getProblemTags(encodedPath);
+        if (tags.length > 0) {
+          problemTags.value[problem.data_path] = tags;
+        }
+      } catch (err) {
+        console.error(`获取问题 ${problem.data_path} 的标签失败:`, err);
+      }
+    }
+  }
+};
+
+// 根据标签类型分组标签
+const groupTagsByType = (tags) => {
+  const grouped = {};
+  
+  if (!tags) return grouped;
+  
+  tags.forEach(tag => {
+    const typeName = tagTypeMap.value[tag.tag_type_id] || '未分类';
+    if (!grouped[typeName]) {
+      grouped[typeName] = [];
+    }
+    grouped[typeName].push(tag);
+  });
+  
+  return grouped;
+};
+
+// 根据标签类型生成颜色
+const getTagColor = (tagTypeId) => {
+  // 预定义一组好看的颜色
+  const colors = [
+    '#409eff', // 蓝色
+    '#67c23a', // 绿色
+    '#e6a23c', // 橙色
+    '#f56c6c', // 红色
+    '#909399', // 灰色
+    '#9c27b0', // 紫色
+    '#2196f3', // 浅蓝
+    '#ff9800', // 橙黄
+    '#795548', // 棕色
+    '#607d8b'  // 蓝灰
+  ];
+  
+  // 使用标签类型ID作为索引来选择颜色
+  const index = (tagTypeId % colors.length);
+  return colors[index];
 };
 
 // 打开标签对话框
@@ -292,8 +368,16 @@ const saveProblemTags = async () => {
     await setProblemTags(problemPath, selectedTagsForProblem.value);
     ElMessage.success('标签设置成功');
     logUserOperation(OperationType.UPDATE_PROBLEM_TAGS, `试题: ${selectedProblem.value.chinese_name}`);
+    
+    // 更新本地标签缓存
+    if (selectedTagsForProblem.value.length > 0) {
+      const selectedTags = allTags.value.filter(tag => selectedTagsForProblem.value.includes(tag.id));
+      problemTags.value[selectedProblem.value.data_path] = selectedTags;
+    } else {
+      delete problemTags.value[selectedProblem.value.data_path];
+    }
+    
     closeTagDialog();
-    loadProblems(); // 重新加载试题列表
   } catch (error) {
     console.error('设置问题标签失败:', error);
     ElMessage.error('设置问题标签失败');
@@ -452,6 +536,43 @@ onMounted(async () => {
   background-color: #f5f7fa;
   color: #606266;
   font-weight: 500;
+}
+
+.tags-cell {
+  max-width: 300px;
+}
+
+.problem-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.tag-type {
+  font-weight: 500;
+  font-size: 0.9em;
+  color: #606266;
+}
+
+.tag-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.no-tags {
+  color: #909399;
+  font-size: 0.9em;
+  font-style: italic;
 }
 
 .btn {
