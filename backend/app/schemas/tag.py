@@ -10,7 +10,7 @@ class TagTypeBase(BaseModel):
 class TagBase(BaseModel):
     """标签基础模型"""
     name: str
-    tag_type_id: int
+    tag_type_id: Optional[int] = None
 
 # 创建模型
 class TagTypeCreate(TagTypeBase):

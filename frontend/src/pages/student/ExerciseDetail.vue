@@ -118,7 +118,7 @@ import { getExerciseDetail } from '../../api/exercises';
 import { getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
-import { getProblemTags, getTagTypes } from '../../api/tags';
+import { getProblemTags, getTagTypes, getBatchProblemTags } from '../../api/tags';
 import ExerciseStatistics from '../../components/ExerciseStatistics.vue';
 
 const route = useRoute();
@@ -287,18 +287,30 @@ const loadProblemTags = async () => {
     console.error('加载标签类型失败:', err);
   }
   
-  for (const problem of exercise.value.problems) {
-    if (problem.data_path) {
-      try {
-        const tags = await getProblemTags(problem.data_path);
-        if (tags.length > 0) {
-          // 直接将标签添加到问题对象上
-          problem.tags = tags;
+  if (!exercise.value.problems || exercise.value.problems.length === 0) return;
+  
+  try {
+    // 收集所有问题的data_path
+    const problemPaths = exercise.value.problems
+      .filter(problem => problem.data_path)
+      .map(problem => encodeURIComponent(problem.data_path));
+    
+    if (problemPaths.length === 0) return;
+    
+    // 批量获取所有问题的标签
+    const batchTags = await getBatchProblemTags(problemPaths);
+    
+    // 将结果存储到每个问题对象中
+    for (const problem of exercise.value.problems) {
+      if (problem.data_path) {
+        const encodedPath = encodeURIComponent(problem.data_path);
+        if (batchTags[encodedPath] && batchTags[encodedPath].length > 0) {
+          problem.tags = batchTags[encodedPath];
         }
-      } catch (err) {
-        console.error(`获取问题 ${problem.data_path} 的标签失败:`, err);
       }
     }
+  } catch (err) {
+    console.error(`批量获取问题标签失败:`, err);
   }
 };
 
@@ -309,7 +321,7 @@ const groupTagsByType = (tags) => {
   if (!tags) return grouped;
   
   tags.forEach(tag => {
-    const typeName = tagTypeMap.value[tag.tag_type_id] || '未分类';
+    const typeName = tag.tag_type_id ? (tagTypeMap.value[tag.tag_type_id] || '未分类') : '未分类';
     if (!grouped[typeName]) {
       grouped[typeName] = [];
     }
