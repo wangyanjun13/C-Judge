@@ -115,3 +115,20 @@ async def set_problem_tags(problem_id_or_path: str, tag_ids: List[int], db: Sess
         logger.error(f"问题不存在：{problem_id_or_path}")
         raise HTTPException(status_code=404, detail="问题不存在")
     return {"message": "问题标签已更新"}
+
+@router.post("/problems/batch-tags")
+async def get_problems_batch_tags(problem_paths: List[str], db: Session = Depends(get_db)):
+    """批量获取多个问题的标签"""
+    result = {}
+    for path in problem_paths:
+        try:
+            tags = TagService.get_problem_tags(db, path)
+            # 确保所有标签都有tag_type_id字段，如果没有则设为None
+            for tag in tags:
+                if not hasattr(tag, 'tag_type_id') or tag.tag_type_id is None:
+                    tag.tag_type_id = None
+            result[path] = tags
+        except Exception as e:
+            logger.error(f"获取问题 {path} 的标签失败: {str(e)}")
+            result[path] = []
+    return result
