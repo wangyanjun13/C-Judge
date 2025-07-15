@@ -157,7 +157,7 @@ import { getProblemCategories, getProblemsByCategory, updateProblem as updatePro
 import { useRoute } from 'vue-router';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import TagManager from '../../components/TagManager.vue';
-import { getTagTypes, getTags, getProblemTags, setProblemTags } from '../../api/tags';
+import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags } from '../../api/tags';
 
 // 获取路由参数
 const route = useRoute();
@@ -276,18 +276,30 @@ const loadProblems = async () => {
 const loadProblemTags = async () => {
   problemTags.value = {};
   
-  for (const problem of problems.value) {
-    if (problem.data_path) {
-      try {
+  if (problems.value.length === 0) return;
+  
+  try {
+    // 收集所有问题的data_path
+    const problemPaths = problems.value
+      .filter(problem => problem.data_path)
+      .map(problem => encodeURIComponent(problem.data_path));
+    
+    if (problemPaths.length === 0) return;
+    
+    // 批量获取所有问题的标签
+    const batchTags = await getBatchProblemTags(problemPaths);
+    
+    // 将结果存储到problemTags中
+    for (const problem of problems.value) {
+      if (problem.data_path) {
         const encodedPath = encodeURIComponent(problem.data_path);
-        const tags = await getProblemTags(encodedPath);
-        if (tags.length > 0) {
-          problemTags.value[problem.data_path] = tags;
+        if (batchTags[encodedPath] && batchTags[encodedPath].length > 0) {
+          problemTags.value[problem.data_path] = batchTags[encodedPath];
         }
-      } catch (err) {
-        console.error(`获取问题 ${problem.data_path} 的标签失败:`, err);
       }
     }
+  } catch (err) {
+    console.error(`批量获取问题标签失败:`, err);
   }
 };
 
@@ -298,7 +310,7 @@ const groupTagsByType = (tags) => {
   if (!tags) return grouped;
   
   tags.forEach(tag => {
-    const typeName = tagTypeMap.value[tag.tag_type_id] || '未分类';
+    const typeName = tag.tag_type_id ? (tagTypeMap.value[tag.tag_type_id] || '未分类') : '未分类';
     if (!grouped[typeName]) {
       grouped[typeName] = [];
     }
@@ -325,7 +337,7 @@ const getTagColor = (tagTypeId) => {
   ];
   
   // 使用标签类型ID作为索引来选择颜色
-  const index = (tagTypeId % colors.length);
+  const index = ((tagTypeId || 0) % colors.length);
   return colors[index];
 };
 

@@ -188,3 +188,18 @@ export const setProblemTags = async (problemPath, tagIds) => {
     throw error;
   }
 }
+
+/**
+ * 批量获取多个问题的标签
+ * @param {Array} problemPaths - 问题路径数组
+ * @returns {Promise} - 返回每个问题的标签映射对象
+ */
+export const getBatchProblemTags = async (problemPaths) => {
+  try {
+    const response = await axios.post('/api/tags/problems/batch-tags', problemPaths);
+    return response.data;
+  } catch (error) {
+    console.error('批量获取问题标签失败:', error);
+    return {};
+  }
+}
