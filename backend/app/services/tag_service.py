@@ -104,8 +104,6 @@ class TagService:
         """通过data_path获取问题"""
         # 尝试使用原始路径和URL解码后的路径
         from urllib.parse import unquote
-        import logging
-        logger = logging.getLogger(__name__)
         
         # 尝试直接匹配
         problem = db.query(Problem).filter(Problem.data_path == problem_path).first()
@@ -114,20 +112,21 @@ class TagService:
             
         # 尝试URL解码后再查询
         decoded_path = unquote(problem_path)
-        problem = db.query(Problem).filter(Problem.data_path == decoded_path).first()
-        if problem:
-            return problem
-            
-        # 尝试模糊匹配（结尾部分匹配）
-        problems = db.query(Problem).all()
-        for p in problems:
-            if p.data_path and decoded_path.endswith(p.data_path):
-                return p
-            if p.data_path and p.data_path.endswith(decoded_path):
-                return p
-                
-        # 只记录错误日志，但使用DEBUG级别减少日志量
-        logger.debug(f"未找到匹配的问题: {problem_path}")
+        if decoded_path != problem_path:
+            problem = db.query(Problem).filter(Problem.data_path == decoded_path).first()
+            if problem:
+                return problem
+        
+        # 只在必要时进行模糊匹配，避免全表扫描
+        if '/' in decoded_path:
+            # 尝试使用路径的最后一部分进行匹配
+            last_part = decoded_path.split('/')[-1]
+            if last_part:
+                problems = db.query(Problem).filter(Problem.data_path.like(f"%{last_part}")).all()
+                for p in problems:
+                    if p.data_path and (decoded_path.endswith(p.data_path) or p.data_path.endswith(decoded_path)):
+                        return p
+        
         return None
     
     @staticmethod
