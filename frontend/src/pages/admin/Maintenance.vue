@@ -15,16 +15,7 @@
     <!-- 题库维护 -->
     <div v-if="activeTab === 'problems'" class="tab-content">
       <div class="filter-section">
-        <div class="filter-item">
-          <label>题库分类：</label>
-          <select v-model="selectedCategory" @change="loadProblems">
-            <option value="all">全部</option>
-            <option v-for="category in categories" :key="category.path" :value="category.path">
-              {{ category.name }}
-            </option>
-          </select>
-        </div>
-        
+        <!-- 移除题库分类筛选框 -->
         <!-- 动态显示所有标签类型 -->
         <div v-for="tagType in tagTypes" :key="tagType.id" class="filter-item">
           <label>{{ tagType.name }}标签：</label>
@@ -43,11 +34,8 @@
       <div v-else-if="error" class="error">
         {{ error }}
       </div>
-      <div v-else-if="!selectedCategory" class="empty-state">
-        请选择一个题库分类
-      </div>
       <div v-else-if="problems.length === 0" class="empty-state">
-        该分类下暂无试题
+        暂无试题
       </div>
       <div v-else class="problems-table-container">
         <table class="problems-table">
@@ -228,11 +216,6 @@ const getTagsByType = (tagTypeId) => {
 
 // 加载试题列表
 const loadProblems = async () => {
-  if (!selectedCategory.value) {
-    problems.value = [];
-    return;
-  }
-  
   loading.value = true;
   error.value = null;
   
@@ -248,18 +231,18 @@ const loadProblems = async () => {
       }
     }
     
-    if (selectedCategory.value === 'all') {
-      // 获取所有题库
-      let allProblems = [];
+    // 获取所有题库，不再根据分类筛选
+    let allProblems = [];
+    if (categories.value.length > 0) {
       for (const category of categories.value) {
         const categoryProblems = await getProblemsByCategory(category.path, options);
         allProblems = [...allProblems, ...categoryProblems];
       }
-      problems.value = allProblems;
     } else {
-      // 获取指定分类的题库
-    problems.value = await getProblemsByCategory(selectedCategory.value, options);
+      // 如果没有分类，尝试获取默认题库
+      allProblems = await getProblemsByCategory('', options);
     }
+    problems.value = allProblems;
     
     // 加载每个问题的标签
     await loadProblemTags();
@@ -274,22 +257,24 @@ const loadProblems = async () => {
 
 // 加载所有问题的标签
 const loadProblemTags = async () => {
-  problemTags.value = {};
-  
   if (problems.value.length === 0) return;
   
   try {
-    // 收集所有问题的data_path
-    const problemPaths = problems.value
-      .filter(problem => problem.data_path)
+    // 收集所有问题的data_path，但仅包括那些在problemTags中不存在的
+    const missingPaths = problems.value
+      .filter(problem => problem.data_path && !problemTags.value[problem.data_path])
       .map(problem => encodeURIComponent(problem.data_path));
     
-    if (problemPaths.length === 0) return;
+    if (missingPaths.length === 0) {
+      console.log('所有问题标签已在本地缓存中，无需请求');
+      return; // 如果所有问题的标签都已经在本地缓存中，则不发起请求
+    }
     
-    // 批量获取所有问题的标签
-    const batchTags = await getBatchProblemTags(problemPaths);
+    // 批量获取缺失的问题标签
+    console.log(`批量获取${missingPaths.length}个问题的标签`);
+    const batchTags = await getBatchProblemTags(missingPaths);
     
-    // 将结果存储到problemTags中
+    // 将结果合并到problemTags中
     for (const problem of problems.value) {
       if (problem.data_path) {
         const encodedPath = encodeURIComponent(problem.data_path);
@@ -300,7 +285,6 @@ const loadProblemTags = async () => {
     }
   } catch (err) {
     console.error(`批量获取问题标签失败:`, err);
-    ElMessage.error('获取问题标签失败');
   }
 };
 
@@ -477,6 +461,7 @@ watch(() => route.query.tab, (newTab) => {
 onMounted(async () => {
   await loadCategories();
   await loadTags();
+  await loadProblems(); // 直接加载所有题目
 });
 </script>
 
