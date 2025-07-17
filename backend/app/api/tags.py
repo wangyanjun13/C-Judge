@@ -119,16 +119,24 @@ async def set_problem_tags(problem_id_or_path: str, tag_ids: List[int], db: Sess
 @router.post("/problems/batch-tags")
 async def get_problems_batch_tags(problem_paths: List[str], db: Session = Depends(get_db)):
     """批量获取多个问题的标签"""
-    result = {}
-    for path in problem_paths:
-        try:
-            tags = TagService.get_problem_tags(db, path)
-            # 确保所有标签都有tag_type_id字段，如果没有则设为None
+    if not problem_paths:
+        return {}
+    
+    # 记录请求信息
+    logger.info(f"批量获取标签: 收到 {len(problem_paths)} 个路径")
+    
+    # 使用优化的批量获取方法
+    try:
+        result = TagService.get_problems_batch_tags(db, problem_paths)
+        
+        # 确保所有标签都有tag_type_id字段
+        for path, tags in result.items():
             for tag in tags:
                 if not hasattr(tag, 'tag_type_id') or tag.tag_type_id is None:
                     tag.tag_type_id = None
-            result[path] = tags
-        except Exception as e:
-            logger.error(f"获取问题 {path} 的标签失败: {str(e)}")
-            result[path] = []
-    return result
+        
+        logger.info(f"批量获取标签完成: 处理了 {len(result)} 个路径")
+        return result
+    except Exception as e:
+        logger.error(f"批量获取标签失败: {str(e)}")
+        return {}
