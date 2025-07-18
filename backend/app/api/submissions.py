@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
 from app.models.database import get_db
 from app.models import Submission, User, Exercise, Problem
-from app.schemas.submission import SubmissionCreate, SubmissionResponse, SubmissionDetail
+from app.schemas.submission import SubmissionCreate, SubmissionResponse, SubmissionDetail, ProblemRankingResponse
 from app.services.judge_service import JudgeService
 from app.utils.auth import get_current_user
 
@@ -150,3 +150,31 @@ async def get_submissions(
     submissions = query.order_by(Submission.submitted_at.desc()).all()
     
     return submissions 
+
+@router.get("/problem-ranking/{problem_id}", response_model=ProblemRankingResponse)
+async def get_problem_ranking(
+    problem_id: int,
+    exercise_id: int = Query(..., description="练习ID"),
+    class_id: Optional[int] = Query(None, description="班级ID，不传则查询所有班级"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取题目在班级中的排名情况"""
+    
+    # 验证问题和练习是否存在
+    problem = db.query(Problem).filter(Problem.id == problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=404, detail="题目不存在")
+    
+    exercise = None
+    if exercise_id:
+        exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+        if not exercise:
+            raise HTTPException(status_code=404, detail="练习不存在")
+    
+    # 获取排名数据
+    ranking_data = JudgeService.get_problem_ranking(
+        db, problem_id, exercise_id, class_id, current_user.id
+    )
+    
+    return ranking_data 
