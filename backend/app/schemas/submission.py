@@ -41,3 +41,23 @@ class SubmissionFilter(BaseModel):
     problem_id: Optional[int] = None
     exercise_id: Optional[int] = None
     status: Optional[str] = None 
+
+class SubmissionRank(BaseModel):
+    user_id: int
+    username: str
+    real_name: Optional[str] = None
+    score: Optional[int] = None
+    status: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+class ProblemRankingResponse(BaseModel):
+    rankings: List[SubmissionRank]
+    current_user_rank: Optional[int] = None
+    total_students: int
+    submission_count: int
+    
+    class Config:
+        orm_mode = True 

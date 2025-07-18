@@ -69,3 +69,25 @@ export const getSubmissions = async (filters = {}) => {
     throw error;
   }
 } 
+
+/**
+ * 获取题目在班级中的排名
+ * @param {number} problemId - 题目ID
+ * @param {number} exerciseId - 练习ID
+ * @param {number} classId - 班级ID (可选)
+ * @returns {Promise<Object>} - 排名数据
+ */
+export const getProblemRanking = async (problemId, exerciseId, classId = null) => {
+  try {
+    let url = `/api/submissions/problem-ranking/${problemId}?exercise_id=${exerciseId}`;
+    if (classId) {
+      url += `&class_id=${classId}`;
+    }
+    
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('获取题目排名失败:', error);
+    throw error;
+  }
+}; 
