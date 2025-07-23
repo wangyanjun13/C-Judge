@@ -37,6 +37,9 @@
           </div>
         </div>
       </nav>
+      <div class="center-buttons">
+        <button class="center-btn" @click="goToMySubmissions">我的答题</button>
+      </div>
       <div class="user-info">
         <span>{{ user?.real_name || user?.username }}</span>
       </div>
@@ -106,6 +109,10 @@ const showHelp = () => {
 const handleLogout = async () => {
   await authStore.logout();
   router.push('/login');
+};
+
+const goToMySubmissions = () => {
+  router.push('/my-submissions');
 };
 </script>
 
@@ -234,5 +241,28 @@ const handleLogout = async () => {
 
 .modal button:hover {
   background-color: #40a9ff;
+}
+
+.center-buttons {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+  margin-left: auto;
+}
+
+.center-btn {
+  padding: 6px 16px;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.center-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }
 </style> 
