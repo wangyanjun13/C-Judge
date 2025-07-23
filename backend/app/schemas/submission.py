@@ -61,3 +61,26 @@ class ProblemRankingResponse(BaseModel):
     
     class Config:
         orm_mode = True 
+
+# 用户提交记录响应模型（包含额外的题目、练习、课程、班级名称）
+class UserSubmissionResponse(BaseModel):
+    id: int
+    user_id: int
+    problem_id: int
+    exercise_id: Optional[int] = None
+    language: str
+    status: str
+    code_check_score: Optional[int] = None
+    runtime_score: Optional[int] = None
+    total_score: Optional[int] = None
+    submitted_at: datetime
+    problem_name: str
+    problem_chinese_name: Optional[str] = None
+    exercise_name: Optional[str] = None
+    course_id: Optional[int] = None
+    course_name: Optional[str] = None
+    class_names: Optional[str] = None
+    class_id: Optional[int] = None
+    
+    class Config:
+        orm_mode = True 

@@ -91,3 +91,21 @@ export const getProblemRanking = async (problemId, exerciseId, classId = null) =
     throw error;
   }
 }; 
+
+/**
+ * 获取当前用户的所有答题记录
+ * @param {Object} params - 查询参数
+ * @param {number} params.limit - 返回记录数量限制
+ * @param {number} params.offset - 偏移量，用于分页
+ * @param {string} params.sort - 排序方式：asc（升序）或desc（降序）
+ * @returns {Promise<Array>} - 答题记录列表，包含题目、练习、课程、班级名称
+ */
+export const getMySubmissions = async (params = {}) => {
+  try {
+    const response = await axios.get('/api/submissions/my-submissions', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取我的答题记录失败:', error);
+    throw error;
+  }
+}; 
