@@ -61,6 +61,51 @@ Just For Fun/
 
 数据库：![1749479270436](image/README/1749479270436.png)
 
+
+erDiagram
+    USERS {
+        int id PK
+        string username
+        string password
+        string real_name
+        string role
+    }
+    PROBLEMS {
+        int id PK
+        string name
+        string chinese_name
+        string data_path
+    }
+    TAG_TYPES {
+        int id PK
+        string name
+    }
+    TAGS {
+        int id PK
+        string name
+        int tag_type_id FK
+    }
+    PROBLEM_TAG {
+        int problem_id FK
+        int tag_id FK
+    }
+    EXERCISES {
+        int id PK
+        string name
+    }
+    EXERCISE_PROBLEM {
+        int exercise_id FK
+        int problem_id FK
+        int sequence
+    }
+
+    USERS ||--o{ PROBLEMS : owns
+    TAG_TYPES ||--o{ TAGS : contains
+    PROBLEMS ||--o{ PROBLEM_TAG : "has tags"
+    TAGS ||--o{ PROBLEM_TAG : "tagged by"
+    EXERCISES ||--o{ EXERCISE_PROBLEM : contains
+    PROBLEMS ||--o{ EXERCISE_PROBLEM : included_in
+
 # Just For Fun
 
 用于c语言测评的系统（教育场景）
