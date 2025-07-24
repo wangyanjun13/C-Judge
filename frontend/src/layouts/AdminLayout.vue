@@ -37,6 +37,12 @@
           </div>
         </div>
       </nav>
+      <div class="center-buttons">
+        <button class="center-btn" @click="goToMySubmissions">
+          <img src="/个人仪表盘.svg" alt="仪表盘" class="dashboard-icon" />
+          个人面板
+        </button>
+      </div>
       <div class="user-info">
         <span>{{ user?.real_name || user?.username }}</span>
       </div>
@@ -106,6 +112,10 @@ const showHelp = () => {
 const handleLogout = async () => {
   await authStore.logout();
   router.push('/login');
+};
+
+const goToMySubmissions = () => {
+  router.push('/my-submissions');
 };
 </script>
 
@@ -234,5 +244,35 @@ const handleLogout = async () => {
 
 .modal button:hover {
   background-color: #40a9ff;
+}
+
+.center-buttons {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+  margin-left: auto;
+}
+
+.center-btn {
+  padding: 6px 16px;
+  background: none;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.center-btn:hover {
+  transform: translateY(-1px);
+}
+
+.dashboard-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 </style> 

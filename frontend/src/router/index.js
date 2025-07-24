@@ -34,6 +34,7 @@ const AdminSystem = () => import('../pages/admin/System.vue')
 
 // 通用页面
 const SubmissionDetail = () => import('../pages/common/SubmissionDetail.vue')
+const MySubmissions = () => import('../pages/common/MySubmissions.vue')
 
 const routes = [
   {
@@ -56,6 +57,18 @@ const routes = [
       requiresAuth: true, 
       title: '提交详情',
       allowAllRoles: true  // 添加标记，表示所有角色都可访问
+    }
+  },
+
+  // 我的答题页面（所有登录用户可访问）
+  {
+    path: '/my-submissions',
+    name: 'MySubmissions',
+    component: MySubmissions,
+    meta: {
+      requiresAuth: true,
+      title: '我的答题',
+      allowAllRoles: true
     }
   },
   

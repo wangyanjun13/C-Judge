@@ -69,3 +69,43 @@ export const getSubmissions = async (filters = {}) => {
     throw error;
   }
 } 
+
+/**
+ * 获取题目在班级中的排名
+ * @param {number} problemId - 题目ID
+ * @param {number} exerciseId - 练习ID
+ * @param {number} classId - 班级ID (可选)
+ * @returns {Promise<Object>} - 排名数据
+ */
+export const getProblemRanking = async (problemId, exerciseId, classId = null) => {
+  try {
+    let url = `/api/submissions/problem-ranking/${problemId}?exercise_id=${exerciseId}`;
+    if (classId) {
+      url += `&class_id=${classId}`;
+    }
+    
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('获取题目排名失败:', error);
+    throw error;
+  }
+}; 
+
+/**
+ * 获取当前用户的所有答题记录
+ * @param {Object} params - 查询参数
+ * @param {number} params.limit - 返回记录数量限制
+ * @param {number} params.offset - 偏移量，用于分页
+ * @param {string} params.sort - 排序方式：asc（升序）或desc（降序）
+ * @returns {Promise<Array>} - 答题记录列表，包含题目、练习、课程、班级名称
+ */
+export const getMySubmissions = async (params = {}) => {
+  try {
+    const response = await axios.get('/api/submissions/my-submissions', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取我的答题记录失败:', error);
+    throw error;
+  }
+}; 
