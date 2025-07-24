@@ -27,8 +27,20 @@ async def get_my_submissions(
 ):
     """
     获取当前登录用户的所有答题记录，包括题目、练习、课程、班级名称
+    只返回每题最后一次提交
     """
     try:
+        # 使用子查询获取每个题目的最新提交ID
+        latest_submissions = (
+            db.query(
+                Submission.problem_id, 
+                func.max(Submission.id).label("latest_id")
+            )
+            .filter(Submission.user_id == current_user.id)
+            .group_by(Submission.problem_id)
+            .subquery()
+        )
+        
         # 基本查询构建 - 获取用户答题记录并关联相关信息
         query = (
             db.query(
@@ -39,10 +51,11 @@ async def get_my_submissions(
                 Exercise.course_id,
                 Course.name.label("course_name"),
             )
+            .join(latest_submissions, Submission.id == latest_submissions.c.latest_id)
             .join(Problem, Submission.problem_id == Problem.id)
             .outerjoin(Exercise, Submission.exercise_id == Exercise.id)
             .outerjoin(Course, Exercise.course_id == Course.id)
-            .filter(Submission.user_id == current_user.id)
+            # 不需要再过滤用户ID，因为子查询已经过滤
         )
         
         # 按提交时间排序
@@ -293,9 +306,12 @@ async def get_problem_ranking(
         if not exercise:
             raise HTTPException(status_code=404, detail="练习不存在")
     
-    # 获取排名数据
-    ranking_data = JudgeService.get_problem_ranking(
-        db, problem_id, exercise_id, class_id, current_user.id
-    )
-    
-    return ranking_data 
+    try:
+        ranking_data = JudgeService.get_problem_ranking(
+            db, problem_id, exercise_id, class_id, current_user.id
+        )
+        
+        return ranking_data 
+    except Exception as e:
+        print(f"获取排名数据出错: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取排名数据失败: {str(e)}") 

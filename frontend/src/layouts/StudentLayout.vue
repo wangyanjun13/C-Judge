@@ -15,7 +15,10 @@
         </div>
       </nav>
       <div class="center-buttons">
-        <button class="center-btn" @click="goToMySubmissions">我的答题</button>
+        <button class="center-btn" @click="goToMySubmissions">        
+          <img src="/个人仪表盘.svg" alt="仪表盘" class="dashboard-icon" />
+          个人面板
+        </button>
       </div>
       <div class="user-info">
         <span>{{ user?.real_name || user?.username }}</span>
@@ -207,17 +210,24 @@ const goToMySubmissions = () => {
 
 .center-btn {
   padding: 6px 16px;
-  background-color: rgba(255, 255, 255, 0.2);
+  background: none;
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 4px;
+  border: none;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .center-btn:hover {
-  background-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
+}
+
+.dashboard-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 </style> 
