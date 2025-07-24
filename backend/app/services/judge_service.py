@@ -5,10 +5,16 @@ import subprocess
 import tempfile
 from typing import Dict, Any, List, Optional, Tuple
 import re
+import json
+from pathlib import Path
+import shutil
 
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from sqlalchemy import func # Added for latest_submissions
 
-from app.models import Submission, Problem
+from app.models import Submission, Problem, User
+from app.models.class_model import student_class
 from config.settings import settings
 
 # 题库根目录
@@ -775,3 +781,200 @@ class JudgeService:
         except Exception as e:
             print(f"读取测试用例失败: {e}")
             return [] 
+
+    @staticmethod
+    def get_problem_ranking(
+        db: Session, problem_id: int, exercise_id: int, class_id: Optional[int] = None, current_user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """获取题目在班级中的排名情况"""
+        # 使用子查询获取每个学生的最新提交ID
+        latest_submission_ids = {}
+        try:
+            # 使用直接的SQL查询而不是SQLAlchemy ORM来获取每个用户的最新提交ID
+            latest_submission_query = db.query(
+                Submission.user_id, 
+                func.max(Submission.id).label("latest_id")
+            ).filter(
+                Submission.problem_id == problem_id,
+                Submission.exercise_id == exercise_id
+            ).group_by(Submission.user_id).all()
+            
+            # 将结果转换为字典
+            for user_id, latest_id in latest_submission_query:
+                latest_submission_ids[user_id] = latest_id
+        except Exception as e:
+            print(f"获取最新提交ID出错: {str(e)}")
+            # 发生错误时继续使用旧逻辑
+        
+        # 基本查询构建 - 获取所有提交记录
+        query = (
+            db.query(
+                Submission,
+                User.username,
+                User.real_name,
+                User.role,
+            )
+            .join(User, Submission.user_id == User.id)
+            .filter(Submission.problem_id == problem_id)
+            .filter(Submission.exercise_id == exercise_id)
+        )
+        
+        # 如果指定了班级，则只查询该班级的学生
+        if class_id:
+            query = query.join(
+                student_class, 
+                and_(
+                    User.id == student_class.c.student_id,
+                    student_class.c.class_id == class_id
+                )
+            )
+        
+        # 获取所有符合条件的提交记录
+        submissions = query.all()
+        
+        # 获取每个学生的最高分数提交
+        user_best_submissions = {}
+        teacher_submissions = []
+        
+        for submission, username, real_name, role in submissions:
+            if role == "admin":  # 不处理管理员提交
+                continue
+                
+            user_id = submission.user_id
+            score = submission.total_score or 0
+            
+            if role == "teacher":  # 如果是教师，单独保存
+                teacher_submissions.append({
+                    "user_id": user_id,
+                    "username": username,
+                    "real_name": real_name,
+                    "score": score,
+                    "status": submission.status,
+                    "submitted_at": submission.submitted_at
+                })
+                continue  # 不计入排名
+
+            if role == "student":  # 只有学生计入排名
+                # 如果有最新提交ID并且当前提交ID匹配，则使用当前提交
+                if latest_submission_ids and user_id in latest_submission_ids and submission.id == latest_submission_ids[user_id]:
+                    user_best_submissions[user_id] = {
+                        "user_id": user_id,
+                        "username": username,
+                        "real_name": real_name,
+                        "score": score,
+                        "status": submission.status,
+                        "submitted_at": submission.submitted_at
+                    }
+                # 如果没有最新提交ID信息，或者出现了问题，则使用旧逻辑
+                elif not latest_submission_ids and (user_id not in user_best_submissions or score > user_best_submissions[user_id]["score"]):
+                    user_best_submissions[user_id] = {
+                        "user_id": user_id,
+                        "username": username,
+                        "real_name": real_name,
+                        "score": score,
+                        "status": submission.status,
+                        "submitted_at": submission.submitted_at
+                    }
+    
+        # 获取当前用户的提交（非学生用户特殊处理）
+        current_user_submission = None
+        if current_user_id:
+            current_user = db.query(User).filter(User.id == current_user_id).first()
+            if current_user and current_user.role != "student":
+                # 构建当前用户最新提交的查询
+                current_user_query = db.query(Submission).filter(
+                    Submission.user_id == current_user_id,
+                    Submission.problem_id == problem_id,
+                    Submission.exercise_id == exercise_id
+                )
+                
+                # 获取当前用户的最新提交ID
+                latest_id = None
+                if latest_submission_ids and current_user_id in latest_submission_ids:
+                    latest_id = latest_submission_ids[current_user_id]
+                    current_user_sub = current_user_query.filter(Submission.id == latest_id).first()
+                else:
+                    # 如果无法获取最新ID，使用最高分
+                    current_user_sub = current_user_query.order_by(Submission.total_score.desc()).first()
+                
+                if current_user_sub:
+                    current_user_submission = {
+                        "user_id": current_user_id,
+                        "username": current_user.username,
+                        "real_name": current_user.real_name,
+                        "score": current_user_sub.total_score or 0,
+                        "status": current_user_sub.status,
+                        "submitted_at": current_user_sub.submitted_at
+                    }
+        
+        # 按分数排序
+        rankings = list(user_best_submissions.values())
+        # 按分数降序排序，分数相同则按提交时间升序（最早提交在前）
+        rankings.sort(key=lambda x: (-x["score"], x["submitted_at"]))
+        
+        # 计算当前用户排名（如果是学生）
+        current_user_rank = None
+        if current_user_id and current_user_id in user_best_submissions:
+            for i, submission in enumerate(rankings):
+                if submission["user_id"] == current_user_id:
+                    current_user_rank = i + 1
+                    break
+        
+        # 获取班级内的所有学生
+        all_students = []
+        if class_id:
+            # 获取指定班级的所有学生
+            student_query = (
+                db.query(User)
+                .join(student_class, User.id == student_class.c.student_id)
+                .filter(student_class.c.class_id == class_id)
+                .filter(User.role == "student")
+            )
+            all_students = student_query.all()
+        else:
+            # 获取所有学生
+            all_students = db.query(User).filter(User.role == "student").all()
+            
+        # 获取班级内的总学生数（仅计算学生）
+        total_students = len(all_students)
+        
+        # 创建完整的排名列表，包括未提交的学生
+        complete_rankings = []
+        submitted_user_ids = set(sub["user_id"] for sub in rankings)
+        
+        # 首先添加已提交的学生
+        complete_rankings.extend(rankings)
+        
+        # 添加未提交的学生
+        for student in all_students:
+            if student.id not in submitted_user_ids:
+                complete_rankings.append({
+                    "user_id": student.id,
+                    "username": student.username,
+                    "real_name": student.real_name,
+                    "score": 0,
+                    "status": "未提交",
+                    "submitted_at": None
+                })
+        
+        # 提取练习对应的教师提交（找到最新的一个）
+        teacher_submission = None
+        if teacher_submissions:
+            # 按提交时间排序，取最新的
+            teacher_submissions.sort(key=lambda x: x["submitted_at"], reverse=True)
+            teacher_submission = teacher_submissions[0]
+        
+        # 整理返回结果
+        result = {
+            "rankings": complete_rankings,  # 修改为包含所有学生的完整排名
+            "current_user_rank": current_user_rank,
+            "total_students": total_students,
+            "submission_count": len(rankings),
+            "teacher_submission": teacher_submission  # 添加教师提交
+        }
+        
+        # 如果当前用户是非学生，将其提交信息单独返回
+        if current_user_submission:
+            result["current_user_submission"] = current_user_submission
+            
+        return result 

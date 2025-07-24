@@ -103,6 +103,14 @@
                   <div class="stats-label">运行测试</div>
                   <div class="stats-value">{{ submissionResult?.runtime_score || 0 }}/80</div>
                 </div>
+                <!-- 新增班级排名 -->
+                <div class="stats-item ranking-item teacher-ranking-btn" @click="showRanking = true">
+                  <div class="stats-label">班级排名</div>
+                  <div class="stats-value ranking-value">
+                    <span v-if="!userRank">-</span>
+                    <span v-else>{{ userRank }}/{{ totalStudents }}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -215,6 +223,22 @@
       </div>
     </div>
   </div>
+
+  <!-- 排名弹窗 -->
+  <el-dialog
+    v-model="showRanking"
+    title="班级排名"
+    width="80%"
+    destroy-on-close
+    :close-on-click-modal="true"
+  >
+    <ProblemRanking
+      :problem-id="problemId"
+      :exercise-id="exerciseId"
+      :problem-name="problem.name || '题目'"
+      @close="showRanking = false"
+    />
+  </el-dialog>
 </template>
 
 <script setup>
@@ -222,9 +246,10 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
-import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions } from '../../api/submissions';
+import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions, getProblemRanking } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
+import ProblemRanking from '../../components/ProblemRanking.vue'; // 导入排名组件
 
 const route = useRoute();
 const router = useRouter();
@@ -242,6 +267,7 @@ const submitting = ref(false);
 const submissionResult = ref(null);
 const isSubmitted = ref(false);
 const isRedoing = ref(false);
+const showRanking = ref(false); // 新增：控制排名弹窗的显示
 
 // 判断练习是否已结束
 const isExerciseEnded = computed(() => {
@@ -321,6 +347,9 @@ const fetchSubmissionHistory = async () => {
         } else {
           code.value = codeTemplates[selectedLanguage.value] || '';
         }
+        
+        // 获取排名数据
+        await fetchRanking();
       } catch (detailError) {
         code.value = codeTemplates[selectedLanguage.value] || '';
         submissionResult.value = latestSubmission;
@@ -402,6 +431,9 @@ const submitCode = async () => {
       // 开始轮询获取完整结果
       await pollSubmissionResult(result.id);
       
+      // 更新排名数据
+      await fetchRanking();
+      
       // 记录提交代码操作
       logUserOperation(OperationType.SUBMIT_CODE, `题目: ${problem.value.name || problemId}`);
     } else {
@@ -465,8 +497,27 @@ const goBack = () => {
   router.go(-1);
 };
 
+// 新增：获取用户排名和总学生数
+const userRank = ref(null);
+const totalStudents = ref(null);
+
+const fetchRanking = async () => {
+  if (!authStore.user || !authStore.user.id || !exerciseId || !problemId) return;
+  
+  try {
+    const data = await getProblemRanking(problemId, exerciseId);
+    userRank.value = data.current_user_rank;
+    totalStudents.value = data.total_students;
+  } catch (error) {
+    console.error('获取排名失败:', error);
+    userRank.value = null;
+    totalStudents.value = null;
+  }
+};
+
 onMounted(() => {
   fetchProblemDetail();
+  fetchRanking(); // 在组件挂载时获取排名
 });
 </script>
 
@@ -1092,5 +1143,43 @@ onMounted(() => {
 
 .test-status-dot.failed {
   background-color: #f56c6c;
+}
+
+.stats-item.ranking-item {
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 5px;
+  border-radius: 6px;
+}
+
+.stats-item.ranking-item:hover {
+  background-color: #ecf5ff;
+}
+
+.stats-item.ranking-item .ranking-value {
+  color: #409eff;
+}
+
+.stats-item.ranking-item.teacher-ranking-btn {
+  background-color: #fdf6ec;  /* 淡黄色背景 */
+  border: 1px solid #faecd8;
+  padding: 8px;
+  transition: all 0.2s;
+}
+
+.stats-item.ranking-item.teacher-ranking-btn:hover {
+  background-color: #fef0d9;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(230, 162, 60, 0.2);
+}
+
+.stats-item.ranking-item.teacher-ranking-btn .stats-label {
+  color: #e6a23c;  /* 黄色文字 */
+  font-weight: 500;
+}
+
+.stats-item.ranking-item.teacher-ranking-btn .ranking-value {
+  color: #e6a23c;  /* 黄色文字 */
+  font-weight: 600;
 }
 </style> 

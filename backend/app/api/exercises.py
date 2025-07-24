@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.models import User, Exercise, Course, Problem, get_db, OperationLog, Class, Submission
 from app.models.exercise import exercise_problem
@@ -291,7 +291,6 @@ async def get_exercise_active_students(
     如果提供了class_id，则只返回该班级的活跃学生
     """
     try:
-            
         # 获取练习详情
         exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
         if not exercise:
@@ -334,6 +333,9 @@ async def get_exercise_active_students(
         # 获取所有学生在所有题目上的提交记录及活动状态
         active_students = []
         
+        # 获取当前时间（统一使用naive datetime没有时区信息）
+        now = datetime.now().replace(tzinfo=None)
+        
         for student in students:
             # 获取该学生在该练习中的所有提交记录
             submissions = db.query(Submission).filter(
@@ -358,8 +360,24 @@ async def get_exercise_active_students(
             ).order_by(OperationLog.created_at.desc()).limit(10).all()
             
             # 获取最后活动时间 - 从提交记录和操作日志中找出最近的时间
-            submission_times = [sub.submitted_at for sub in submissions] if submissions else []
-            log_times = [log.created_at for log in recent_logs] if recent_logs else []
+            # 确保所有时间对象都是naive datetime（没有时区信息）
+            submission_times = []
+            for sub in submissions:
+                if sub.submitted_at:
+                    # 移除时区信息
+                    if hasattr(sub.submitted_at, 'tzinfo') and sub.submitted_at.tzinfo is not None:
+                        submission_times.append(sub.submitted_at.replace(tzinfo=None))
+                    else:
+                        submission_times.append(sub.submitted_at)
+                        
+            log_times = []
+            for log in recent_logs:
+                if log.created_at:
+                    # 移除时区信息
+                    if hasattr(log.created_at, 'tzinfo') and log.created_at.tzinfo is not None:
+                        log_times.append(log.created_at.replace(tzinfo=None))
+                    else:
+                        log_times.append(log.created_at)
             
             # 合并所有时间并找出最近的一个
             all_times = submission_times + log_times
@@ -367,8 +385,8 @@ async def get_exercise_active_students(
                 last_active = max(all_times)
                 latest_activity = last_active.strftime("%Y-%m-%d %H:%M:%S")
                 
-                # 计算距离现在的时间
-                time_diff = datetime.now().replace(tzinfo=None) - last_active.replace(tzinfo=None)
+                # 计算距离现在的时间 (两个时间都是naive datetime)
+                time_diff = now - last_active
                 if time_diff.days > 0:
                     last_active_time_ago = f"{time_diff.days}天前"
                 elif time_diff.seconds > 3600:
@@ -394,10 +412,15 @@ async def get_exercise_active_students(
             active_students.append(student_data)
             
         # 按活跃时间和在线状态排序
-        active_students.sort(key=lambda x: (not x["is_online"], x["latest_activity"] == "尚未活动", x["latest_activity"]), reverse=True)
+        # 使用字符串进行排序，避免时区问题
+        active_students.sort(key=lambda x: (
+            not x["is_online"],
+            x["latest_activity"] == "尚未活动", 
+            x["latest_activity"]
+        ), reverse=True)
         
         # 记录操作日志
-        ExerciseService.log_operation(db, current_user.id, "查看在线答题用户", f"练习ID: {exercise_id}")
+        ExerciseService.log_operation(db, current_user.id, "查看在线答题用户", f"查看练习 {exercise.name} 的在线答题用户")
             
         return active_students
         

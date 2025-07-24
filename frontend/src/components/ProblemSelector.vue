@@ -193,17 +193,17 @@ const loadProblemTags = async () => {
     
     // 批量获取所有问题的标签
     const batchTags = await getBatchProblemTags(problemPaths);
-    
+  
     // 将结果存储到每个问题对象上
-    for (const problem of problems.value) {
-      if (problem.data_path) {
+  for (const problem of problems.value) {
+    if (problem.data_path) {
         const encodedPath = encodeURIComponent(problem.data_path);
         if (batchTags[encodedPath] && batchTags[encodedPath].length > 0) {
           problem.tags = batchTags[encodedPath];
         }
       }
-    }
-  } catch (err) {
+        }
+      } catch (err) {
     console.error('批量获取问题标签失败:', err);
   }
 };
