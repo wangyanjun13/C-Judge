@@ -1,17 +1,27 @@
 <template>
   <div class="problem-selector-container">
     <div class="header-section">
-      <div class="filter-section">
-        <!-- 移除题库分类筛选框 -->
-        <!-- 动态显示所有标签类型 -->
-        <div v-for="tagType in tagTypes" :key="tagType.id" class="filter-item">
-          <label>{{ tagType.name }}标签：</label>
-          <select v-model="selectedTagIds[tagType.id]" @change="loadProblems">
-            <option value="">全部</option>
-            <option v-for="tag in getTagsByType(tagType.id)" :key="tag.id" :value="tag.id">
+      <!-- 新的标签筛选布局 -->
+      <div class="tags-filter-container">
+        <div v-for="tagType in tagTypes" :key="tagType.id" class="tag-type-row">
+          <div class="tag-type-label">{{ tagType.name }}：</div>
+          <div class="tag-items">
+            <div 
+              class="tag-item" 
+              :class="{ active: selectedTagIds[tagType.id] === '' }"
+              @click="selectTag(tagType.id, '')">
+              全部
+            </div>
+            <div 
+              v-for="tag in getTagsByType(tagType.id)" 
+              :key="tag.id" 
+              class="tag-item"
+              :class="{ active: selectedTagIds[tagType.id] === tag.id }"
+              :style="{ '--tag-color': tag.tag_type_id ? `var(--tag-color-${tag.tag_type_id % 10})` : '#409eff' }"
+              @click="selectTag(tagType.id, tag.id)">
               {{ tag.name }}
-            </option>
-          </select>
+            </div>
+          </div>
         </div>
       </div>
       <div class="action-buttons">
@@ -119,6 +129,12 @@ const allTags = ref([]); // 存储所有标签
 const selectedTagIds = ref({}); // 存储每种标签类型的选中值
 const problemTags = ref({}); // 存储每个问题的标签
 const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
+
+// 选择标签
+const selectTag = (tagTypeId, tagId) => {
+  selectedTagIds.value[tagTypeId] = tagId;
+  loadProblems();
+};
 
 // 加载题库分类
 const loadCategories = async () => {
@@ -241,8 +257,11 @@ const loadProblems = async () => {
     // 加载每个问题的标签
     await loadProblemTags();
     
-    // 重置选择
-    selectedProblems.value = [];
+    // 保留当前选中的问题（如果它们仍然在问题列表中）
+    if (selectedProblems.value.length > 0) {
+      const problemIds = new Set(allProblems.map(p => p.id));
+      selectedProblems.value = selectedProblems.value.filter(p => problemIds.has(p.id));
+    }
   } catch (err) {
     console.error('加载试题列表失败:', err);
     error.value = '加载试题列表失败';
@@ -324,36 +343,76 @@ onMounted(async () => {
 
 .header-section {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   margin-bottom: 20px;
 }
 
-.filter-section {
+/* 新增标签筛选布局样式 */
+.tags-filter-container {
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: #f5f7fa;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tag-type-row {
   display: flex;
-  align-items: center;
+  margin-bottom: 12px;
+  align-items: flex-start;
 }
 
-.filter-item {
-  margin-right: 20px;
+.tag-type-row:last-child {
+  margin-bottom: 0;
+}
+
+.tag-type-label {
+  width: 100px;
+  text-align: right;
+  padding-right: 15px;
+  padding-top: 6px;
+  font-weight: 500;
+  color: #606266;
+  flex-shrink: 0;
+}
+
+.tag-items {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-grow: 1;
 }
 
-.filter-item label {
-  margin-right: 10px;
-}
-
-.filter-item select {
-  padding: 8px;
-  border: 1px solid #dcdfe6;
+.tag-item {
+  padding: 6px 12px;
   border-radius: 4px;
-  width: 200px;
+  background-color: #ffffff;
+  border: 1px solid #dcdfe6;
+  color: #606266;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  user-select: none;
 }
 
+.tag-item:hover {
+  background-color: #ecf5ff;
+  color: #409eff;
+  border-color: #c6e2ff;
+}
+
+.tag-item.active {
+  color: #ffffff;
+  background-color: var(--tag-color, #409eff);
+  border-color: var(--tag-color, #409eff);
+}
+
+/* 修改操作按钮排版 */
 .action-buttons {
   display: flex;
   gap: 10px;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .loading, .error, .empty-state {
