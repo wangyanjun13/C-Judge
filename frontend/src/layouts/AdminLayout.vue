@@ -3,11 +3,20 @@
     <header class="header">
       <div class="logo">Just For Fun-测评系统(C语言)</div>
       <nav class="nav">
-        <router-link to="/admin/exercises" class="nav-item">练习</router-link>
-        <router-link to="/admin/operation-logs" class="nav-item">操作记录</router-link>
+        <router-link to="/admin/exercises" class="nav-item">
+          <img src="/代码.svg" alt="练习" class="nav-icon" />
+          <span>练习</span>
+        </router-link>
+        <router-link to="/admin/operation-logs" class="nav-item">
+          <img src="/记录.svg" alt="操作记录" class="nav-icon" />
+          <span>操作记录</span>
+        </router-link>
         
         <div class="dropdown">
-          <button class="nav-item dropdown-btn">管理</button>
+          <button class="nav-item dropdown-btn">
+            <img src="/管理.svg" alt="管理" class="nav-icon" />
+            <span>管理</span>
+          </button>
           <div class="dropdown-content">
             <router-link to="/admin/management?tab=classes" class="dropdown-item">班级管理</router-link>
             <router-link to="/admin/management?tab=teachers" class="dropdown-item">教师管理</router-link>
@@ -17,7 +26,10 @@
         </div>
         
         <div class="dropdown">
-          <button class="nav-item dropdown-btn">维护</button>
+          <button class="nav-item dropdown-btn">
+            <img src="/维护.svg" alt="维护" class="nav-icon" />
+            <span>维护</span>
+          </button>
           <div class="dropdown-content">
             <router-link to="/admin/maintenance?tab=upload" class="dropdown-item">上传题库</router-link>
             <router-link to="/admin/maintenance?tab=problems" class="dropdown-item">题库维护</router-link>
@@ -26,7 +38,10 @@
         </div>
         
         <div class="dropdown">
-          <button class="nav-item dropdown-btn">系统</button>
+          <button class="nav-item dropdown-btn">
+            <img src="/个人仪表盘.svg" alt="系统" class="nav-icon" />
+            <span>系统</span>
+          </button>
           <div class="dropdown-content">
             <router-link to="/admin/system?tab=password" class="dropdown-item">修改密码</router-link>
             <router-link to="/admin/system?tab=statistics" class="dropdown-item">统计数据</router-link>
@@ -153,6 +168,15 @@ const goToMySubmissions = () => {
   padding: 0 20px;
   line-height: 60px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1); /* 将图标转为白色 */
 }
 
 .nav-item:hover {
