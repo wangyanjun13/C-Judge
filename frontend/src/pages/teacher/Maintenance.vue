@@ -55,8 +55,6 @@
               <th>操作</th>
               <th>试题名称</th>
               <th>试题中文名称</th>
-              <th>时间限制</th>
-              <th>内存限制</th>
               <th>标签</th>
             </tr>
           </thead>
@@ -69,8 +67,6 @@
               </td>
               <td>{{ problem.name }}</td>
               <td>{{ problem.chinese_name }}</td>
-              <td>{{ problem.time_limit }}</td>
-              <td>{{ problem.memory_limit }}</td>
               <td class="tags-cell">
                 <div v-if="problemTags[problem.data_path]" class="problem-tags">
                   <template v-for="(tags, tagType) in groupTagsByType(problemTags[problem.data_path])" :key="tagType">
@@ -598,7 +594,7 @@ onMounted(async () => {
 }
 
 .tags-cell {
-  max-width: 300px;
+  max-width: 500px; /* 增加标签单元格宽度 */
 }
 
 .problem-tags {

@@ -261,7 +261,7 @@ async def get_submissions(
     try:
         # 简化查询，先验证基本数据
         submissions_query = db.query(Submission)
-        
+    
         # 应用筛选条件
         if user_id is not None:
             # 检查权限（学生只能查看自己的提交）
@@ -270,21 +270,21 @@ async def get_submissions(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="没有权限查看其他用户的提交记录"
                 )
-            submissions_query = submissions_query.filter(Submission.user_id == user_id)
+                submissions_query = submissions_query.filter(Submission.user_id == user_id)
         
         if problem_id is not None:
-            submissions_query = submissions_query.filter(Submission.problem_id == problem_id)
+                submissions_query = submissions_query.filter(Submission.problem_id == problem_id)
         
         if exercise_id is not None:
-            submissions_query = submissions_query.filter(Submission.exercise_id == exercise_id)
+                submissions_query = submissions_query.filter(Submission.exercise_id == exercise_id)
         
         # 对于学生，只显示自己的提交
         if current_user.role == "student":
-            submissions_query = submissions_query.filter(Submission.user_id == current_user.id)
+                submissions_query = submissions_query.filter(Submission.user_id == current_user.id)
         
-        # 按提交时间降序排序
+    # 按提交时间降序排序
         submissions = submissions_query.order_by(Submission.submitted_at.desc()).all()
-        
+    
         # 组装响应数据
         response_data = []
         

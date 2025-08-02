@@ -7,7 +7,7 @@
             <span class="title-icon">📊</span>
             答题仪表盘
           </h2>
-          <p class="dashboard-subtitle">跟踪您的学习进度和答题表现</p>
+          <p class="dashboard-subtitle">跟踪学习进度和答题表现</p>
         </div>
         <div class="header-decoration">
           <div class="decoration-circle"></div>
