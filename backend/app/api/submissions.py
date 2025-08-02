@@ -69,14 +69,18 @@ async def get_my_submissions(
         
         # 查询用户所在班级（用于补充班级信息）
         user_classes = {}
-        if current_user.role == "student":
-            classes = (
-                db.query(Class)
-                .join(student_class, Class.id == student_class.c.class_id)
-                .filter(student_class.c.student_id == current_user.id)
-                .all()
-            )
-            user_classes = {cls.id: cls.name for cls in classes}
+        try:
+            if current_user.role == "student":
+                classes = (
+                    db.query(Class)
+                    .join(student_class, Class.id == student_class.c.class_id)
+                    .filter(student_class.c.student_id == current_user.id)
+                    .all()
+                )
+                user_classes = {cls.id: cls.name for cls in classes}
+        except Exception as e:
+            print(f"获取用户班级信息失败: {str(e)}")
+            user_classes = {}
         
         # 组装响应数据
         response_data = []
@@ -88,8 +92,13 @@ async def get_my_submissions(
             class_names = []
             class_id = None
             
-            if submission.exercise_id:
-                # 获取该练习关联的班级
+            # 简化班级信息获取逻辑
+            if current_user.role == "student" and user_classes:
+                # 学生用户：直接使用用户所在的班级
+                class_names = list(user_classes.values())
+                class_id = list(user_classes.keys())[0] if user_classes else None
+            elif submission.exercise_id:
+                # 非学生用户或没有班级信息时：尝试从练习获取班级
                 try:
                     exercise_classes = (
                         db.query(Class)
@@ -98,22 +107,10 @@ async def get_my_submissions(
                         .filter(Exercise.id == submission.exercise_id)
                         .all()
                     )
-                    
-                    # 过滤出学生所在的班级
-                    if current_user.role == "student" and user_classes:
-                        filtered_classes = [cls for cls in exercise_classes if cls.id in user_classes]
-                        if filtered_classes:
-                            class_names = [cls.name for cls in filtered_classes]
-                            class_id = filtered_classes[0].id
-                        else:
-                            class_names = [cls.name for cls in exercise_classes]
-                            class_id = exercise_classes[0].id if exercise_classes else None
-                    else:
-                        class_names = [cls.name for cls in exercise_classes]
-                        class_id = exercise_classes[0].id if exercise_classes else None
+                    class_names = [cls.name for cls in exercise_classes]
+                    class_id = exercise_classes[0].id if exercise_classes else None
                 except Exception as e:
                     print(f"查询练习关联班级出错: {str(e)}")
-                    # 出错时使用默认值继续执行
                     class_names = []
                     class_id = None
             
@@ -135,7 +132,10 @@ async def get_my_submissions(
                 "course_id": course_id,
                 "course_name": course_name or "-",
                 "class_names": ", ".join(class_names) if class_names else "-",
-                "class_id": class_id
+                "class_id": class_id,
+                # 添加必需的用户字段
+                "username": current_user.username,
+                "real_name": current_user.real_name
             }
             
             response_data.append(submission_data)
@@ -245,7 +245,7 @@ async def get_submission(
     
     return submission
 
-@router.get("/", response_model=List[SubmissionResponse])
+@router.get("/", response_model=List[UserSubmissionResponse])
 async def get_submissions(
     user_id: Optional[int] = None,
     problem_id: Optional[int] = None,
@@ -256,34 +256,85 @@ async def get_submissions(
     """
     获取提交记录列表
     可以按用户ID、问题ID或练习ID筛选
+    返回完整的关联数据，包括题目、练习、课程、班级名称
     """
-    # 构造查询
-    query = db.query(Submission)
+    try:
+        # 简化查询，先验证基本数据
+        submissions_query = db.query(Submission)
     
-    # 应用筛选条件
-    if user_id is not None:
-        # 检查权限（学生只能查看自己的提交）
-        if current_user.role == "student" and user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="没有权限查看其他用户的提交记录"
-            )
-        query = query.filter(Submission.user_id == user_id)
-    
-    if problem_id is not None:
-        query = query.filter(Submission.problem_id == problem_id)
-    
-    if exercise_id is not None:
-        query = query.filter(Submission.exercise_id == exercise_id)
-    
-    # 对于学生，只显示自己的提交
-    if current_user.role == "student":
-        query = query.filter(Submission.user_id == current_user.id)
-    
+        # 应用筛选条件
+        if user_id is not None:
+            # 检查权限（学生只能查看自己的提交）
+            if current_user.role == "student" and user_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="没有权限查看其他用户的提交记录"
+                )
+                submissions_query = submissions_query.filter(Submission.user_id == user_id)
+        
+        if problem_id is not None:
+                submissions_query = submissions_query.filter(Submission.problem_id == problem_id)
+        
+        if exercise_id is not None:
+                submissions_query = submissions_query.filter(Submission.exercise_id == exercise_id)
+        
+        # 对于学生，只显示自己的提交
+        if current_user.role == "student":
+                submissions_query = submissions_query.filter(Submission.user_id == current_user.id)
+        
     # 按提交时间降序排序
-    submissions = query.order_by(Submission.submitted_at.desc()).all()
+        submissions = submissions_query.order_by(Submission.submitted_at.desc()).all()
     
-    return submissions 
+        # 组装响应数据
+        response_data = []
+        
+        for submission in submissions:
+            # 获取用户信息
+            user = db.query(User).filter(User.id == submission.user_id).first()
+            
+            # 获取题目信息
+            problem = db.query(Problem).filter(Problem.id == submission.problem_id).first()
+            
+            # 获取练习信息
+            exercise = None
+            course = None
+            if submission.exercise_id:
+                exercise = db.query(Exercise).filter(Exercise.id == submission.exercise_id).first()
+                if exercise and exercise.course_id:
+                    course = db.query(Course).filter(Course.id == exercise.course_id).first()
+            
+            # 组装响应数据
+            submission_data = {
+                "id": submission.id,
+                "user_id": submission.user_id,
+                "problem_id": submission.problem_id,
+                "exercise_id": submission.exercise_id,
+                "language": submission.language,
+                "status": submission.status,
+                "code_check_score": submission.code_check_score,
+                "runtime_score": submission.runtime_score,
+                "total_score": submission.total_score,
+                "submitted_at": submission.submitted_at,
+                # 添加关联数据
+                "problem_name": problem.name if problem else f"题目 {submission.problem_id}",
+                "problem_chinese_name": problem.chinese_name if problem else None,
+                "exercise_name": exercise.name if exercise else None,
+                "course_id": exercise.course_id if exercise else None,
+                "course_name": course.name if course else None,
+                "username": user.username if user else f"用户{submission.user_id}",
+                "real_name": user.real_name if user else None,
+                # 添加必需的字段以符合UserSubmissionResponse模型
+                "class_names": None,
+                "class_id": None
+            }
+            
+            response_data.append(submission_data)
+        
+        return response_data
+        
+    except Exception as e:
+        print(f"获取提交记录出错: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取提交记录失败: {str(e)}")
 
 @router.get("/problem-ranking/{problem_id}", response_model=ProblemRankingResponse)
 async def get_problem_ranking(

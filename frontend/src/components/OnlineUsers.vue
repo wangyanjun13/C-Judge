@@ -198,16 +198,21 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 20px;
 }
 
 .filter-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding: 10px;
-  background: #f9f9f9;
-  border-radius: 4px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .search-box {
@@ -217,10 +222,24 @@ onUnmounted(() => {
 
 .search-box input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  padding: 10px 16px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: var(--radius-sm);
   font-size: 14px;
+  transition: var(--transition-fast);
+  background-color: white;
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.search-box input:hover {
+  border-color: var(--primary-color);
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .role-filter {
@@ -230,54 +249,95 @@ onUnmounted(() => {
 }
 
 .role-filter label {
-  margin-right: 8px;
+  margin-right: 12px;
   font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .role-filter select {
-  padding: 8px 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  padding: 10px 16px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: var(--radius-sm);
   background-color: white;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: var(--transition-fast);
+  min-width: 120px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.role-filter select:hover {
+  border-color: var(--primary-color);
+}
+
+.role-filter select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .btn-refresh {
-  background-color: #f0f0f0;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
   cursor: pointer;
-  color: #606266;
+  color: var(--primary-color);
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
 }
 
 .btn-refresh:hover {
-  background-color: #e0e0e0;
+  background: rgba(102, 126, 234, 0.2);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .users-list {
   flex-grow: 1;
   overflow-y: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  background: white;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 th, td {
-  padding: 12px 15px;
+  padding: 14px 18px;
   text-align: left;
-  border-bottom: 1px solid #ebeef5;
 }
 
 th {
-  background-color: #f5f7fa;
-  color: #606266;
-  font-weight: 500;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+tr:last-child td {
+  border-bottom: none;
 }
 
 tr:hover {
-  background-color: #f5f7fa;
+  background-color: rgba(102, 126, 234, 0.05);
 }
 
 tr.inactive {
@@ -286,13 +346,17 @@ tr.inactive {
 }
 
 tr.current-user {
-  background-color: #e6f7ff;
+  background-color: rgba(102, 126, 234, 0.1);
 }
 
 .current-user-tag {
   margin-left: 5px;
-  color: #1890ff;
+  color: var(--primary-color);
   font-weight: bold;
+  background-color: rgba(102, 126, 234, 0.1);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 12px;
 }
 
 .loading-state, .empty-state {
@@ -301,17 +365,18 @@ tr.current-user {
   justify-content: center;
   align-items: center;
   height: 200px;
-  color: #909399;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.8);
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #409eff;
+  border: 3px solid rgba(102, 126, 234, 0.1);
+  border-top: 3px solid var(--primary-color);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
 @keyframes spin {
@@ -328,6 +393,7 @@ tr.current-user {
   margin-right: 8px;
   vertical-align: middle;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
 .status-indicator.online {
@@ -337,22 +403,25 @@ tr.current-user {
 
 .role-badge {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 4px 10px;
   border-radius: 12px;
   font-size: 12px;
+  font-weight: 600;
   color: white;
-  background-color: #909399;
 }
 
 .role-admin {
-  background-color: #409eff;
+  background: linear-gradient(135deg, #409eff, #1677ff);
+  box-shadow: 0 2px 4px rgba(64, 158, 255, 0.2);
 }
 
 .role-teacher {
-  background-color: #67c23a;
+  background: linear-gradient(135deg, #67c23a, #529b2e);
+  box-shadow: 0 2px 4px rgba(103, 194, 58, 0.2);
 }
 
 .role-student {
-  background-color: #e6a23c;
+  background: linear-gradient(135deg, #e6a23c, #d48806);
+  box-shadow: 0 2px 4px rgba(230, 162, 60, 0.2);
 }
 </style> 

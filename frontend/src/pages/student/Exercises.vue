@@ -197,84 +197,140 @@ onMounted(() => {
 
 <style scoped>
 .exercises-container {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  background: linear-gradient(135deg, #ffffff, #f8f9fa);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
 }
 
 .course-selector {
   display: flex;
   align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
 .course-selector label {
-  margin-right: 10px;
+  margin-right: 12px;
   font-weight: 500;
+  color: var(--text-primary);
 }
 
 .course-selector select {
-  padding: 8px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  padding: 8px 16px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: var(--radius-sm);
   min-width: 200px;
+  background-color: white;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.course-selector select:hover {
+  border-color: var(--primary-color);
+}
+
+.course-selector select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  background: white;
 }
 
 th, td {
-  padding: 12px 15px;
+  padding: 14px 18px;
   text-align: left;
-  border-bottom: 1px solid #e8e8e8;
 }
 
 th {
-  background-color: #fafafa;
-  font-weight: 500;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background-color: rgba(102, 126, 234, 0.05);
 }
 
 .loading-message, .empty-message {
   text-align: center;
-  padding: 20px;
-  color: #999;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn {
-  padding: 6px 12px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  margin-right: 5px;
+  margin-right: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition-fast);
 }
 
 .btn-primary {
-  background-color: #1890ff;
+  background: var(--primary-gradient);
   color: white;
+  box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:hover {
-  background-color: #40a9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 .btn-text {
   background: none;
-  color: #1890ff;
-  padding: 0;
+  color: var(--primary-color);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
 }
 
 .btn-text:hover {
-  color: #40a9ff;
-  text-decoration: underline;
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--primary-color);
+  text-decoration: none;
 }
 
 /* 模态对话框样式 */
@@ -284,48 +340,117 @@ th {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .modal {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  width: 400px;
+  background: white;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  width: 450px;
   max-width: 90%;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: modal-in 0.3s ease;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .modal h3 {
-  margin-top: 0;
-  color: #1890ff;
-}
-
-.modal button {
-  margin-top: 20px;
-  padding: 8px 16px;
-  background-color: #1890ff;
+  margin: 0;
+  padding: 20px;
+  background: var(--primary-gradient);
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.modal button:hover {
-  background-color: #40a9ff;
+.form-group {
+  padding: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 20px 20px;
+  gap: 12px;
+}
+
+.form-actions button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--transition-fast);
+}
+
+.form-actions button:first-child {
+  background-color: #f0f2f5;
+  color: var(--text-primary);
+}
+
+.form-actions button:first-child:hover {
+  background-color: #e4e6eb;
+}
+
+.form-actions .btn-primary {
+  background: var(--primary-gradient);
+  color: white;
+}
+
+.form-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
 }
 
 .exercise-link {
-  color: #1890ff;
+  color: var(--primary-color);
   cursor: pointer;
   text-decoration: none;
+  font-weight: 500;
+  transition: var(--transition-fast);
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
 }
 
 .exercise-link:hover {
-  text-decoration: underline;
+  background-color: rgba(102, 126, 234, 0.1);
+  text-decoration: none;
 }
 
 .note-text {
@@ -335,8 +460,11 @@ th {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: 5px;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 12px;
   font-style: italic;
+  background-color: rgba(102, 126, 234, 0.05);
+  padding: 2px 6px;
+  border-radius: 10px;
 }
 </style> 
