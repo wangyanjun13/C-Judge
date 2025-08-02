@@ -69,6 +69,7 @@ async def get_my_submissions(
         
         # 查询用户所在班级（用于补充班级信息）
         user_classes = {}
+        try:
         if current_user.role == "student":
             classes = (
                 db.query(Class)
@@ -77,6 +78,9 @@ async def get_my_submissions(
                 .all()
             )
             user_classes = {cls.id: cls.name for cls in classes}
+        except Exception as e:
+            print(f"获取用户班级信息失败: {str(e)}")
+            user_classes = {}
         
         # 组装响应数据
         response_data = []
@@ -88,8 +92,13 @@ async def get_my_submissions(
             class_names = []
             class_id = None
             
-            if submission.exercise_id:
-                # 获取该练习关联的班级
+            # 简化班级信息获取逻辑
+            if current_user.role == "student" and user_classes:
+                # 学生用户：直接使用用户所在的班级
+                class_names = list(user_classes.values())
+                class_id = list(user_classes.keys())[0] if user_classes else None
+            elif submission.exercise_id:
+                # 非学生用户或没有班级信息时：尝试从练习获取班级
                 try:
                     exercise_classes = (
                         db.query(Class)
@@ -98,22 +107,10 @@ async def get_my_submissions(
                         .filter(Exercise.id == submission.exercise_id)
                         .all()
                     )
-                    
-                    # 过滤出学生所在的班级
-                    if current_user.role == "student" and user_classes:
-                        filtered_classes = [cls for cls in exercise_classes if cls.id in user_classes]
-                        if filtered_classes:
-                            class_names = [cls.name for cls in filtered_classes]
-                            class_id = filtered_classes[0].id
-                        else:
-                            class_names = [cls.name for cls in exercise_classes]
-                            class_id = exercise_classes[0].id if exercise_classes else None
-                    else:
                         class_names = [cls.name for cls in exercise_classes]
                         class_id = exercise_classes[0].id if exercise_classes else None
                 except Exception as e:
                     print(f"查询练习关联班级出错: {str(e)}")
-                    # 出错时使用默认值继续执行
                     class_names = []
                     class_id = None
             
