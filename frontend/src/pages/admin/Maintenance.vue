@@ -520,14 +520,14 @@ onMounted(async () => {
 
 .tag-item:hover {
   background-color: #ecf5ff;
-  color: #409eff;
+  color: var(--primary-color);
   border-color: #c6e2ff;
 }
 
 .tag-item.active {
   color: #ffffff;
-  background-color: var(--tag-color, #409eff);
-  border-color: var(--tag-color, #409eff);
+  background-color: var(--tag-color, var(--primary-color));
+  border-color: var(--tag-color, var(--primary-color));
 }
 
 .loading, .error, .empty-state {
