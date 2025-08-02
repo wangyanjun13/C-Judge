@@ -280,7 +280,6 @@ onUnmounted(() => {
   border-radius: var(--radius-md);
   padding: 8px 0;
   margin-top: 8px;
-  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   right: 0;
   pointer-events: auto;
@@ -348,7 +347,6 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   transition: var(--transition);
-  backdrop-filter: blur(10px);
 }
 
 .dashboard-btn:hover {
@@ -371,7 +369,6 @@ onUnmounted(() => {
   background: var(--bg-card);
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
 }
 
 .user-avatar {
@@ -428,7 +425,6 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  backdrop-filter: blur(3px);
 }
 
 .modal {
@@ -438,7 +434,6 @@ onUnmounted(() => {
   width: 500px;
   max-width: 90%;
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   overflow: hidden;
 }
