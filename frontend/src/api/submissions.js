@@ -109,3 +109,34 @@ export const getMySubmissions = async (params = {}) => {
     throw error;
   }
 }; 
+
+/**
+ * 获取所有提交记录（管理员/教师权限）
+ * @param {Object} params - 查询参数
+ * @returns {Promise<Array>} - 提交记录列表
+ */
+export const getAllSubmissions = async (params = {}) => {
+  try {
+    const response = await axios.get('/api/submissions/', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取所有提交记录失败:', error);
+    throw error;
+  }
+};
+
+/**
+ * 获取学生列表（管理员/教师权限）
+ * @param {number} classId - 班级ID（可选）
+ * @returns {Promise<Array>} - 学生列表
+ */
+export const getStudents = async (classId = null) => {
+  try {
+    const params = classId ? { class_id: classId } : {};
+    const response = await axios.get('/api/users/students', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取学生列表失败:', error);
+    throw error;
+  }
+}; 
