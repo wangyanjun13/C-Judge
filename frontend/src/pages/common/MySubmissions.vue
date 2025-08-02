@@ -5,7 +5,7 @@
         <div class="title-section">
           <h2 class="dashboard-title">
             <span class="title-icon">📊</span>
-            个人答题仪表盘
+            答题仪表盘
           </h2>
           <p class="dashboard-subtitle">跟踪您的学习进度和答题表现</p>
         </div>
@@ -49,10 +49,10 @@
           <div class="stat-card primary">
             <div class="stat-icon">📚</div>
             <div class="stat-info">
-          <div class="stat-value">{{ submissions.length }}</div>
-          <div class="stat-label">已答题目</div>
-        </div>
-            <div class="stat-trend">+{{ submissions.length }}</div>
+              <div class="stat-value">{{ authStore.user.role === 'student' ? submissions.length : (showAllSubmissions ? allSubmissionsCount : mySubmissions.length) }}</div>
+              <div class="stat-label">{{ authStore.user.role === 'student' ? '已答题目' : (showAllSubmissions ? '总提交数' : '已答题目') }}</div>
+            </div>
+            <div class="stat-trend">{{ authStore.user.role === 'student' ? '+' + submissions.length : (showAllSubmissions ? '全部记录' : '+' + mySubmissions.length) }}</div>
           </div>
           <div class="stat-card success">
             <div class="stat-icon">🎯</div>
@@ -75,8 +75,8 @@
           <div class="stat-card info">
             <div class="stat-icon">📋</div>
             <div class="stat-info">
-          <div class="stat-value">{{ completedExercises }}</div>
-          <div class="stat-label">参与练习</div>
+              <div class="stat-value">{{ completedExercises }}</div>
+              <div class="stat-label">参与练习</div>
             </div>
             <div class="stat-trend">{{ completedExercises }}个</div>
           </div>
@@ -136,10 +136,10 @@
           <div class="stat-card info">
             <div class="stat-icon">📋</div>
             <div class="stat-info">
-              <div class="stat-value">{{ submissions.length }}</div>
-              <div class="stat-label">我的提交</div>
+              <div class="stat-value">{{ showAllSubmissions ? allSubmissionsCount : submissions.length }}</div>
+              <div class="stat-label">{{ showAllSubmissions ? '所有提交' : '我的提交' }}</div>
             </div>
-            <div class="stat-trend">个人记录</div>
+            <div class="stat-trend">{{ showAllSubmissions ? '监控数据' : '个人记录' }}</div>
           </div>
         </div>
       </div>
@@ -154,7 +154,11 @@
               <span v-else-if="showAllSubmissions">班级提交监控</span>
               <span v-else>我的答题记录</span>
             </h3>
-            <span class="record-count">共 {{ filteredSubmissions.length }} 条记录</span>
+            <span class="record-count">
+              <span v-if="authStore.user.role === 'student'">共 {{ filteredSubmissions.length }} 条记录</span>
+              <span v-else-if="showAllSubmissions">共 {{ filteredSubmissions.length }} 条提交记录</span>
+              <span v-else>共 {{ filteredSubmissions.length }} 条个人记录</span>
+            </span>
           </div>
           <div class="header-actions">
             <div class="filter-group">
@@ -198,13 +202,13 @@
                   <td v-if="authStore.user.role !== 'student' && showAllSubmissions" class="col-student">
                     <div class="student-info">
                       <div class="student-username">
-                        {{ studentMap[item.user_id]?.username || `用户${item.user_id}` }}
+                        {{ item.username || `用户${item.user_id}` }}
                       </div>
-                      <div class="student-realname" v-if="studentMap[item.user_id]?.real_name">
-                        {{ studentMap[item.user_id].real_name }}
+                      <div class="student-realname" v-if="item.real_name">
+                        {{ item.real_name }}
                       </div>
                     </div>
-              </td>
+                  </td>
                   <td class="col-problem">
                     <div class="problem-info">
                       <div class="problem-name">{{ item.problem_name }}</div>
@@ -219,7 +223,7 @@
                     </div>
                   </td>
                   <td class="col-exercise">
-                    <span class="exercise-name">{{ item.exercise_name || '-' }}</span>
+                    <span class="exercise-name">{{ item.exercise_name || '独立提交' }}</span>
                   </td>
                   <td class="col-course">
                     <span class="course-name">{{ item.course_name || '-' }}</span>
@@ -298,7 +302,6 @@ const allStudentsCount = ref(0);
 const allSubmissionsCount = ref(0);
 const activeStudentsCount = ref(0);
 const overallPassRate = ref(0);
-const studentMap = ref({}); // 学生ID到学生信息的映射
 const showAllSubmissions = ref(true); // 管理员/教师是否显示所有提交记录
 const mySubmissions = ref([]); // 个人提交记录缓存
 
@@ -366,13 +369,6 @@ const fetchMonitoringData = async () => {
     allStudents.value = students;
     allStudentsCount.value = students.length;
     
-    // 建立学生ID到学生信息的映射
-    const studentsMapping = {};
-    students.forEach(student => {
-      studentsMapping[student.id] = student;
-    });
-    studentMap.value = studentsMapping;
-    
     // 设置提交记录数据
     allSubmissions.value = allSubs;
     allSubmissionsCount.value = allSubs.length;
@@ -403,6 +399,7 @@ const fetchSubmissions = async () => {
   isFetching.value = true;
   loading.value = true;
   error.value = null;
+  
   try {
     // 获取个人记录
     const personalData = await getMySubmissions();
@@ -413,22 +410,22 @@ const fetchSubmissions = async () => {
       await fetchMonitoringData();
       // 根据切换状态决定显示什么数据
       submissions.value = showAllSubmissions.value ? allSubmissions.value : personalData;
+      
+      // 预加载排名信息
+      const itemsWithExercise = submissions.value.filter(item => item.exercise_id);
+      
+      // 分批加载排名信息，避免一次性发起太多请求
+      const batchSize = 3;
+      for (let i = 0; i < itemsWithExercise.length; i += batchSize) {
+        const batch = itemsWithExercise.slice(i, i + batchSize);
+        
+        // 每批延迟一段时间，避免同时发起太多请求
+        setTimeout(() => {
+          batch.forEach(item => loadRanking(item));
+        }, i * 200); // 每批间隔200ms
+      }
     } else {
       submissions.value = personalData;
-    }
-    
-    // 预加载排名信息
-    const itemsWithExercise = submissions.value.filter(item => item.exercise_id);
-    
-    // 分批加载排名信息，避免一次性发起太多请求
-    const batchSize = 3;
-    for (let i = 0; i < itemsWithExercise.length; i += batchSize) {
-      const batch = itemsWithExercise.slice(i, i + batchSize);
-      
-      // 每批延迟一段时间，避免同时发起太多请求
-      setTimeout(() => {
-        batch.forEach(item => loadRanking(item));
-      }, i * 200); // 每批间隔200ms
     }
   } catch (e) {
     error.value = '获取答题记录失败';
@@ -470,14 +467,16 @@ const getScoreBadgeClass = (score) => {
 
 // 统计数据计算
 const averageScore = computed(() => {
-  if (!submissions.value.length) return 0;
-  const total = submissions.value.reduce((sum, item) => sum + (item.total_score || 0), 0);
-  return Math.round(total / submissions.value.length);
+  const dataToCalculate = authStore.user.role === 'student' ? submissions.value : mySubmissions.value;
+  if (!dataToCalculate.length) return 0;
+  const total = dataToCalculate.reduce((sum, item) => sum + (item.total_score || 0), 0);
+  return Math.round(total / dataToCalculate.length);
 });
 
 const highestScore = computed(() => {
-  if (!submissions.value.length) return 0;
-  return Math.max(...submissions.value.map(item => item.total_score || 0));
+  const dataToCalculate = authStore.user.role === 'student' ? submissions.value : mySubmissions.value;
+  if (!dataToCalculate.length) return 0;
+  return Math.max(...dataToCalculate.map(item => item.total_score || 0));
 });
 
 // 唯一练习列表
@@ -499,7 +498,14 @@ const uniqueExercises = computed(() => {
 });
 
 // 参与的练习数量
-const completedExercises = computed(() => uniqueExercises.value.length);
+const completedExercises = computed(() => {
+  const dataToCalculate = authStore.user.role === 'student' ? submissions.value : mySubmissions.value;
+  const exercises = new Set();
+  dataToCalculate.forEach(item => {
+    if (item.exercise_id) exercises.add(item.exercise_id);
+  });
+  return exercises.size;
+});
 
 // 根据练习筛选提交记录
 const filteredSubmissions = computed(() => {
@@ -509,10 +515,13 @@ const filteredSubmissions = computed(() => {
 
 // 监听视图切换
 watch(showAllSubmissions, (newValue) => {
+  
   if (authStore.user.role !== 'student') {
     // 确保数据已经加载完成再切换
     if (allSubmissions.value.length > 0 || mySubmissions.value.length > 0) {
+      
       submissions.value = newValue ? allSubmissions.value : mySubmissions.value;
+      
     }
   }
 });
