@@ -113,12 +113,19 @@ export const getMySubmissions = async (params = {}) => {
 /**
  * 获取所有提交记录（管理员/教师权限）
  * @param {Object} params - 查询参数
- * @returns {Promise<Array>} - 提交记录列表
+ * @returns {Promise<Array>} - 提交记录列表，包含完整的关联信息
  */
 export const getAllSubmissions = async (params = {}) => {
   try {
     const response = await axios.get('/api/submissions/', { params });
-    return Array.isArray(response.data) ? response.data : [];
+    const data = response.data;
+    
+    // 确保返回的数据是数组格式
+    if (Array.isArray(data)) {
+      return data; // 直接返回后端处理好的数据
+    }
+    
+    return [];
   } catch (error) {
     console.error('获取所有提交记录失败:', error);
     throw error;

@@ -81,6 +81,8 @@ class UserSubmissionResponse(BaseModel):
     course_name: Optional[str] = None
     class_names: Optional[str] = None
     class_id: Optional[int] = None
+    username: str
+    real_name: Optional[str] = None
     
     class Config:
         orm_mode = True 
