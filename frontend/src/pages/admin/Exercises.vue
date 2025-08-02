@@ -70,102 +70,111 @@
     <!-- 创建/编辑练习对话框 -->
     <div v-if="formModalVisible" class="modal-overlay" @click="formModalVisible = false">
       <div class="modal form-modal" @click.stop>
-        <h3>{{ isEditing ? '编辑练习' : '创建练习' }}</h3>
-        <form @submit.prevent="submitForm">
-          <div class="form-group">
-            <label for="exercise-name">练习名称</label>
-            <input 
-              type="text" 
-              id="exercise-name" 
-              v-model="form.name" 
-              required
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="exercise-course">所属课程</label>
-            <select 
-              id="exercise-course" 
-              v-model="form.course_id" 
-              required
-              :disabled="isEditing"
-            >
-              <option v-for="course in courses" :key="course.id" :value="course.id">
-                {{ course.name }}
-              </option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="exercise-publisher">发布人</label>
-            <input 
-              type="text" 
-              id="exercise-publisher" 
-              :value="getCurrentUserName()"
-              disabled
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="exercise-start-time">发布时间</label>
-            <input 
-              type="datetime-local" 
-              id="exercise-start-time" 
-              v-model="form.start_time"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="exercise-deadline">截止时间</label>
-            <div class="datetime-input-wrapper">
+        <div class="modal-header">
+          <h3>{{ isEditing ? '编辑练习' : '创建练习' }}</h3>
+          <button class="close-btn" @click="formModalVisible = false">&times;</button>
+        </div>
+        <div class="modal-content">
+          <form @submit.prevent="submitForm">
+            <div class="form-group">
+              <label for="exercise-name">练习名称</label>
+              <input 
+                type="text" 
+                id="exercise-name" 
+                v-model="form.name" 
+                required
+              />
+            </div>
+            
+            <div class="form-group">
+              <label for="exercise-course">所属课程</label>
+              <select 
+                id="exercise-course" 
+                v-model="form.course_id" 
+                required
+                :disabled="isEditing"
+              >
+                <option v-for="course in courses" :key="course.id" :value="course.id">
+                  {{ course.name }}
+                </option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="exercise-publisher">发布人</label>
+              <input 
+                type="text" 
+                id="exercise-publisher" 
+                :value="getCurrentUserName()"
+                disabled
+              />
+            </div>
+            
+            <div class="form-group">
+              <label for="exercise-start-time">发布时间</label>
               <input 
                 type="datetime-local" 
-                id="exercise-deadline" 
-                v-model="form.deadline"
-                required
-                @change="validateDeadline"
+                id="exercise-start-time" 
+                v-model="form.start_time"
               />
-              <div class="datetime-helper">
-                <small>请选择晚于发布时间的截止时间</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="exercise-deadline">截止时间</label>
+              <div class="datetime-input-wrapper">
+                <input 
+                  type="datetime-local" 
+                  id="exercise-deadline" 
+                  v-model="form.deadline"
+                  required
+                  @change="validateDeadline"
+                />
+                <div class="datetime-helper">
+                  <small>请选择晚于发布时间的截止时间</small>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div class="form-group checkbox">
-            <input 
-              type="checkbox" 
-              id="exercise-online" 
-              v-model="form.is_online_judge"
-            />
-            <label for="exercise-online">在线测评</label>
-          </div>
-          
-          <div class="form-group">
-            <label for="exercise-languages">允许的语言</label>
-            <select id="exercise-languages" v-model="form.allowed_languages">
-              <option value="c">C语言</option>
-              <option value="c,cpp">C/C++</option>
-            </select>
-          </div>
-          
-          <div class="form-notice">
-            <p class="notice-text">创建练习后需要为练习添加试题：点击[保存]后回到练习列表，点击"练习名称"进入[试题列表]界面，点击[添加]。</p>
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" @click="formModalVisible = false">取消</button>
-            <button type="submit" class="btn-primary">{{ isEditing ? '保存' : '创建' }}</button>
-          </div>
-        </form>
+            
+            <div class="form-group checkbox">
+              <input 
+                type="checkbox" 
+                id="exercise-online" 
+                v-model="form.is_online_judge"
+              />
+              <label for="exercise-online">在线测评</label>
+            </div>
+            
+            <div class="form-group">
+              <label for="exercise-languages">允许的语言</label>
+              <select id="exercise-languages" v-model="form.allowed_languages">
+                <option value="c">C语言</option>
+                <option value="c,cpp">C/C++</option>
+              </select>
+            </div>
+            
+            <div class="form-notice">
+              <p class="notice-text">创建练习后需要为练习添加试题：点击[保存]后回到练习列表，点击"练习名称"进入[试题列表]界面，点击[添加]。</p>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" @click="formModalVisible = false">取消</button>
+          <button @click="submitForm" class="btn-primary">{{ isEditing ? '保存' : '创建' }}</button>
+        </div>
       </div>
     </div>
     
     <!-- 删除确认对话框 -->
     <div v-if="deleteModalVisible" class="modal-overlay" @click="deleteModalVisible = false">
       <div class="modal" @click.stop>
-        <h3>确认删除</h3>
-        <p>您确定要删除练习 "{{ exerciseToDelete?.name }}" 吗？此操作不可撤销。</p>
-        <div class="form-actions">
+        <div class="modal-header">
+          <h3>确认删除</h3>
+          <button class="close-btn" @click="deleteModalVisible = false">&times;</button>
+        </div>
+        <div class="modal-content">
+          <p>您确定要删除练习 "{{ exerciseToDelete?.name }}" 吗？此操作不可撤销。</p>
+        </div>
+        <div class="modal-footer">
           <button @click="deleteModalVisible = false">取消</button>
           <button class="btn-danger" @click="deleteExerciseConfirm">删除</button>
         </div>
@@ -175,17 +184,22 @@
     <!-- 添加备注对话框 -->
     <div v-if="noteModalVisible" class="modal-overlay" @click="noteModalVisible = false">
       <div class="modal" @click.stop>
-        <h3>练习备注</h3>
-        <div class="form-group">
-          <label for="exercise-note">备注内容</label>
-          <textarea 
-            id="exercise-note" 
-            v-model="exerciseNotes[selectedExercise?.id]" 
-            rows="4"
-            placeholder="请输入备注内容..."
-          ></textarea>
+        <div class="modal-header">
+          <h3>练习备注</h3>
+          <button class="close-btn" @click="noteModalVisible = false">&times;</button>
         </div>
-        <div class="form-actions">
+        <div class="modal-content">
+          <div class="form-group">
+            <label for="exercise-note">备注内容</label>
+            <textarea 
+              id="exercise-note" 
+              v-model="exerciseNotes[selectedExercise?.id]" 
+              rows="4"
+              placeholder="请输入备注内容..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
           <button @click="noteModalVisible = false">关闭</button>
           <button @click="saveNote" class="btn-primary">保存</button>
         </div>
@@ -194,12 +208,17 @@
 
     <!-- 在线用户对话框 -->
     <div v-if="onlineUsersModalVisible" class="modal-overlay" @click="closeOnlineUsersModal">
-      <div class="modal online-users-modal" @click.stop>
+      <div class="modal large-modal" @click.stop>
         <div class="modal-header">
           <h3>在线用户列表</h3>
-          <button class="close-btn" @click="closeOnlineUsersModal">×</button>
+          <button class="close-btn" @click="closeOnlineUsersModal">&times;</button>
         </div>
-        <OnlineUsers />
+        <div class="modal-content">
+          <OnlineUsers />
+        </div>
+        <div class="modal-footer">
+          <button @click="closeOnlineUsersModal" class="btn-primary">关闭</button>
+        </div>
       </div>
     </div>
   </div>
@@ -509,118 +528,199 @@ onMounted(() => {
 
 <style scoped>
 .exercises-container {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  background: linear-gradient(135deg, #ffffff, #f8f9fa);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .filter-section {
   display: flex;
-  gap: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .course-selector, .teacher-selector {
   display: flex;
   align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
 .course-selector label, .teacher-selector label {
-  margin-right: 10px;
+  margin-right: 12px;
   font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .course-selector select, .teacher-selector select {
-  padding: 8px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  padding: 8px 16px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: var(--radius-sm);
   min-width: 150px;
+  background-color: white;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.course-selector select:hover, .teacher-selector select:hover {
+  border-color: var(--primary-color);
+}
+
+.course-selector select:focus, .teacher-selector select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  background: white;
 }
 
 th, td {
-  padding: 12px 15px;
+  padding: 14px 18px;
   text-align: left;
-  border-bottom: 1px solid #e8e8e8;
 }
 
 th {
-  background-color: #fafafa;
-  font-weight: 500;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background-color: rgba(102, 126, 234, 0.05);
 }
 
 .loading-message, .empty-message {
   text-align: center;
-  padding: 20px;
-  color: #999;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn {
-  padding: 6px 12px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  margin-right: 5px;
+  margin-right: 0;
+  font-size: 14px;
+  font-weight: 500;
+  transition: var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn-primary {
-  background-color: #1890ff;
+  background: var(--primary-gradient);
   color: white;
+  box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:hover {
-  background-color: #40a9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
 }
 
 .btn-secondary {
-  background-color: #8c8c8c;
+  background: linear-gradient(135deg, #8c8c8c, #6c757d);
   color: white;
 }
 
 .btn-secondary:hover {
-  background-color: #a6a6a6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .btn-edit {
-  background-color: #52c41a;
+  background: linear-gradient(135deg, #52c41a, #389e0d);
   color: white;
 }
 
 .btn-edit:hover {
-  background-color: #73d13d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(82, 196, 26, 0.3);
 }
 
 .btn-danger {
-  background-color: #f5222d;
+  background: linear-gradient(135deg, #f5222d, #cf1322);
   color: white;
 }
 
 .btn-danger:hover {
-  background-color: #ff4d4f;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(245, 34, 45, 0.3);
 }
-/* 备注按钮样式 */
+
 .btn-text {
   background: none;
-  border: none;
-  color: #1890ff;
-  cursor: pointer;
-  padding: 0;
+  color: var(--primary-color);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
 }
 
 .btn-text:hover {
-  text-decoration: underline;
-  color: #40a9ff;
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #67c23a, #529b2e);
+  color: white;
+  box-shadow: 0 2px 5px rgba(103, 194, 58, 0.3);
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(103, 194, 58, 0.4);
 }
 
 /* 模态对话框样式 */
@@ -630,39 +730,108 @@ th {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 100;
+  z-index: 9999; /* 增加z-index确保在最顶层 */
 }
 
 .modal {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  width: 400px;
+  background: white;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  width: 450px;
   max-width: 90%;
+  max-height: 90vh; /* 控制最大高度 */
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: modal-in 0.3s ease;
+  display: flex;
+  flex-direction: column; /* 使用flex布局 */
 }
 
 .form-modal {
-  width: 500px;
+  width: 550px;
 }
 
-.modal h3 {
-  margin-top: 0;
-  color: #1890ff;
-  margin-bottom: 20px;
+.large-modal {
+  width: 800px;
+}
+
+.online-users-modal {
+  width: 800px;
+  max-width: 90%;
+  max-height: 90vh; /* 控制最大高度 */
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal h3, .modal-header {
+  margin: 0;
+  padding: 20px;
+  background: var(--primary-gradient);
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+  flex-shrink: 0; /* 防止头部压缩 */
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+
+.modal-content {
+  flex: 1;
+  overflow-y: auto; /* 内容区域可滚动 */
+  padding: 20px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: var(--transition-fast);
+}
+
+.close-btn:hover {
+  opacity: 1;
+  color: white;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.form-group:first-of-type {
+  margin-top: 0; /* 调整顶部边距 */
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   font-weight: 500;
+  color: var(--text-primary);
 }
 
 .form-group input[type="text"],
@@ -670,9 +839,21 @@ th {
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  padding: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  transition: var(--transition-fast);
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="datetime-local"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .form-group.checkbox {
@@ -680,46 +861,24 @@ th {
   align-items: center;
 }
 
+.form-group.checkbox input[type="checkbox"] {
+  margin-right: 10px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary-color);
+}
+
 .form-group.checkbox label {
   margin-bottom: 0;
-  margin-left: 10px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-
-.form-actions button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-left: 10px;
-}
-
-.form-actions button:first-child {
-  background-color: #f0f0f0;
-  color: #333;
-}
-
-.form-actions .btn-primary {
-  background-color: #1890ff;
-  color: white;
-}
-
-.form-actions .btn-danger {
-  background-color: #f5222d;
-  color: white;
+  margin-left: 0;
 }
 
 .form-notice {
-  margin-bottom: 15px;
-  padding: 10px;
-  background-color: #fff2f0;
-  border: 1px solid #ffccc7;
-  border-radius: 4px;
+  margin: 0 0 20px;
+  padding: 12px;
+  background-color: rgba(245, 34, 45, 0.05);
+  border: 1px solid rgba(245, 34, 45, 0.2);
+  border-radius: var(--radius-sm);
 }
 
 .notice-text {
@@ -728,24 +887,86 @@ th {
   font-size: 14px;
 }
 
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  gap: 12px;
+  border-top: 1px solid #eee;
+  background: #f9f9f9;
+  flex-shrink: 0; /* 防止底部按钮区域压缩 */
+}
+
+.form-actions button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--transition-fast);
+}
+
+.form-actions button:first-child {
+  background-color: #f0f2f5;
+  color: var(--text-primary);
+}
+
+.form-actions button:first-child:hover {
+  background-color: #e4e6eb;
+}
+
+.form-actions .btn-primary {
+  background: var(--primary-gradient);
+  color: white;
+}
+
+.form-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.form-actions .btn-danger {
+  background: linear-gradient(135deg, #f5222d, #cf1322);
+  color: white;
+}
+
+.form-actions .btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(245, 34, 45, 0.3);
+}
+
 .exercise-link {
-  color: #1890ff;
+  color: var(--primary-color);
   cursor: pointer;
   text-decoration: none;
+  font-weight: 500;
+  transition: var(--transition-fast);
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
 }
 
 .exercise-link:hover {
-  text-decoration: underline;
-}
-
-.course-link {
-  color: #1890ff;
-  cursor: pointer;
+  background-color: rgba(102, 126, 234, 0.1);
   text-decoration: none;
 }
 
+.course-link {
+  color: var(--primary-color);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+  transition: var(--transition-fast);
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
 .course-link:hover {
-  text-decoration: underline;
+  background-color: rgba(102, 126, 234, 0.1);
+  text-decoration: none;
 }
 
 .note-text {
@@ -755,9 +976,12 @@ th {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-left: 5px;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 12px;
   font-style: italic;
+  background-color: rgba(102, 126, 234, 0.05);
+  padding: 2px 6px;
+  border-radius: 10px;
 }
 
 .datetime-input-wrapper {
@@ -766,73 +990,7 @@ th {
 
 .datetime-helper {
   margin-top: 5px;
-  color: #909399;
+  color: var(--text-secondary);
   font-size: 12px;
-}
-
-.online-users-modal {
-  width: 800px;
-  max-width: 90%;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ebeef5;
-  margin-bottom: 15px;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #1890ff;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 22px;
-  font-weight: bold;
-  color: #909399;
-  cursor: pointer;
-}
-
-.close-btn:hover {
-  color: #f56c6c;
-}
-
-.large-modal {
-  width: 800px;
-  max-width: 90%;
-  max-height: 80vh;
-}
-
-.btn-info {
-  background-color: #909399;
-  color: white;
-}
-
-.btn-info:hover {
-  background-color: #a6a9ad;
-}
-
-.btn-success {
-  background-color: #67c23a;
-  color: white;
-}
-
-.btn-success:hover {
-  background-color: #85ce61;
-}
-
-.online-users-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
 }
 </style> 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from typing import List, Optional
 from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail
 from app.services.problem_service import ProblemService
@@ -72,6 +72,16 @@ async def delete_problem(problem_path: str):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除试题失败: {str(e)}")
+
+@router.get("/html/{problem_path:path}")
+async def get_problem_html_content(problem_path: str):
+    """根据题目路径获取HTML内容"""
+    try:
+        html_content = ProblemService.get_problem_html_content(problem_path)
+        return Response(content=html_content, media_type="text/html")
+    except Exception as e:
+        logger.error(f"获取题目HTML内容失败: {str(e)}")
+        return Response(content="<p>题目内容加载失败</p>", media_type="text/html")
 
 @router.get("/{problem_id}", response_model=ProblemDetail)
 async def get_problem_detail(

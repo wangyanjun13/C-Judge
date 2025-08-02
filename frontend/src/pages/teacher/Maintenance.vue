@@ -55,8 +55,6 @@
               <th>操作</th>
               <th>试题名称</th>
               <th>试题中文名称</th>
-              <th>时间限制</th>
-              <th>内存限制</th>
               <th>标签</th>
             </tr>
           </thead>
@@ -69,8 +67,6 @@
               </td>
               <td>{{ problem.name }}</td>
               <td>{{ problem.chinese_name }}</td>
-              <td>{{ problem.time_limit }}</td>
-              <td>{{ problem.memory_limit }}</td>
               <td class="tags-cell">
                 <div v-if="problemTags[problem.data_path]" class="problem-tags">
                   <template v-for="(tags, tagType) in groupTagsByType(problemTags[problem.data_path])" :key="tagType">
@@ -120,29 +116,14 @@
     </div>
     
     <!-- 打标签对话框 -->
-    <div v-if="showTagDialog" class="modal-overlay">
-      <div class="modal">
-        <h3>为"{{ selectedProblem?.chinese_name }}"设置标签</h3>
-        <div class="tag-dialog-content">
-          <div v-for="tagType in tagTypes" :key="tagType.id" class="tag-type-section">
-            <h4>{{ tagType.name }}</h4>
-            <div class="tag-list">
-              <div 
-                v-for="tag in getTagsByType(tagType.id)" 
-                :key="tag.id" 
-                class="tag-item"
-                :class="{ selected: selectedTagsForProblem.includes(tag.id) }"
-                @click="toggleTag(tag.id)"
-              >
-                {{ tag.name }}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button @click="closeTagDialog" class="btn">取消</button>
-          <button @click="saveProblemTags" class="btn btn-primary">保存</button>
-        </div>
+    <div v-if="showTagDialog" class="modal-overlay" @click="closeTagDialog">
+      <div class="modal large-modal" @click.stop>
+        <h3>为"{{ selectedProblem?.chinese_name || selectedProblem?.name }}"设置标签</h3>
+        <ProblemTagDialog 
+          :problemInfo="selectedProblem"
+          @cancel="closeTagDialog"
+          @saved="handleTagsSaved"
+        />
       </div>
     </div>
   </div>
@@ -155,6 +136,7 @@ import { getProblemCategories, getProblemsByCategory, updateProblem as updatePro
 import { useRoute } from 'vue-router';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import TagManager from '../../components/TagManager.vue';
+import ProblemTagDialog from '../../components/ProblemTagDialog.vue';
 import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags } from '../../api/tags';
 
 // 获取路由参数
@@ -375,31 +357,14 @@ const getTagColor = (tagTypeId) => {
 };
 
 // 打开标签对话框
-const openTagDialog = async (problem) => {
-  selectedProblem.value = problem;
-  showTagDialog.value = true;
-  
-  try {
-    // 使用data_path作为唯一标识符
+const openTagDialog = (problem) => {
     if (!problem.data_path) {
       console.error('问题缺少data_path字段:', problem);
       ElMessage.error('无法获取问题标识符');
       return;
     }
-    
-    // 优先使用本地缓存的标签数据
-    if (problemTags.value[problem.data_path]) {
-      selectedTagsForProblem.value = problemTags.value[problem.data_path].map(tag => tag.id);
-    } else {
-      // 如果本地缓存中没有，才发起请求
-      const problemPath = encodeURIComponent(problem.data_path);
-      const problemTags = await getProblemTags(problemPath);
-      selectedTagsForProblem.value = problemTags.map(tag => tag.id);
-    }
-  } catch (error) {
-    console.error('获取问题标签失败:', error);
-    selectedTagsForProblem.value = [];
-  }
+  selectedProblem.value = problem;
+  showTagDialog.value = true;
 };
 
 // 关闭标签对话框
@@ -409,41 +374,19 @@ const closeTagDialog = () => {
   selectedTagsForProblem.value = [];
 };
 
-// 切换标签选择状态
-const toggleTag = (tagId) => {
-  const index = selectedTagsForProblem.value.indexOf(tagId);
-  if (index === -1) {
-    // 如果标签不在选中列表中，则添加
-    selectedTagsForProblem.value.push(tagId);
-  } else {
-    // 如果标签已在选中列表中，则移除
-    selectedTagsForProblem.value.splice(index, 1);
-  }
-};
-
-// 保存问题标签
-const saveProblemTags = async () => {
-  if (!selectedProblem.value || !selectedProblem.value.data_path) return;
-  
-  try {
-    const problemPath = encodeURIComponent(selectedProblem.value.data_path);
-    await setProblemTags(problemPath, selectedTagsForProblem.value);
-    ElMessage.success('标签设置成功');
+// 处理标签保存成功
+const handleTagsSaved = (selectedTagIds) => {
     logUserOperation(OperationType.UPDATE_PROBLEM_TAGS, `试题: ${selectedProblem.value.chinese_name}`);
     
     // 更新本地标签缓存
-    if (selectedTagsForProblem.value.length > 0) {
-      const selectedTags = allTags.value.filter(tag => selectedTagsForProblem.value.includes(tag.id));
+  if (selectedTagIds.length > 0) {
+    const selectedTags = allTags.value.filter(tag => selectedTagIds.includes(tag.id));
       problemTags.value[selectedProblem.value.data_path] = selectedTags;
     } else {
       delete problemTags.value[selectedProblem.value.data_path];
     }
     
     closeTagDialog();
-  } catch (error) {
-    console.error('设置问题标签失败:', error);
-    ElMessage.error('设置问题标签失败');
-  }
 };
 
 // 确认删除试题
@@ -651,7 +594,7 @@ onMounted(async () => {
 }
 
 .tags-cell {
-  max-width: 300px;
+  max-width: 500px; /* 增加标签单元格宽度 */
 }
 
 .problem-tags {
@@ -755,6 +698,14 @@ onMounted(async () => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.large-modal {
+  width: 1200px;
+  max-width: 95vw;
+  max-height: 90vh;
+  height: 90vh;
+  overflow: hidden;
 }
 
 .modal h3 {

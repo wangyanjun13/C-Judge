@@ -197,76 +197,118 @@ onUnmounted(() => {
 <style scoped>
 .active-students-monitor {
   width: 100%;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  background: linear-gradient(135deg, #ffffff, #f8f9fa);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
   flex-wrap: wrap;
+  gap: 16px;
 }
 
 .header h3 {
   margin: 0;
-  color: #303133;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .filter-section {
   display: flex;
   align-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
 .filter-section label {
-  margin-right: 8px;
+  margin-right: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
   white-space: nowrap;
 }
 
 .filter-section select {
-  padding: 6px 10px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  background-color: #fff;
-  min-width: 120px;
+  padding: 8px 16px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: var(--radius-sm);
+  min-width: 150px;
+  background-color: white;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.filter-section select:hover {
+  border-color: var(--primary-color);
+}
+
+.filter-section select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .loading, .error, .empty-data {
   padding: 40px;
   text-align: center;
-  color: #909399;
+  color: var(--text-secondary);
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .error {
   color: #f56c6c;
+  background-color: rgba(245, 108, 108, 0.05);
+  border: 1px solid rgba(245, 108, 108, 0.2);
 }
 
 .summary {
   display: flex;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .summary-item {
-  background-color: #f5f7fa;
-  padding: 10px 15px;
-  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  box-shadow: var(--shadow-sm);
+  min-width: 180px;
 }
 
 .summary-item .label {
-  color: #606266;
-  margin-right: 8px;
+  color: var(--text-primary);
+  margin-right: 12px;
+  font-weight: 500;
 }
 
 .summary-item .value {
-  color: #409eff;
+  color: var(--primary-color);
   font-weight: bold;
-  font-size: 18px;
+  font-size: 24px;
 }
 
 .active-students-table-container {
@@ -275,86 +317,61 @@ onUnmounted(() => {
 
 .active-students-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  background: white;
 }
 
 .active-students-table th, .active-students-table td {
-  padding: 12px 15px;
+  padding: 14px 18px;
   text-align: left;
-  border-bottom: 1px solid #ebeef5;
 }
 
 .active-students-table th {
-  background-color: #f5f7fa;
-  color: #606266;
-  font-weight: 500;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
 }
 
-.status-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 500;
+.active-students-table td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+  font-size: 14px;
 }
 
-.status-badge.online {
-  background-color: #67c23a;
-  color: white;
+.active-students-table tr:last-child td {
+  border-bottom: none;
 }
 
-.status-badge.offline {
-  background-color: #909399;
-  color: white;
+.active-students-table tr:hover td {
+  background-color: rgba(102, 126, 234, 0.05);
 }
 
-.progress-cell {
-  width: 180px;
-}
-
-.progress-bar-container {
-  background-color: #f5f7fa;
-  height: 20px;
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-}
-
-.progress-bar {
-  height: 100%;
-  background-color: #409eff;
-  transition: width 0.3s ease;
-}
-
-.progress-bar.start {
-  background-color: #e6a23c;
-}
-
-.progress-bar.half {
-  background-color: #409eff;
-}
-
-.progress-bar.complete {
-  background-color: #67c23a;
-}
-
-.progress-text {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
+.badge {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #303133;
+  padding: 4px 10px;
+  border-radius: 12px;
   font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
 }
 
-.time-ago {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 2px;
+.badge-success {
+  background: linear-gradient(135deg, #67c23a, #529b2e);
+  color: white;
+  box-shadow: 0 2px 4px rgba(103, 194, 58, 0.2);
+}
+
+.badge-secondary {
+  background: linear-gradient(135deg, #909399, #606266);
+  color: white;
 }
 
 .activity-time {
@@ -362,18 +379,13 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-.badge {
-  padding: 5px 8px;
-  border-radius: 4px;
-}
-
-.badge-success {
-  background-color: #28a745;
-  color: white;
-}
-
-.badge-secondary {
-  background-color: #6c757d;
-  color: white;
+.time-ago {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  background-color: rgba(102, 126, 234, 0.05);
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: inline-block;
 }
 </style> 

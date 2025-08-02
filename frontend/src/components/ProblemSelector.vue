@@ -49,8 +49,6 @@
             <th>序号</th>
             <th>试题名称</th>
             <th>试题中文名称</th>
-            <th>时间限制</th>
-            <th>内存限制</th>
             <th>标签</th>
           </tr>
         </thead>
@@ -67,8 +65,6 @@
             <td>{{ index + 1 }}</td>
             <td>{{ problem.name }}</td>
             <td>{{ problem.chinese_name }}</td>
-            <td>{{ problem.time_limit }}</td>
-            <td>{{ problem.memory_limit }}</td>
             <td>
               <div v-if="problem.tags && problem.tags.length > 0" class="problem-tags">
                 <template v-for="(tags, tagType) in groupTagsByType(problem.tags)" :key="tagType">
