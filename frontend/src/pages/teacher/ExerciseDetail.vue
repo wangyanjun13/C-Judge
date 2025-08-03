@@ -861,11 +861,11 @@ onMounted(() => {
 }
 
 .btn-statistics {
-  background-color: #409eff;
+  background-color: #667eea;
   color: white;
   font-weight: bold;
   padding: 8px 16px;
-  border: 2px solid #3a8ee6;
+  border: 2px solid #8a9ceb;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 

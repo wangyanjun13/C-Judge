@@ -550,7 +550,8 @@ onMounted(() => {
 }
 
 .btn-info:hover {
-  background-color: #a6a9ad;
+  background-color: #667eea;
+  border: 2px solid #8a9ceb;
 }
 
 .modal-overlay {

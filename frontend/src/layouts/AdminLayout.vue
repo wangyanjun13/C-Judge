@@ -56,6 +56,9 @@
               <router-link to="/admin/maintenance?tab=tags" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
                 <span class="item-icon">🏷️</span>标签管理
               </router-link>
+              <router-link to="/admin/maintenance?tab=approval" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
+                <span class="item-icon">✅</span>标签审核
+              </router-link>
             </div>
           </div>
           
@@ -68,9 +71,6 @@
             <div class="dropdown-content modern-dropdown" :class="{ 'show': activeDropdown === 'system' }" @mouseenter="keepDropdown('system')" @mouseleave="closeDropdown">
               <router-link to="/admin/system?tab=password" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
                 <span class="item-icon">🔐</span>修改密码
-              </router-link>
-              <router-link to="/admin/system?tab=statistics" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
-                <span class="item-icon">📊</span>统计数据
               </router-link>
               <router-link to="/admin/system?tab=settings" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
                 <span class="item-icon">⚙️</span>系统设置
@@ -89,6 +89,11 @@
         </nav>
         
         <div class="header-actions">
+          <button class="online-users-btn glass-effect" @click="showOnlineUsersModal">
+            <span class="online-icon">👥</span>
+            <span>在线用户</span>
+          </button>
+          
           <button class="dashboard-btn glass-effect" @click="goToMySubmissions">
             <img src="/个人仪表盘.svg" alt="仪表盘" class="dashboard-icon" />
             <span>个人面板</span>
@@ -111,6 +116,22 @@
     
     <!-- 页脚 -->
     <Footer />
+    
+    <!-- 在线用户对话框 -->
+    <div v-if="onlineUsersModalVisible" class="modal-overlay" @click="closeOnlineUsersModal">
+      <div class="modal large-modal glass-effect" @click.stop>
+        <div class="modal-header">
+          <h2>在线用户列表</h2>
+          <button class="close-btn" @click="closeOnlineUsersModal">✕</button>
+        </div>
+        <div class="modal-content">
+          <OnlineUsers />
+        </div>
+        <div class="modal-footer">
+          <button @click="closeOnlineUsersModal" class="btn-primary">关闭</button>
+        </div>
+      </div>
+    </div>
     
     <!-- 关于对话框 -->
     <div v-if="aboutVisible" class="modal-overlay" @click="aboutVisible = false">
@@ -154,11 +175,14 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import Footer from '../components/Footer.vue';
+import OnlineUsers from '../components/OnlineUsers.vue';
+import { logUserOperation, OperationType } from '../utils/logger';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const aboutVisible = ref(false);
 const helpVisible = ref(false);
+const onlineUsersModalVisible = ref(false); // Added state for online users modal
 
 // 下拉菜单状态
 const activeDropdown = ref(null);
@@ -215,6 +239,21 @@ const handleLogout = async () => {
 
 const goToMySubmissions = () => {
   router.push('/my-submissions');
+};
+
+// 显示在线用户对话框
+const showOnlineUsersModal = () => {
+  onlineUsersModalVisible.value = true;
+  closeDropdown();
+  // 记录查看在线用户的操作
+  logUserOperation(OperationType.VIEW_ONLINE_USERS, "查看在线用户列表").catch(err => {
+    console.warn('记录操作失败:', err);
+  });
+};
+
+// 关闭在线用户对话框
+const closeOnlineUsersModal = () => {
+  onlineUsersModalVisible.value = false;
 };
 
 // 组件挂载时添加全局点击监听
@@ -412,6 +451,32 @@ onUnmounted(() => {
   gap: 20px;
 }
 
+.online-users-btn {
+  padding: 8px 16px;
+  background: var(--bg-card);
+  color: var(--text-white);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+  backdrop-filter: blur(10px);
+}
+
+.online-users-btn:hover {
+  background: var(--bg-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.online-icon {
+  font-size: 18px;
+}
+
 .dashboard-btn {
   padding: 8px 16px;
   background: var(--bg-card);
@@ -505,7 +570,6 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  backdrop-filter: blur(3px);
 }
 
 .modal {
@@ -515,9 +579,13 @@ onUnmounted(() => {
   width: 500px;
   max-width: 90%;
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   overflow: hidden;
+}
+
+.modal.large-modal {
+  width: 800px; /* Adjust as needed for large modal */
+  max-width: 95%;
 }
 
 .modal-header {
@@ -600,5 +668,31 @@ onUnmounted(() => {
 .logout-item:hover {
   background: rgba(255, 107, 107, 0.1) !important;
   color: #ff6b6b !important;
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: var(--primary-color);
+  color: var(--text-white);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: var(--transition-fast);
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 </style> 

@@ -180,7 +180,13 @@ const isCurrentUser = (userId) => userId === currentUserId.value;
 onMounted(() => {
   if (authStore.isAuthenticated) {
     fetchOnlineUsers();
-    refreshInterval.value = setInterval(fetchOnlineUsers, 30000);
+    // 延长刷新间隔从30秒到60秒，减少服务器压力
+    refreshInterval.value = setInterval(() => {
+      // 只有当页面可见且用户活跃时才刷新
+      if (!document.hidden && document.hasFocus()) {
+        fetchOnlineUsers();
+      }
+    }, 60000);
   } else {
     loading.value = false;
   }

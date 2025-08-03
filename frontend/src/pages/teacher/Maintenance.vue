@@ -10,6 +10,9 @@
       <div class="tab" :class="{ active: activeTab === 'tags' }" @click="activeTab = 'tags'">
         标签管理
       </div>
+      <div class="tab" :class="{ active: activeTab === 'my-requests' }" @click="activeTab = 'my-requests'">
+        标签申请
+      </div>
     </div>
 
     <!-- 题库维护 -->
@@ -115,6 +118,94 @@
       </div>
     </div>
     
+    <!-- 我的申请 -->
+    <div v-if="activeTab === 'my-requests'" class="tab-content">
+      <div class="my-requests-section">
+        <div class="requests-header">
+          <h3>标签申请</h3>
+          <div class="status-filter">
+            <div 
+              class="filter-tab"
+              :class="{ active: requestFilter === 'all' }"
+              @click="requestFilter = 'all'; loadMyRequests()">
+              全部 ({{ myRequests.length }})
+            </div>
+            <div 
+              class="filter-tab"
+              :class="{ active: requestFilter === 'pending' }"
+              @click="requestFilter = 'pending'; loadMyRequests()">
+              待审核 ({{ pendingRequests }})
+            </div>
+          </div>
+        </div>
+        
+        <div v-if="requestsLoading" class="loading">
+          加载中...
+        </div>
+        
+        <div v-else-if="filteredRequests.length === 0" class="empty-state">
+          暂无申请记录
+        </div>
+        
+        <div v-else class="requests-list">
+          <div 
+            v-for="request in filteredRequests" 
+            :key="request.id" 
+            class="request-item"
+            :class="request.status">
+            
+            <div class="request-header">
+              <div class="request-basic-info">
+                <div class="problem-info-section">
+                  <div class="problem-names">
+                    <span class="problem-name-cn">{{ getProblemChineseName(request.problem_data_path) }}</span>
+                    <span class="problem-name-en">{{ request.problem_data_path.split('/').pop() }}</span>
+                  </div>
+                </div>
+                <div class="meta-info">
+                  <span class="status-badge" :class="request.status">
+                    {{ getStatusText(request.status) }}
+                  </span>
+                  <span class="request-time">
+                    {{ formatTime(request.created_at) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="request-content">
+              <div class="request-tags">
+                <strong>申请标签:</strong>
+                <div class="tag-list">
+                  <span 
+                    v-for="tagId in request.tag_ids" 
+                    :key="tagId"
+                    class="tag-badge"
+                    :style="{ backgroundColor: getTagColorById(tagId) }">
+                    {{ getTagNameById(tagId) }}
+                  </span>
+                </div>
+              </div>
+              
+              <div v-if="request.request_message" class="request-message">
+                <strong>申请说明:</strong>
+                <p>{{ request.request_message }}</p>
+              </div>
+              
+              <div v-if="request.review_message" class="review-result">
+                <strong>审核意见:</strong>
+                <p>{{ request.review_message }}</p>
+                <span class="reviewer-info">
+                  审核人: {{ request.reviewer?.real_name || request.reviewer?.username || '未知' }}
+                  ({{ formatTime(request.reviewed_at) }})
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- 打标签对话框 -->
     <div v-if="showTagDialog" class="modal-overlay" @click="closeTagDialog">
       <div class="modal large-modal" @click.stop>
@@ -130,14 +221,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getProblemCategories, getProblemsByCategory, updateProblem as updateProblemAPI, deleteProblem as deleteProblemAPI } from '../../api/problems';
 import { useRoute } from 'vue-router';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import TagManager from '../../components/TagManager.vue';
 import ProblemTagDialog from '../../components/ProblemTagDialog.vue';
-import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags } from '../../api/tags';
+import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags, getMyApprovalRequests } from '../../api/tags';
 
 // 获取路由参数
 const route = useRoute();
@@ -166,6 +257,18 @@ const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
 
 // 缓存上一次的过滤选项
 const lastFilterOptions = ref({});
+
+// 审核请求相关状态
+const myRequests = ref([]);
+const requestsLoading = ref(false);
+const requestFilter = ref('all');
+const pendingRequests = computed(() => myRequests.value.filter(r => r.status === 'pending').length);
+const filteredRequests = computed(() => {
+  if (requestFilter.value === 'pending') {
+    return myRequests.value.filter(r => r.status === 'pending');
+  }
+  return myRequests.value;
+});
 
 // 选择标签
 const selectTag = (tagTypeId, tagId) => {
@@ -442,16 +545,75 @@ const handleTagsUpdate = async () => {
   await loadProblems();
 };
 
+// 审核请求相关方法
+const loadMyRequests = async () => {
+  requestsLoading.value = true;
+  try {
+    const requests = await getMyApprovalRequests();
+    
+    // 用户信息已在后端处理，无需额外处理
+    
+    myRequests.value = requests;
+  } catch (error) {
+    console.error('加载申请记录失败:', error);
+    ElMessage.error('加载申请记录失败');
+  } finally {
+    requestsLoading.value = false;
+  }
+};
+
+const getStatusText = (status) => {
+  const statusMap = {
+    'pending': '待审核',
+    'approved': '已批准',
+    'rejected': '已拒绝'
+  };
+  return statusMap[status] || '未知';
+};
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  const date = new Date(timeStr);
+  return date.toLocaleString('zh-CN');
+};
+
+const getTagNameById = (tagId) => {
+  const tag = allTags.value.find(t => t.id === tagId);
+  return tag ? tag.name : '未知标签';
+};
+
+const getTagColorById = (tagId) => {
+  const tag = allTags.value.find(t => t.id === tagId);
+  return tag ? getTagColor(tag.tag_type_id) : '#909399';
+};
+
+// 获取题目中文名称
+const getProblemChineseName = (problemPath) => {
+  // 从problems列表中查找对应的题目信息
+  const problem = problems.value.find(p => p.data_path === problemPath);
+  return problem?.chinese_name || '未知题目';
+};
+
 // 监听路由参数变化
 watch(() => route.query.tab, (newTab) => {
   if (newTab === 'upload') {
     activeTab.value = 'upload';
   } else if (newTab === 'tags') {
     activeTab.value = 'tags';
+  } else if (newTab === 'approval' || newTab === 'my-requests') {
+    activeTab.value = 'my-requests';
+    loadMyRequests();
   } else {
     activeTab.value = 'problems';
   }
 }, { immediate: true });
+
+// 监听activeTab变化，当切换到我的申请页面时加载数据
+watch(activeTab, (newTab) => {
+  if (newTab === 'my-requests') {
+    loadMyRequests();
+  }
+});
 
 // 页面加载时获取题库分类和标签
 onMounted(async () => {
@@ -552,14 +714,14 @@ onMounted(async () => {
 
 .tag-item:hover {
   background-color: #ecf5ff;
-  color: #409eff;
+  color: var(--primary-color);
   border-color: #c6e2ff;
 }
 
 .tag-item.active {
   color: #ffffff;
-  background-color: var(--tag-color, #409eff);
-  border-color: var(--tag-color, #409eff);
+  background-color: var(--tag-color, var(--primary-color));
+  border-color: var(--tag-color, var(--primary-color));
 }
 
 .loading, .error, .empty-state {
@@ -704,7 +866,6 @@ onMounted(async () => {
   width: 1200px;
   max-width: 95vw;
   max-height: 90vh;
-  height: 90vh;
   overflow: hidden;
 }
 
@@ -759,5 +920,215 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* 我的申请相关样式 */
+.my-requests-section {
+  max-width: 100%;
+}
+
+.requests-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.requests-header h3 {
+  margin: 0;
+  color: #303133;
+}
+
+.status-filter {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-tab {
+  padding: 8px 16px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #fff;
+  color: #606266;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.filter-tab:hover {
+  border-color: #409eff;
+  color: #409eff;
+}
+
+.filter-tab.active {
+  background-color: #409eff;
+  color: white;
+  border-color: #409eff;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.request-item {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fff;
+  transition: all 0.3s;
+}
+
+.request-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.request-item.pending {
+  border-left: 4px solid #e6a23c;
+}
+
+.request-item.approved {
+  border-left: 4px solid #67c23a;
+}
+
+.request-item.rejected {
+  border-left: 4px solid #f56c6c;
+}
+
+.request-header {
+  margin-bottom: 12px;
+}
+
+.request-basic-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.problem-info-section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.problem-names {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.problem-name-cn {
+  font-weight: 600;
+  color: #303133;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.problem-name-en {
+  font-size: 13px;
+  color: #909399;
+  font-family: 'Courier New', monospace;
+}
+
+.meta-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.pending {
+  background-color: #fdf6ec;
+  color: #e6a23c;
+  border: 1px solid #f5dab1;
+}
+
+.status-badge.approved {
+  background-color: #f0f9ff;
+  color: #67c23a;
+  border: 1px solid #b3d8ff;
+}
+
+.status-badge.rejected {
+  background-color: #fef0f0;
+  color: #f56c6c;
+  border: 1px solid #fbc4c4;
+}
+
+.request-time {
+  color: #909399;
+  font-size: 14px;
+}
+
+.request-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.request-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.request-tags strong {
+  color: #606266;
+  font-size: 14px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.request-message, .review-result {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.request-message strong, .review-result strong {
+  color: #606266;
+  font-size: 14px;
+}
+
+.request-message p, .review-result p {
+  margin: 0;
+  color: #303133;
+  line-height: 1.5;
+  background-color: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
+}
+
+.reviewer-info {
+  color: #909399;
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 5px;
 }
 </style> 

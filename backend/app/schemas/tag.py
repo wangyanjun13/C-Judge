@@ -49,5 +49,36 @@ class TagType(TagTypeInDB):
 class Tag(TagInDB):
     tag_type: Optional[TagTypeBase] = None
 
+# 标签审核请求相关模型
+class TagApprovalRequestBase(BaseModel):
+    """标签审核请求基础模型"""
+    problem_data_path: str
+    tag_ids: List[int]
+    request_message: Optional[str] = None
+
+class TagApprovalRequestCreate(TagApprovalRequestBase):
+    """创建标签审核请求"""
+    pass
+
+class TagApprovalRequestUpdate(BaseModel):
+    """审核标签申请（管理员使用）"""
+    status: str  # 'approved' or 'rejected'
+    review_message: Optional[str] = None
+
+class TagApprovalRequest(TagApprovalRequestBase):
+    """标签审核请求响应模型"""
+    id: int
+    requestor_id: int
+    status: str
+    reviewer_id: Optional[int] = None
+    review_message: Optional[str] = None
+    created_at: datetime
+    reviewed_at: Optional[datetime] = None
+    requestor: Optional[dict] = None  # 简化的用户信息
+    reviewer: Optional[dict] = None   # 简化的用户信息
+    
+    class Config:
+        orm_mode = True
+
 # 解决循环引用问题
 TagType.update_forward_refs() 

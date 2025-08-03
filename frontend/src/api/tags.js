@@ -233,3 +233,64 @@ export const getBatchProblemTags = async (problemPaths) => {
     return {};
   }
 }
+
+/**
+ * 创建标签审核请求（教师使用）
+ * @param {Object} requestData - 审核请求数据
+ * @returns {Promise} - 返回创建的审核请求
+ */
+export const createTagApprovalRequest = async (requestData) => {
+  try {
+    const response = await axios.post('/api/tags/approval-requests', requestData);
+    return response.data;
+  } catch (error) {
+    console.error('创建标签审核请求失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取审核请求列表（管理员使用）
+ * @param {String} status - 审核状态筛选（可选）
+ * @returns {Promise} - 返回审核请求列表
+ */
+export const getApprovalRequests = async (status = null) => {
+  try {
+    const params = status ? { status } : {};
+    const response = await axios.get('/api/tags/approval-requests', { params });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取审核请求失败:', error);
+    return [];
+  }
+}
+
+/**
+ * 审核标签请求（管理员使用）
+ * @param {Number} requestId - 请求ID
+ * @param {Object} updateData - 审核数据
+ * @returns {Promise} - 返回审核结果
+ */
+export const approveTagRequest = async (requestId, updateData) => {
+  try {
+    const response = await axios.put(`/api/tags/approval-requests/${requestId}`, updateData);
+    return response.data;
+  } catch (error) {
+    console.error('审核标签请求失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取当前用户的审核请求历史
+ * @returns {Promise} - 返回用户的审核请求列表
+ */
+export const getMyApprovalRequests = async () => {
+  try {
+    const response = await axios.get('/api/tags/my-approval-requests');
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取用户审核请求失败:', error);
+    return [];
+  }
+}

@@ -359,17 +359,33 @@ const fetchMonitoringData = async () => {
   if (authStore.user.role === 'student' || isMonitoringDataLoaded.value) return;
   
   try {
-    // 获取学生列表和所有提交记录
-    const [students, allSubs] = await Promise.all([
-      getStudents(),
-      getAllSubmissions()
-    ]);
+    let students, allSubs;
+    
+    if (authStore.user.role === 'admin') {
+      // 管理员获取全校数据
+      [students, allSubs] = await Promise.all([
+        getStudents(),
+        getAllSubmissions()
+      ]);
+    } else {
+      // 教师只获取自己管辖范围的数据
+      [students, allSubs] = await Promise.all([
+        getStudents(), // 依赖后端根据JWT token自动识别教师权限并过滤班级学生
+        getAllSubmissions({ scope: 'teacher' }) // 传递scope参数告诉后端只返回教师管辖范围的数据
+      ]);
+    }
     
     // 设置学生数据
     allStudents.value = students;
     allStudentsCount.value = students.length;
     
     // 设置提交记录数据
+    // 对于教师，筛选只属于其管辖学生的提交记录
+    if (authStore.user.role === 'teacher') {
+      const teacherStudentIds = new Set(students.map(student => student.id));
+      allSubs = allSubs.filter(sub => teacherStudentIds.has(sub.user_id));
+    }
+    
     allSubmissions.value = allSubs;
     allSubmissionsCount.value = allSubs.length;
     
