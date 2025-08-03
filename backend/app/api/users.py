@@ -19,17 +19,6 @@ async def get_teachers(
     current_user: User = Depends(get_admin_user)
 ):
     """获取教师列表（仅限管理员）"""
-    # 记录操作日志
-    now = datetime.now()
-    log = OperationLog(
-        user_id=current_user.id,
-        operation="查看教师列表",
-        target="教师列表",
-        created_at=now
-    )
-    db.add(log)
-    db.commit()
-    
     # 查询所有教师
     teachers = db.query(User).filter(User.role == "teacher").all()
     
@@ -42,16 +31,6 @@ async def get_students(
     current_user: User = Depends(get_current_active_user)
 ):
     """获取学生列表"""
-    # 记录操作日志
-    now = datetime.now()
-    log = OperationLog(
-        user_id=current_user.id,
-        operation="查看学生列表",
-        target="学生列表",
-        created_at=now
-    )
-    db.add(log)
-    db.commit()
     
     # 构建查询条件
     query = db.query(User).filter(User.role == "student")
