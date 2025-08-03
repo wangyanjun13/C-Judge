@@ -11,9 +11,6 @@
         </select>
       </div>
       <div class="actions">
-        <button class="btn btn-success" @click="showOnlineUsersModal">
-          <i class="el-icon-user"></i> 在线用户
-        </button>
         <button class="btn btn-primary" @click="showCreateModal">新建练习</button>
       </div>
     </div>
@@ -202,21 +199,7 @@
       </div>
     </div>
 
-    <!-- 在线用户对话框 -->
-    <div v-if="onlineUsersModalVisible" class="modal-overlay" @click="closeOnlineUsersModal">
-      <div class="modal large-modal" @click.stop>
-        <div class="modal-header">
-          <h3>在线用户列表</h3>
-          <button class="close-btn" @click="closeOnlineUsersModal">&times;</button>
-        </div>
-        <div class="modal-content">
-          <OnlineUsers />
-        </div>
-        <div class="modal-footer">
-          <button @click="closeOnlineUsersModal" class="btn-primary">关闭</button>
-        </div>
-      </div>
-    </div>
+
   </div>
 </template>
 
@@ -233,7 +216,6 @@ import {
   getCourses
 } from '../../api/exercises';
 import { logUserOperation, OperationType } from '../../utils/logger';
-import OnlineUsers from '../../components/OnlineUsers.vue';
 
 const router = useRouter();
 const exercises = ref([]);
@@ -247,7 +229,6 @@ const exerciseToDelete = ref(null);
 const noteModalVisible = ref(false);
 const selectedExercise = ref(null);
 const exerciseNotes = ref({});  // 存储练习的备注，格式为 {exerciseId: noteText}
-const onlineUsersModalVisible = ref(false);
 
 // 表单数据
 const form = ref({
@@ -484,19 +465,7 @@ const saveNote = () => {
   }
 };
 
-// 显示在线用户对话框
-const showOnlineUsersModal = () => {
-  onlineUsersModalVisible.value = true;
-  // 记录查看在线用户的操作
-  logUserOperation(OperationType.VIEW_ONLINE_USERS, "查看在线用户列表").catch(err => {
-    console.warn('记录操作失败:', err);
-  });
-};
 
-// 关闭在线用户对话框
-const closeOnlineUsersModal = () => {
-  onlineUsersModalVisible.value = false;
-};
 
 onMounted(() => {
   fetchExercises();

@@ -268,4 +268,6 @@ class ProblemService:
                     logger.error(f"读取题目HTML文件失败: {str(e)}")
                     continue  # 尝试下一个可能的文件路径
         
+        logger.info(f"HTML文件路径尝试完成，最终使用: {html_content[:100]}...")
+        
         return html_content 
