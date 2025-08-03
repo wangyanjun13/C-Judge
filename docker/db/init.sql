@@ -156,6 +156,20 @@ INSERT INTO tag_types (name) VALUES
 ('难度'),
 ('知识点');
 
+-- 创建标签审核请求表
+CREATE TABLE tag_approval_requests (
+    id SERIAL PRIMARY KEY,
+    problem_data_path VARCHAR(255) NOT NULL,
+    requestor_id INTEGER REFERENCES users(id),
+    tag_ids JSONB NOT NULL, -- 存储标签ID数组
+    status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    request_message TEXT, -- 申请说明
+    reviewer_id INTEGER REFERENCES users(id), -- 审核者
+    review_message TEXT, -- 审核说明
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP
+);
+
 -- 插入默认标签
 INSERT INTO tags (name, tag_type_id) VALUES 
 ('高', 1),

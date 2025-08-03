@@ -3,7 +3,7 @@ from app.models.user import User
 from app.models.class_model import Class, class_course, student_class, teacher_class
 from app.models.course import Course
 from app.models.exercise import Exercise
-from app.models.tag import TagType, Tag, problem_tag
+from app.models.tag import TagType, Tag, TagApprovalRequest, problem_tag
 from app.models.problem import Problem, ProblemCategory
 from app.models.submission import Submission
 from app.models.operation_log import OperationLog
@@ -16,7 +16,7 @@ __all__ = [
     "Class", "class_course", "student_class", "teacher_class",
     "Course",
     "Exercise",
-    "TagType", "Tag", "problem_tag",
+    "TagType", "Tag", "TagApprovalRequest", "problem_tag",
     "Problem", "ProblemCategory",
     "Submission",
     "OperationLog",

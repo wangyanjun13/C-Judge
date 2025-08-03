@@ -10,6 +10,9 @@
       <div class="tab" :class="{ active: activeTab === 'tags' }" @click="activeTab = 'tags'">
         标签管理
       </div>
+      <div class="tab" :class="{ active: activeTab === 'approval' }" @click="activeTab = 'approval'">
+        标签审核
+      </div>
     </div>
 
     <!-- 题库维护 -->
@@ -115,15 +118,137 @@
       </div>
     </div>
     
+    <!-- 标签审核 -->
+    <div v-if="activeTab === 'approval'" class="tab-content">
+      <div class="approval-section">
+        <div class="approval-header">
+          <h3>标签审核管理</h3>
+          <div class="filter-tabs">
+            <div 
+              class="filter-tab"
+              :class="{ active: approvalFilter === 'pending' }"
+              @click="approvalFilter = 'pending'; loadApprovalRequests()">
+              待审核 ({{ pendingCount }})
+            </div>
+            <div 
+              class="filter-tab"
+              :class="{ active: approvalFilter === 'all' }"
+              @click="approvalFilter = 'all'; loadApprovalRequests()">
+              全部
+            </div>
+          </div>
+        </div>
+        
+        <div v-if="approvalLoading" class="loading">
+          加载中...
+        </div>
+        
+        <div v-else-if="approvalRequests.length === 0" class="empty-state">
+          暂无审核请求
+        </div>
+        
+        <div v-else class="approval-list">
+          <div 
+            v-for="request in approvalRequests" 
+            :key="request.id" 
+            class="approval-item"
+            :class="{ 'pending': request.status === 'pending' }">
+            
+            <div class="approval-header-info">
+              <div class="request-info">
+                <div class="problem-info-section">
+                  <div class="problem-names">
+                    <span class="problem-name-cn">{{ getProblemChineseName(request.problem_data_path) }}</span>
+                    <span class="problem-name-en">{{ request.problem_data_path.split('/').pop() }}</span>
+                  </div>
+                </div>
+                <div class="meta-info">
+                <span class="status-badge" :class="request.status">
+                  {{ getStatusText(request.status) }}
+                </span>
+                <span class="requestor">
+                  申请人: {{ request.requestor?.real_name || request.requestor?.username || '未知' }}
+                </span>
+                <span class="request-time">
+                  {{ formatTime(request.created_at) }}
+                </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="approval-content">
+              <div class="request-tags">
+                <strong>申请标签:</strong>
+                <div class="tag-list">
+                  <span 
+                    v-for="tagId in request.tag_ids" 
+                    :key="tagId"
+                    class="tag-badge"
+                    :style="{ backgroundColor: getTagColorById(tagId) }">
+                    {{ getTagNameById(tagId) }}
+                  </span>
+                </div>
+              </div>
+              
+              <div v-if="request.request_message" class="request-message">
+                <strong>申请说明:</strong>
+                <p>{{ request.request_message }}</p>
+              </div>
+              
+              <div v-if="request.review_message" class="review-message">
+                <strong>审核意见:</strong>
+                <p>{{ request.review_message }}</p>
+                <span class="reviewer">
+                  审核人: {{ request.reviewer?.real_name || request.reviewer?.username || '未知' }}
+                  ({{ formatTime(request.reviewed_at) }})
+                </span>
+              </div>
+              
+              <div v-if="request.status === 'pending'" class="approval-actions">
+                <button @click="openReviewDialog(request)" class="btn btn-primary">
+                  审核
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 审核对话框：使用ProblemTagDialog -->
+    <div v-if="showReviewDialog" class="modal-overlay" @click="closeReviewDialog">
+      <div class="modal large-modal" @click.stop>
+        <div class="modal-header">
+          <h3>审核标签申请</h3>
+          <button @click="closeReviewDialog" class="close-btn">✕</button>
+        </div>
+        <div class="modal-content">
+          <ProblemTagDialog 
+            v-if="selectedProblemForReview"
+            :problemInfo="selectedProblemForReview"
+            :reviewMode="true"
+            :reviewRequest="currentRequest"
+            @cancel="closeReviewDialog"
+            @reviewed="handleReviewCompleted"
+          />
+        </div>
+      </div>
+    </div>
+    
     <!-- 打标签对话框 -->
     <div v-if="showTagDialog" class="modal-overlay" @click="closeTagDialog">
       <div class="modal large-modal" @click.stop>
-        <h3>为"{{ selectedProblem?.chinese_name || selectedProblem?.name }}"设置标签</h3>
-        <ProblemTagDialog 
-          :problemInfo="selectedProblem"
-          @cancel="closeTagDialog"
-          @saved="handleTagsSaved"
-        />
+        <div class="modal-header">
+          <h3>为"{{ selectedProblem?.chinese_name || selectedProblem?.name }}"设置标签</h3>
+          <button @click="closeTagDialog" class="close-btn">✕</button>
+        </div>
+        <div class="modal-content">
+          <ProblemTagDialog 
+            :problemInfo="selectedProblem"
+            @cancel="closeTagDialog"
+            @saved="handleTagsSaved"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -137,7 +262,7 @@ import { useRoute } from 'vue-router';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import TagManager from '../../components/TagManager.vue';
 import ProblemTagDialog from '../../components/ProblemTagDialog.vue';
-import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags } from '../../api/tags';
+import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags, getApprovalRequests, approveTagRequest } from '../../api/tags';
 
 // 获取路由参数
 const route = useRoute();
@@ -163,6 +288,15 @@ const allTags = ref([]); // 存储所有标签
 const selectedTagIds = ref({}); // 存储每种标签类型的选中值
 const problemTags = ref({}); // 存储每个问题的标签
 const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
+
+// 审核相关状态
+const approvalRequests = ref([]);
+const approvalLoading = ref(false);
+const approvalFilter = ref('pending');
+const pendingCount = ref(0);
+const showReviewDialog = ref(false);
+const currentRequest = ref(null);
+const selectedProblemForReview = ref(null);
 
 // 选择标签
 const selectTag = (tagTypeId, tagId) => {
@@ -410,16 +544,118 @@ const handleTagsUpdate = async () => {
   await loadProblems();
 };
 
+// 审核相关方法
+const loadApprovalRequests = async () => {
+  approvalLoading.value = true;
+  try {
+    const status = approvalFilter.value === 'pending' ? 'pending' : null;
+    const requests = await getApprovalRequests(status);
+    
+    // 用户信息已在后端处理，无需额外处理
+    
+    approvalRequests.value = requests;
+    pendingCount.value = requests.filter(r => r.status === 'pending').length;
+  } catch (error) {
+    console.error('加载审核请求失败:', error);
+    ElMessage.error('加载审核请求失败');
+  } finally {
+    approvalLoading.value = false;
+  }
+};
+
+const getStatusText = (status) => {
+  const statusMap = {
+    'pending': '待审核',
+    'approved': '已批准',
+    'rejected': '已拒绝'
+  };
+  return statusMap[status] || '未知';
+};
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  const date = new Date(timeStr);
+  return date.toLocaleString('zh-CN');
+};
+
+const getTagNameById = (tagId) => {
+  const tag = allTags.value.find(t => t.id === tagId);
+  return tag ? tag.name : '未知标签';
+};
+
+const getTagColorById = (tagId) => {
+  const tag = allTags.value.find(t => t.id === tagId);
+  return tag ? getTagColor(tag.tag_type_id) : '#909399';
+};
+
+const openReviewDialog = (request) => {
+  currentRequest.value = request;
+  // 构造题目信息对象，供ProblemTagDialog使用
+  selectedProblemForReview.value = {
+    name: request.problem_data_path.split('/').pop(),
+    chinese_name: getProblemChineseName(request.problem_data_path),
+    data_path: request.problem_data_path,
+    // 添加其他可能需要的字段
+    time_limit: '1000ms',
+    memory_limit: '256M'
+  };
+  showReviewDialog.value = true;
+};
+
+const closeReviewDialog = () => {
+  showReviewDialog.value = false;
+  currentRequest.value = null;
+  selectedProblemForReview.value = null;
+};
+
+const handleReviewCompleted = async (reviewResult) => {
+  try {
+    await approveTagRequest(currentRequest.value.id, {
+      status: reviewResult.status,
+      review_message: reviewResult.review_message || null
+    });
+    
+    ElMessage.success(`标签申请已${reviewResult.status === 'approved' ? '批准' : '拒绝'}`);
+    closeReviewDialog();
+    await loadApprovalRequests();
+    
+    // 如果批准，重新加载题目列表
+    if (reviewResult.status === 'approved') {
+      await loadProblems();
+    }
+  } catch (error) {
+    console.error('审核失败:', error);
+    ElMessage.error('审核失败');
+  }
+};
+
+// 获取题目中文名称
+const getProblemChineseName = (problemPath) => {
+  // 从problems列表中查找对应的题目信息
+  const problem = problems.value.find(p => p.data_path === problemPath);
+  return problem?.chinese_name || '未知题目';
+};
+
 // 监听路由参数变化
 watch(() => route.query.tab, (newTab) => {
   if (newTab === 'upload') {
     activeTab.value = 'upload';
   } else if (newTab === 'tags') {
     activeTab.value = 'tags';
+  } else if (newTab === 'approval') {
+    activeTab.value = 'approval';
+    loadApprovalRequests();
   } else {
     activeTab.value = 'problems';
   }
 }, { immediate: true });
+
+// 监听activeTab变化，当切换到审核页面时加载数据
+watch(activeTab, (newTab) => {
+  if (newTab === 'approval') {
+    loadApprovalRequests();
+  }
+});
 
 // 页面加载时获取题库分类和标签
 onMounted(async () => {
@@ -672,7 +908,6 @@ onMounted(async () => {
   width: 1200px;
   max-width: 95vw;
   max-height: 90vh;
-  height: 90vh;
   overflow: hidden;
 }
 
@@ -727,5 +962,327 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* 审核相关样式 */
+.approval-section {
+  max-width: 100%;
+}
+
+.approval-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.approval-header h3 {
+  margin: 0;
+  color: #303133;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-tab {
+  padding: 8px 16px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #fff;
+  color: #606266;
+  transition: all 0.3s;
+}
+
+.filter-tab:hover {
+  border-color: #409eff;
+  color: #409eff;
+}
+
+.filter-tab.active {
+  background-color: #409eff;
+  color: white;
+  border-color: #409eff;
+}
+
+.approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.approval-item {
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  padding: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.approval-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(to bottom, #e6a23c, #f5b041);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.approval-item.pending::before {
+  opacity: 1;
+}
+
+.approval-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  border-color: #409eff;
+}
+
+.approval-item.pending {
+  border-left: none;
+  background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
+}
+
+.approval-header-info {
+  margin-bottom: 12px;
+}
+
+.request-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.problem-info-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.problem-names {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.problem-name-cn {
+  font-weight: 600;
+  color: #303133;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.problem-name-en {
+  font-size: 13px;
+  color: #909399;
+  font-family: 'Courier New', monospace;
+}
+
+.btn-view-problem {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-view-problem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.meta-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.problem-name {
+  font-weight: 600;
+  color: #303133;
+  font-size: 16px;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-badge.pending {
+  background-color: #fdf6ec;
+  color: #e6a23c;
+  border: 1px solid #f5dab1;
+}
+
+.status-badge.approved {
+  background-color: #f0f9ff;
+  color: #67c23a;
+  border: 1px solid #b3d8ff;
+}
+
+.status-badge.rejected {
+  background-color: #fef0f0;
+  color: #f56c6c;
+  border: 1px solid #fbc4c4;
+}
+
+.requestor, .request-time {
+  color: #909399;
+  font-size: 14px;
+}
+
+.approval-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.request-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.request-tags strong {
+  color: #606266;
+  font-size: 14px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.tag-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.request-message, .review-message {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.request-message strong, .review-message strong {
+  color: #606266;
+  font-size: 14px;
+}
+
+.request-message p, .review-message p {
+  margin: 0;
+  color: #303133;
+  line-height: 1.5;
+  background-color: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
+}
+
+.reviewer {
+  color: #909399;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.approval-actions .btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.approval-actions .btn-primary {
+  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.approval-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+}
+
+/* 查看题目详情对话框样式 */
+.modal-overlay .modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.modal-overlay .modal .modal-header h3 {
+  margin: 0;
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-overlay .modal .close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.modal-overlay .modal .close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+.modal-overlay .modal .modal-content {
+  padding: 0;
+  overflow: hidden;
 }
 </style> 

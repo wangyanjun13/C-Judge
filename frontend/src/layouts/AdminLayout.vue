@@ -56,6 +56,9 @@
               <router-link to="/admin/maintenance?tab=tags" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
                 <span class="item-icon">🏷️</span>标签管理
               </router-link>
+              <router-link to="/admin/maintenance?tab=approval" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
+                <span class="item-icon">✅</span>标签审核
+              </router-link>
             </div>
           </div>
           
