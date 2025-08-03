@@ -15,9 +15,6 @@ async def get_courses(
     current_user: User = Depends(get_current_active_user)
 ):
     """获取课程列表"""
-    # 记录操作日志
-    CourseService.log_operation(db, current_user.id, "查看课程列表", "课程列表")
-    
     # 获取课程列表
     return CourseService.get_courses(db, current_user.id)
 
