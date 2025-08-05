@@ -185,11 +185,18 @@ const loadProblemsFromAllCategories = async () => {
   
   // 构建过滤选项
   const filterOptions = {};
+  
+  // 收集所有选中的标签ID
+  const selectedTags = [];
   for (const tagTypeId in selectedTagIds.value) {
     if (selectedTagIds.value[tagTypeId]) {
-      filterOptions.tagId = selectedTagIds.value[tagTypeId];
-      break;
+      selectedTags.push(selectedTagIds.value[tagTypeId]);
     }
+  }
+  
+  // 如果有选中标签，传递给API进行交集筛选
+  if (selectedTags.length > 0) {
+    filterOptions.tagIds = selectedTags;
   }
   
   // 遍历所有分类获取题目

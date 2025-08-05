@@ -288,12 +288,17 @@ const loadAllData = async (options = {}) => {
     // 构建过滤选项
     const filterOptions = {};
     
-    // 查找第一个被选中的标签
+    // 收集所有选中的标签ID
+    const selectedTags = [];
     for (const tagTypeId in selectedTagIds.value) {
       if (selectedTagIds.value[tagTypeId]) {
-        filterOptions.tagId = selectedTagIds.value[tagTypeId];
-        break; // 只使用第一个被选中的标签进行过滤
+        selectedTags.push(selectedTagIds.value[tagTypeId]);
       }
+    }
+    
+    // 如果有选中标签，传递给API进行交集筛选
+    if (selectedTags.length > 0) {
+      filterOptions.tagIds = selectedTags;
     }
     
     // 如果有强制刷新选项，传递给API

@@ -21,6 +21,7 @@ export const getProblemCategories = async () => {
  * @param {String} categoryPath - 分类路径
  * @param {Object} options - 过滤选项
  * @param {Number} options.tagId - 按标签ID过滤（可选）
+ * @param {Array} options.tagIds - 按多个标签ID过滤，取交集（可选）
  * @param {Number} options.tagTypeId - 按标签类型ID过滤（可选）
  * @returns {Promise} - 返回试题列表
  */
@@ -30,7 +31,9 @@ export const getProblemsByCategory = async (categoryPath, options = {}) => {
     const params = {};
     
     // 添加过滤参数
-    if (options.tagId) {
+    if (options.tagIds && Array.isArray(options.tagIds) && options.tagIds.length > 0) {
+      params.tag_ids = options.tagIds.join(',');
+    } else if (options.tagId) {
       params.tag_id = options.tagId;
     }
     if (options.tagTypeId) {
@@ -83,6 +86,7 @@ export const deleteProblem = async (problemPath) => {
  * 一次性获取所有题库数据（优化版本，减少并发请求）
  * @param {Object} options - 过滤选项
  * @param {Number} options.tagId - 按标签ID过滤（可选）
+ * @param {Array} options.tagIds - 按多个标签ID过滤，取交集（可选）
  * @param {Number} options.tagTypeId - 按标签类型ID过滤（可选）
  * @param {Boolean} options.includeTagData - 是否包含标签数据（默认true）
  * @returns {Promise<Object>} - 返回包含所有数据的对象
@@ -93,7 +97,9 @@ export const getAllProblemsData = async (options = {}) => {
     const params = {};
     
     // 添加过滤参数
-    if (options.tagId) {
+    if (options.tagIds && Array.isArray(options.tagIds) && options.tagIds.length > 0) {
+      params.tag_ids = options.tagIds.join(',');
+    } else if (options.tagId) {
       params.tag_id = options.tagId;
     }
     if (options.tagTypeId) {
