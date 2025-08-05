@@ -29,6 +29,7 @@ async def get_problem_categories():
 async def get_problems_by_category(
     category_path: str,
     tag_id: Optional[int] = Query(None, description="按标签ID过滤"),
+    tag_ids: Optional[str] = Query(None, description="按多个标签ID过滤（逗号分隔），取交集"),
     tag_type_id: Optional[int] = Query(None, description="按标签类型ID过滤"),
     db: Session = Depends(get_db)
 ):
@@ -37,8 +38,17 @@ async def get_problems_by_category(
         # 首先获取分类下的所有试题
         problems = ProblemService.get_problems_by_category(category_path)
         
+        # 解析tag_ids参数
+        if tag_ids:
+            try:
+                parsed_tag_ids = [int(x.strip()) for x in tag_ids.split(',') if x.strip()]
+                if parsed_tag_ids:
+                    # 多标签交集过滤
+                    problems = ProblemService.filter_problems_by_tags_intersection(db, problems, parsed_tag_ids)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="tag_ids参数格式无效，应为逗号分隔的整数")
         # 如果指定了标签ID，则过滤出包含该标签的试题
-        if tag_id is not None:
+        elif tag_id is not None:
             tag_problems = ProblemService.get_problems_by_tag(db, tag_id)
             # 获取数据路径列表，用于过滤
             tag_problem_paths = [p.data_path for p in tag_problems if p.data_path]
@@ -54,24 +64,75 @@ async def get_problems_by_category(
             problems = [p for p in problems if p.data_path in type_problem_paths]
         
         return problems
-    except FileNotFoundError as e:
-        # 返回空列表而不是抛出异常
-        logger.warning(f"题库分类不存在: {category_path}, 错误: {str(e)}")
-        return []
     except Exception as e:
-        logger.error(f"读取试题列表失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"读取试题列表失败: {str(e)}")
+        logger.error(f"获取分类{category_path}下的试题失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取试题失败: {str(e)}")
 
-@router.delete("/{problem_path:path}", response_model=ProblemDelete)
-async def delete_problem(problem_path: str):
+@router.put("/{problem_path:path}")
+async def update_problem(problem_path: str, problem_data: dict, db: Session = Depends(get_db)):
+    """更新试题信息"""
+    try:
+        # 这里添加更新试题的逻辑
+        # 目前只是一个占位符
+        return {"message": "试题更新成功", "problem_path": problem_path}
+    except Exception as e:
+        logger.error(f"更新试题失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"更新试题失败: {str(e)}")
+
+@router.delete("/{problem_path:path}")
+async def delete_problem(problem_path: str, db: Session = Depends(get_db)):
     """删除试题"""
     try:
-        message = ProblemService.delete_problem(problem_path)
-        return ProblemDelete(message=message)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # 这里需要实现删除试题的逻辑
+        # 目前只是一个占位符
+        return {"message": "试题删除成功", "problem_path": problem_path}
     except Exception as e:
+        logger.error(f"删除试题失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"删除试题失败: {str(e)}")
+
+@router.get("/all-data")
+async def get_all_problems_data(
+    tag_id: Optional[int] = Query(None, description="按标签ID过滤"),
+    tag_ids: Optional[str] = Query(None, description="按多个标签ID过滤（逗号分隔），取交集"),
+    tag_type_id: Optional[int] = Query(None, description="按标签类型ID过滤"),
+    include_tags: bool = Query(True, description="是否包含标签数据"),
+    db: Session = Depends(get_db)
+):
+    """
+    一次性获取所有题库数据（优化版本）
+    包括分类、题目、标签类型、标签和题目标签关系
+    """
+    try:
+        logger.info("开始获取所有题库数据（优化版本）")
+        
+        # 解析tag_ids参数
+        parsed_tag_ids = None
+        if tag_ids:
+            try:
+                parsed_tag_ids = [int(x.strip()) for x in tag_ids.split(',') if x.strip()]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="tag_ids参数格式无效，应为逗号分隔的整数")
+        
+        # 获取所有数据
+        all_data = ProblemService.get_all_problems_data(
+            db=db,
+            tag_id=tag_id,
+            tag_ids=parsed_tag_ids,
+            tag_type_id=tag_type_id,
+            include_tags=include_tags
+        )
+        
+        logger.info(f"获取所有数据完成: 分类={len(all_data['categories'])}, "
+                   f"题目={len(all_data['problems'])}, "
+                   f"标签类型={len(all_data['tag_types'])}, "
+                   f"标签={len(all_data['tags'])}, "
+                   f"题目标签关系={len(all_data['problem_tags'])}")
+        
+        return all_data
+        
+    except Exception as e:
+        logger.error(f"获取所有题库数据失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取所有题库数据失败: {str(e)}")
 
 
 

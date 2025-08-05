@@ -18,9 +18,6 @@ async def get_student_exercises(
     current_user: User = Depends(get_current_active_user)
 ):
     """获取学生可见的练习列表"""
-    # 记录操作日志
-    ExerciseService.log_operation(db, current_user.id, "查看练习列表", "练习列表")
-    
     # 获取练习列表
     exercises = ExerciseService.get_student_exercises(db, current_user.id, course_id)
     
@@ -38,9 +35,6 @@ async def get_teacher_exercises(
     current_user: User = Depends(get_teacher_user)
 ):
     """获取教师发布的练习列表"""
-    # 记录操作日志
-    ExerciseService.log_operation(db, current_user.id, "查看练习列表", "练习列表")
-    
     # 获取练习列表
     exercises = ExerciseService.get_teacher_exercises(db, current_user.id, course_id)
     
@@ -53,9 +47,6 @@ async def get_admin_exercises(
     current_user: User = Depends(get_admin_user)
 ):
     """获取所有练习列表（管理员）"""
-    # 记录操作日志
-    ExerciseService.log_operation(db, current_user.id, "查看练习列表", "练习列表")
-    
     # 获取练习列表
     exercises = ExerciseService.get_admin_exercises(db, course_id)
     
@@ -419,9 +410,6 @@ async def get_exercise_active_students(
             x["latest_activity"]
         ), reverse=True)
         
-        # 记录操作日志
-        ExerciseService.log_operation(db, current_user.id, "查看在线答题用户", f"查看练习 {exercise.name} 的在线答题用户")
-            
         return active_students
         
     except HTTPException:

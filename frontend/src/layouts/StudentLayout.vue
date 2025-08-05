@@ -28,6 +28,9 @@
               <router-link to="/student/profile" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
                 <span class="item-icon">🔐</span>修改密码
               </router-link>
+              <div class="dropdown-item modern-dropdown-item" @click="showHelp">
+                <span class="item-icon">❓</span>帮助
+              </div>
               <div class="dropdown-item modern-dropdown-item" @click="showAbout">
                 <span class="item-icon">ℹ️</span>关于
               </div>
@@ -76,6 +79,24 @@
         </div>
       </div>
     </div>
+    
+    <!-- 帮助对话框 -->
+    <div v-if="helpVisible" class="modal-overlay" @click="helpVisible = false">
+      <div class="modal glass-effect" @click.stop>
+        <div class="modal-header">
+        <h2>系统帮助</h2>
+          <button class="close-btn" @click="helpVisible = false">✕</button>
+        </div>
+        <div class="modal-content">
+          <p><strong>C语言评测系统使用指南：</strong></p>
+          <ul class="help-list">
+            <li><span class="help-icon">📝</span>练习：查看和参与课程练习</li>
+            <li><span class="help-icon">📋</span>操作记录：查看个人操作日志</li>
+            <li><span class="help-icon">⚙️</span>系统：修改密码和查看系统信息</li>
+        </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -88,6 +109,7 @@ import Footer from '../components/Footer.vue';
 const router = useRouter();
 const authStore = useAuthStore();
 const aboutVisible = ref(false);
+const helpVisible = ref(false);
 
 // 下拉菜单状态
 const activeDropdown = ref(null);
@@ -126,6 +148,12 @@ const keepDropdown = (dropdownName) => {
 // 显示关于对话框
 const showAbout = () => {
   aboutVisible.value = true;
+  closeDropdown();
+};
+
+// 显示帮助对话框
+const showHelp = () => {
+  helpVisible.value = true;
   closeDropdown();
 };
 
@@ -489,6 +517,28 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.help-list {
+  padding-left: 0;
+  list-style: none;
+  margin: 16px 0;
+}
+
+.help-list li {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary-color);
+}
+
+.help-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
 .logout-item {
   color: #ff6b6b !important;
 }
@@ -496,5 +546,25 @@ onUnmounted(() => {
 .logout-item:hover {
   background: rgba(255, 107, 107, 0.1) !important;
   color: #ff6b6b !important;
+}
+
+/* 帮助对话框样式 */
+.help-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.help-icon {
+  font-size: 18px;
 }
 </style> 

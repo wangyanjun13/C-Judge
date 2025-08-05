@@ -21,6 +21,7 @@ export const getProblemCategories = async () => {
  * @param {String} categoryPath - 分类路径
  * @param {Object} options - 过滤选项
  * @param {Number} options.tagId - 按标签ID过滤（可选）
+ * @param {Array} options.tagIds - 按多个标签ID过滤，取交集（可选）
  * @param {Number} options.tagTypeId - 按标签类型ID过滤（可选）
  * @returns {Promise} - 返回试题列表
  */
@@ -30,7 +31,9 @@ export const getProblemsByCategory = async (categoryPath, options = {}) => {
     const params = {};
     
     // 添加过滤参数
-    if (options.tagId) {
+    if (options.tagIds && Array.isArray(options.tagIds) && options.tagIds.length > 0) {
+      params.tag_ids = options.tagIds.join(',');
+    } else if (options.tagId) {
       params.tag_id = options.tagId;
     }
     if (options.tagTypeId) {
@@ -76,5 +79,63 @@ export const deleteProblem = async (problemPath) => {
   } catch (error) {
     console.error('删除试题失败:', error);
     throw error;
+  }
+}
+
+/**
+ * 一次性获取所有题库数据（优化版本，减少并发请求）
+ * @param {Object} options - 过滤选项
+ * @param {Number} options.tagId - 按标签ID过滤（可选）
+ * @param {Array} options.tagIds - 按多个标签ID过滤，取交集（可选）
+ * @param {Number} options.tagTypeId - 按标签类型ID过滤（可选）
+ * @param {Boolean} options.includeTagData - 是否包含标签数据（默认true）
+ * @returns {Promise<Object>} - 返回包含所有数据的对象
+ */
+export const getAllProblemsData = async (options = {}) => {
+  try {
+    console.log('开始获取所有题库数据（优化版本）');
+    const params = {};
+    
+    // 添加过滤参数
+    if (options.tagIds && Array.isArray(options.tagIds) && options.tagIds.length > 0) {
+      params.tag_ids = options.tagIds.join(',');
+    } else if (options.tagId) {
+      params.tag_id = options.tagId;
+    }
+    if (options.tagTypeId) {
+      params.tag_type_id = options.tagTypeId;
+    }
+    
+    // 默认包含标签数据
+    if (options.includeTagData !== false) {
+      params.include_tags = true;
+    }
+    
+    const response = await axios.get('/api/problems/all-data', { params });
+    
+    console.log('所有题库数据API响应:', {
+      categories: response.data.categories?.length || 0,
+      problems: response.data.problems?.length || 0,
+      tagTypes: response.data.tag_types?.length || 0,
+      tags: response.data.tags?.length || 0
+    });
+    
+    return {
+      categories: Array.isArray(response.data.categories) ? response.data.categories : [],
+      problems: Array.isArray(response.data.problems) ? response.data.problems : [],
+      tagTypes: Array.isArray(response.data.tag_types) ? response.data.tag_types : [],
+      tags: Array.isArray(response.data.tags) ? response.data.tags : [],
+      problemTags: response.data.problem_tags || {}
+    };
+  } catch (error) {
+    console.error('获取所有题库数据失败:', error);
+    // 返回空的结构，避免前端报错
+    return {
+      categories: [],
+      problems: [],
+      tagTypes: [],
+      tags: [],
+      problemTags: {}
+    };
   }
 } 

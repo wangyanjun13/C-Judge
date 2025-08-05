@@ -181,19 +181,10 @@ async def heartbeat(current_user: User = Depends(get_current_active_user), db: S
     """更新用户在线状态的心跳"""
     # 更新用户在线状态
     current_user.is_online = True
+    db.commit()
     
     # 记录最后活动时间
     now = datetime.now()  # 使用不带时区的本地时间
-    
-    # 记录心跳操作日志
-    log = OperationLog(
-        user_id=current_user.id,
-        operation="心跳检测",
-        target="系统",
-        created_at=now
-    )
-    db.add(log)
-    db.commit()
     
     return {"status": "ok", "timestamp": now.isoformat()}
 
@@ -259,15 +250,7 @@ async def get_online_users(
             
             result.append(user_response)
         
-        # 记录操作日志 - 仅当正常查询时
-        log = OperationLog(
-            user_id=current_user.id,
-            operation="查看在线用户",
-            target="在线用户列表",
-            created_at=now  # 使用之前创建的now变量，确保时区一致
-        )
-        db.add(log)
-        db.commit()
+
         
         return result
         

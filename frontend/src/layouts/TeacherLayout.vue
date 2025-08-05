@@ -119,9 +119,9 @@
           <button class="close-btn" @click="aboutVisible = false">✕</button>
         </div>
         <div class="modal-content">
-        <p>本系统为用于教育场景的C语言在线评测平台。</p>
+        <p>本系统为用于教育场景的简单C语言在线测评平台，主要用于C语言教学，支持C语言的在线评测，支持C语言的在线提交、在线评测、在线查看结果，支持教师管理、学生管理、班级管理、课程管理、题库管理、评测管理等，支持用户管理、权限管理、日志管理等，支持系统设置、统计数据等。</p>
           <p><strong>版本：</strong>1.0.0</p>
-          <p><strong>开发者：</strong>wangyanjun13@foxmail.com</p>
+          <p><strong>联系开发者：</strong>wangyanjun13@foxmail.com</p>
         </div>
       </div>
     </div>
@@ -138,7 +138,7 @@
           <ul class="help-list">
             <li><span class="help-icon">📝</span>练习：查看和管理课程练习</li>
             <li><span class="help-icon">📋</span>操作记录：查看系统操作日志</li>
-            <li><span class="help-icon">👥</span>管理：管理课程和学生</li>
+            <li><span class="help-icon">👥</span>管理：管理班级、课程和学生</li>
             <li><span class="help-icon">🔧</span>维护：上传和维护题库</li>
         </ul>
         </div>

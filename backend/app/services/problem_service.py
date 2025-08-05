@@ -96,17 +96,175 @@ class ProblemService:
     @staticmethod
     def delete_problem(problem_path: str) -> str:
         """删除试题"""
+        # 构建完整的题目路径
         full_path = os.path.join(PROBLEMS_ROOT, problem_path)
         
-        logger.info(f"删除试题: {problem_path}")
+        # 检查路径是否存在
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"试题路径不存在: {problem_path}")
         
-        if not os.path.exists(full_path) or not os.path.isdir(full_path):
-            logger.error(f"试题不存在: {full_path}")
-            raise FileNotFoundError(f"试题不存在: {problem_path}")
+        # 删除试题目录
+        if os.path.isdir(full_path):
+            shutil.rmtree(full_path)
+            logger.info(f"成功删除试题目录: {problem_path}")
+            return f"成功删除试题: {problem_path}"
+        else:
+            raise ValueError(f"路径不是有效的试题目录: {problem_path}")
+
+    @staticmethod
+    def get_all_problems_data(
+        db: Session,
+        tag_id: Optional[int] = None,
+        tag_ids: Optional[List[int]] = None,
+        tag_type_id: Optional[int] = None,
+        include_tags: bool = True
+    ) -> Dict[str, Any]:
+        """
+        一次性获取所有题库数据（优化版本）
+        减少多次API调用，提高性能
         
-        # 删除试题文件夹
-        shutil.rmtree(full_path)
-        return f"试题 {problem_path} 已成功删除"
+        Args:
+            db: 数据库会话
+            tag_id: 按标签ID过滤（可选）
+            tag_ids: 按多个标签ID交集过滤（可选）
+            tag_type_id: 按标签类型ID过滤（可选）
+            include_tags: 是否包含标签数据
+            
+        Returns:
+            包含所有数据的字典
+        """
+        try:
+            logger.info("开始获取所有题库数据（服务层）")
+            
+            # 初始化结果
+            result = {
+                'categories': [],
+                'problems': [],
+                'tag_types': [],
+                'tags': [],
+                'problem_tags': {}
+            }
+            
+            # 1. 获取所有分类
+            result['categories'] = ProblemService.get_problem_categories()
+            logger.info(f"获取到 {len(result['categories'])} 个分类")
+            
+            # 2. 获取所有题目（根据过滤条件）
+            all_problems = []
+            
+            if tag_ids is not None and len(tag_ids) > 0:
+                # 按多个标签ID交集过滤
+                # 先获取所有题目，然后进行交集过滤
+                for category in result['categories']:
+                    try:
+                        category_problems = ProblemService.get_problems_by_category(category.path)
+                        all_problems.extend(category_problems)
+                    except Exception as e:
+                        logger.warning(f"获取分类 {category.path} 的题目失败: {str(e)}")
+                        continue
+                
+                # 进行多标签交集过滤
+                all_problems = ProblemService.filter_problems_by_tags_intersection(db, all_problems, tag_ids)
+                        
+            elif tag_id is not None:
+                # 按标签ID过滤
+                tag_problems = ProblemService.get_problems_by_tag(db, tag_id)
+                tag_problem_paths = [p.data_path for p in tag_problems if p.data_path]
+                
+                # 从所有分类中获取题目，然后过滤
+                for category in result['categories']:
+                    try:
+                        category_problems = ProblemService.get_problems_by_category(category.path)
+                        filtered_problems = [p for p in category_problems if p.data_path in tag_problem_paths]
+                        all_problems.extend(filtered_problems)
+                    except Exception as e:
+                        logger.warning(f"获取分类 {category.path} 的题目失败: {str(e)}")
+                        continue
+                        
+            elif tag_type_id is not None:
+                # 按标签类型ID过滤
+                type_problems = ProblemService.get_problems_by_tag_type(db, tag_type_id)
+                type_problem_paths = [p.data_path for p in type_problems if p.data_path]
+                
+                # 从所有分类中获取题目，然后过滤
+                for category in result['categories']:
+                    try:
+                        category_problems = ProblemService.get_problems_by_category(category.path)
+                        filtered_problems = [p for p in category_problems if p.data_path in type_problem_paths]
+                        all_problems.extend(filtered_problems)
+                    except Exception as e:
+                        logger.warning(f"获取分类 {category.path} 的题目失败: {str(e)}")
+                        continue
+            else:
+                # 获取所有题目
+                for category in result['categories']:
+                    try:
+                        category_problems = ProblemService.get_problems_by_category(category.path)
+                        all_problems.extend(category_problems)
+                    except Exception as e:
+                        logger.warning(f"获取分类 {category.path} 的题目失败: {str(e)}")
+                        continue
+            
+            # 去重（基于data_path）
+            unique_problems = {}
+            for problem in all_problems:
+                if problem.data_path and problem.data_path not in unique_problems:
+                    unique_problems[problem.data_path] = problem
+            
+            result['problems'] = list(unique_problems.values())
+            logger.info(f"获取到 {len(result['problems'])} 个唯一题目")
+            
+            # 3. 如果需要标签数据，获取标签类型和标签
+            if include_tags:
+                try:
+                    # 获取所有标签类型
+                    result['tag_types'] = db.query(TagType).all()
+                    logger.info(f"获取到 {len(result['tag_types'])} 个标签类型")
+                    
+                    # 获取所有标签
+                    result['tags'] = db.query(Tag).all()
+                    logger.info(f"获取到 {len(result['tags'])} 个标签")
+                    
+                    # 4. 批量获取题目标签关系
+                    if result['problems']:
+                        problem_paths = [p.data_path for p in result['problems'] if p.data_path]
+                        
+                        # 批量查询题目标签关系
+                        from app.models import problem_tag  # 关联表
+                        
+                        # 查询所有相关的题目记录
+                        db_problems = db.query(Problem).filter(Problem.data_path.in_(problem_paths)).all()
+                        
+                        # 为每个题目获取标签
+                        for db_problem in db_problems:
+                            if db_problem.data_path:
+                                # 获取该题目的所有标签
+                                problem_tag_objs = db.query(Tag).join(problem_tag).filter(
+                                    problem_tag.c.problem_id == db_problem.id
+                                ).all()
+                                
+                                result['problem_tags'][db_problem.data_path] = [
+                                    {
+                                        'id': tag.id,
+                                        'name': tag.name,
+                                        'tag_type_id': tag.tag_type_id
+                                    }
+                                    for tag in problem_tag_objs
+                                ]
+                        
+                        logger.info(f"获取到 {len(result['problem_tags'])} 个题目的标签关系")
+                
+                except Exception as e:
+                    logger.error(f"获取标签数据失败: {str(e)}")
+                    # 标签数据获取失败不影响主要功能，继续返回其他数据
+                    pass
+            
+            logger.info("所有题库数据获取完成（服务层）")
+            return result
+            
+        except Exception as e:
+            logger.error(f"获取所有题库数据失败（服务层）: {str(e)}")
+            raise e
     
     @staticmethod
     def parse_question_inf(inf_path: str, problem_name: str, category_path: str) -> Optional[ProblemInfo]:
@@ -271,3 +429,52 @@ class ProblemService:
         logger.info(f"HTML文件路径尝试完成，最终使用: {html_content[:100]}...")
         
         return html_content 
+
+    @staticmethod
+    def filter_problems_by_tags_intersection(db: Session, problems: List[ProblemInfo], tag_ids: List[int]) -> List[ProblemInfo]:
+        """
+        根据多个标签ID进行交集过滤，只返回同时包含所有指定标签的题目
+        
+        Args:
+            db: 数据库会话
+            problems: 待过滤的题目列表
+            tag_ids: 标签ID列表
+            
+        Returns:
+            过滤后的题目列表
+        """
+        if not tag_ids or not problems:
+            return problems
+        
+        # 获取所有题目的data_path
+        problem_paths = [p.data_path for p in problems if p.data_path]
+        if not problem_paths:
+            return []
+        
+        # 查询所有涉及的问题和标签关系
+        from app.models.problem import Problem, problem_tag
+        from app.models.tag import Tag
+        
+        # 对于每个标签，查找包含该标签的问题
+        filtered_paths_sets = []
+        
+        for tag_id in tag_ids:
+            # 查询包含当前标签的所有问题的data_path
+            tag_problem_paths = db.query(Problem.data_path).join(
+                problem_tag, Problem.id == problem_tag.c.problem_id
+            ).filter(
+                problem_tag.c.tag_id == tag_id,
+                Problem.data_path.in_(problem_paths)
+            ).all()
+            
+            # 提取data_path列表
+            paths_set = set(path[0] for path in tag_problem_paths if path[0])
+            filtered_paths_sets.append(paths_set)
+        
+        # 计算所有标签的交集
+        if filtered_paths_sets:
+            intersection_paths = set.intersection(*filtered_paths_sets)
+            # 返回在交集中的题目
+            return [p for p in problems if p.data_path in intersection_paths]
+        
+        return [] 
