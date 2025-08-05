@@ -29,6 +29,7 @@ async def get_problem_categories():
 async def get_problems_by_category(
     category_path: str,
     tag_id: Optional[int] = Query(None, description="按标签ID过滤"),
+    tag_ids: Optional[str] = Query(None, description="按多个标签ID过滤（逗号分隔），取交集"),
     tag_type_id: Optional[int] = Query(None, description="按标签类型ID过滤"),
     db: Session = Depends(get_db)
 ):
@@ -37,8 +38,17 @@ async def get_problems_by_category(
         # 首先获取分类下的所有试题
         problems = ProblemService.get_problems_by_category(category_path)
         
+        # 解析tag_ids参数
+        if tag_ids:
+            try:
+                parsed_tag_ids = [int(x.strip()) for x in tag_ids.split(',') if x.strip()]
+                if parsed_tag_ids:
+                    # 多标签交集过滤
+                    problems = ProblemService.filter_problems_by_tags_intersection(db, problems, parsed_tag_ids)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="tag_ids参数格式无效，应为逗号分隔的整数")
         # 如果指定了标签ID，则过滤出包含该标签的试题
-        if tag_id is not None:
+        elif tag_id is not None:
             tag_problems = ProblemService.get_problems_by_tag(db, tag_id)
             # 获取数据路径列表，用于过滤
             tag_problem_paths = [p.data_path for p in tag_problems if p.data_path]
@@ -83,6 +93,7 @@ async def delete_problem(problem_path: str, db: Session = Depends(get_db)):
 @router.get("/all-data")
 async def get_all_problems_data(
     tag_id: Optional[int] = Query(None, description="按标签ID过滤"),
+    tag_ids: Optional[str] = Query(None, description="按多个标签ID过滤（逗号分隔），取交集"),
     tag_type_id: Optional[int] = Query(None, description="按标签类型ID过滤"),
     include_tags: bool = Query(True, description="是否包含标签数据"),
     db: Session = Depends(get_db)
@@ -94,10 +105,19 @@ async def get_all_problems_data(
     try:
         logger.info("开始获取所有题库数据（优化版本）")
         
+        # 解析tag_ids参数
+        parsed_tag_ids = None
+        if tag_ids:
+            try:
+                parsed_tag_ids = [int(x.strip()) for x in tag_ids.split(',') if x.strip()]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="tag_ids参数格式无效，应为逗号分隔的整数")
+        
         # 获取所有数据
         all_data = ProblemService.get_all_problems_data(
             db=db,
             tag_id=tag_id,
+            tag_ids=parsed_tag_ids,
             tag_type_id=tag_type_id,
             include_tags=include_tags
         )

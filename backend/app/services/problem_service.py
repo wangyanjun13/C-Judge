@@ -115,6 +115,7 @@ class ProblemService:
     def get_all_problems_data(
         db: Session,
         tag_id: Optional[int] = None,
+        tag_ids: Optional[List[int]] = None,
         tag_type_id: Optional[int] = None,
         include_tags: bool = True
     ) -> Dict[str, Any]:
@@ -125,6 +126,7 @@ class ProblemService:
         Args:
             db: 数据库会话
             tag_id: 按标签ID过滤（可选）
+            tag_ids: 按多个标签ID交集过滤（可选）
             tag_type_id: 按标签类型ID过滤（可选）
             include_tags: 是否包含标签数据
             
@@ -150,7 +152,21 @@ class ProblemService:
             # 2. 获取所有题目（根据过滤条件）
             all_problems = []
             
-            if tag_id is not None:
+            if tag_ids is not None and len(tag_ids) > 0:
+                # 按多个标签ID交集过滤
+                # 先获取所有题目，然后进行交集过滤
+                for category in result['categories']:
+                    try:
+                        category_problems = ProblemService.get_problems_by_category(category.path)
+                        all_problems.extend(category_problems)
+                    except Exception as e:
+                        logger.warning(f"获取分类 {category.path} 的题目失败: {str(e)}")
+                        continue
+                
+                # 进行多标签交集过滤
+                all_problems = ProblemService.filter_problems_by_tags_intersection(db, all_problems, tag_ids)
+                        
+            elif tag_id is not None:
                 # 按标签ID过滤
                 tag_problems = ProblemService.get_problems_by_tag(db, tag_id)
                 tag_problem_paths = [p.data_path for p in tag_problems if p.data_path]
@@ -413,3 +429,52 @@ class ProblemService:
         logger.info(f"HTML文件路径尝试完成，最终使用: {html_content[:100]}...")
         
         return html_content 
+
+    @staticmethod
+    def filter_problems_by_tags_intersection(db: Session, problems: List[ProblemInfo], tag_ids: List[int]) -> List[ProblemInfo]:
+        """
+        根据多个标签ID进行交集过滤，只返回同时包含所有指定标签的题目
+        
+        Args:
+            db: 数据库会话
+            problems: 待过滤的题目列表
+            tag_ids: 标签ID列表
+            
+        Returns:
+            过滤后的题目列表
+        """
+        if not tag_ids or not problems:
+            return problems
+        
+        # 获取所有题目的data_path
+        problem_paths = [p.data_path for p in problems if p.data_path]
+        if not problem_paths:
+            return []
+        
+        # 查询所有涉及的问题和标签关系
+        from app.models.problem import Problem, problem_tag
+        from app.models.tag import Tag
+        
+        # 对于每个标签，查找包含该标签的问题
+        filtered_paths_sets = []
+        
+        for tag_id in tag_ids:
+            # 查询包含当前标签的所有问题的data_path
+            tag_problem_paths = db.query(Problem.data_path).join(
+                problem_tag, Problem.id == problem_tag.c.problem_id
+            ).filter(
+                problem_tag.c.tag_id == tag_id,
+                Problem.data_path.in_(problem_paths)
+            ).all()
+            
+            # 提取data_path列表
+            paths_set = set(path[0] for path in tag_problem_paths if path[0])
+            filtered_paths_sets.append(paths_set)
+        
+        # 计算所有标签的交集
+        if filtered_paths_sets:
+            intersection_paths = set.intersection(*filtered_paths_sets)
+            # 返回在交集中的题目
+            return [p for p in problems if p.data_path in intersection_paths]
+        
+        return [] 

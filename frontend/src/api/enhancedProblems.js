@@ -17,6 +17,7 @@ class EnhancedProblemsAPI {
    * 获取所有题库数据（优化版本）
    * @param {Object} options - 选项
    * @param {Number} options.tagId - 按标签ID过滤
+   * @param {Array} options.tagIds - 按多个标签ID过滤，取交集
    * @param {Number} options.tagTypeId - 按标签类型ID过滤
    * @param {Boolean} options.forceRefresh - 强制刷新缓存
    * @returns {Promise<Object>} - 包含所有数据的对象
@@ -179,8 +180,8 @@ class EnhancedProblemsAPI {
       const tags = problemTags[problem.data_path] || [];
       const tagIds = tags.map(tag => tag.id);
       
-      // 检查是否包含至少一个选中的标签
-      return selectedTags.some(selectedTagId => tagIds.includes(selectedTagId));
+      // 检查是否包含所有选中的标签（交集）
+      return selectedTags.every(selectedTagId => tagIds.includes(selectedTagId));
     });
   }
 
