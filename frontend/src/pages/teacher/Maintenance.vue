@@ -71,7 +71,7 @@
               <td>{{ problem.name }}</td>
               <td>{{ problem.chinese_name }}</td>
               <td class="tags-cell">
-                <div v-if="problemTags[problem.data_path]" class="problem-tags">
+                <div v-if="problemTags[problem.data_path] && problemTags[problem.data_path].length > 0" class="problem-tags">
                   <template v-for="(tags, tagType) in groupTagsByType(problemTags[problem.data_path])" :key="tagType">
                     <div class="tag-group">
                       <span class="tag-type">{{ tagType }}:</span>
@@ -229,6 +229,7 @@ import { logUserOperation, OperationType } from '../../utils/logger';
 import TagManager from '../../components/TagManager.vue';
 import ProblemTagDialog from '../../components/ProblemTagDialog.vue';
 import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags, getMyApprovalRequests } from '../../api/tags';
+import enhancedProblemsAPI from '../../api/enhancedProblems';
 
 // 获取路由参数
 const route = useRoute();
@@ -276,16 +277,71 @@ const selectTag = (tagTypeId, tagId) => {
   loadProblems();
 };
 
-// 加载题库分类
+// 加载所有数据（优化版本）
+const loadAllData = async (options = {}) => {
+  loading.value = true;
+  error.value = null;
+  
+  try {
+    console.log('开始加载所有数据（优化版本）');
+    
+    // 构建过滤选项
+    const filterOptions = {};
+    
+    // 查找第一个被选中的标签
+    for (const tagTypeId in selectedTagIds.value) {
+      if (selectedTagIds.value[tagTypeId]) {
+        filterOptions.tagId = selectedTagIds.value[tagTypeId];
+        break; // 只使用第一个被选中的标签进行过滤
+      }
+    }
+    
+    // 如果有强制刷新选项，传递给API
+    if (options.forceRefresh) {
+      filterOptions.forceRefresh = true;
+    }
+    
+    // 一次性获取所有数据
+    const allData = await enhancedProblemsAPI.getAllData(filterOptions);
+    
+    // 更新状态
+    categories.value = allData.categories;
+    problems.value = allData.problems;
+    tagTypes.value = allData.tagTypes;
+    allTags.value = allData.tags;
+    problemTags.value = allData.problemTags;
+    
+    // 初始化selectedTagIds对象和tagTypeMap
+    tagTypes.value.forEach(tagType => {
+      if (!(tagType.id in selectedTagIds.value)) {
+        selectedTagIds.value[tagType.id] = '';
+      }
+      tagTypeMap.value[tagType.id] = tagType.name;
+    });
+    
+    console.log('所有数据加载完成:', {
+      categories: categories.value.length,
+      problems: problems.value.length,
+      tagTypes: tagTypes.value.length,
+      tags: allTags.value.length,
+      problemTags: Object.keys(problemTags.value).length
+    });
+    
+  } catch (err) {
+    console.error('加载所有数据失败:', err);
+    error.value = '加载数据失败';
+    ElMessage.error('加载数据失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 兼容的加载分类函数（已被loadAllData替代，但保留用于向后兼容）
 const loadCategories = async () => {
   try {
-    categories.value = await getProblemCategories();
+    categories.value = await enhancedProblemsAPI.getCategories();
     if (categories.value.length === 0) {
       ElMessage.warning('未找到题库分类，请确保题库目录已正确配置');
-    } else {
-      // 默认选择"全部"选项
-      selectedCategory.value = 'all';
-      loadProblems();
     }
   } catch (err) {
     console.error('加载题库分类失败:', err);
@@ -293,18 +349,18 @@ const loadCategories = async () => {
   }
 };
 
-// 加载标签类型和标签
+// 兼容的加载标签函数（已被loadAllData替代，但保留用于向后兼容）
 const loadTags = async () => {
   try {
-    // 加载标签类型
-    tagTypes.value = await getTagTypes();
-    
-    // 加载所有标签
-    allTags.value = await getTags();
+    const tagsData = await enhancedProblemsAPI.getTagsData();
+    tagTypes.value = tagsData.tagTypes;
+    allTags.value = tagsData.tags;
     
     // 初始化selectedTagIds对象和tagTypeMap
     tagTypes.value.forEach(tagType => {
+      if (!(tagType.id in selectedTagIds.value)) {
       selectedTagIds.value[tagType.id] = '';
+      }
       tagTypeMap.value[tagType.id] = tagType.name;
     });
   } catch (err) {
@@ -329,58 +385,10 @@ const debounce = (fn, delay) => {
   };
 };
 
-// 加载试题列表（添加防抖）
+// 加载试题列表（优化版本，使用防抖）
 const loadProblemsDebounced = debounce(async () => {
-  loading.value = true;
-  error.value = null;
-  
-  try {
-    // 构建过滤选项
-    const options = {};
-    
-    // 查找第一个被选中的标签
-    for (const tagTypeId in selectedTagIds.value) {
-      if (selectedTagIds.value[tagTypeId]) {
-        options.tagId = selectedTagIds.value[tagTypeId];
-        break; // 只使用第一个被选中的标签进行过滤
-      }
-    }
-    
-    // 检查过滤选项是否与上次相同
-    const optionsJson = JSON.stringify(options);
-    const lastOptionsJson = JSON.stringify(lastFilterOptions.value);
-    
-    if (optionsJson === lastOptionsJson && problems.value.length > 0) {
-      console.log('过滤选项未变化，使用现有数据');
-      loading.value = false;
-      return;
-    }
-    
-    // 更新上次的过滤选项
-    lastFilterOptions.value = JSON.parse(optionsJson);
-    
-    // 获取所有题库，不再根据分类筛选
-    let allProblems = [];
-    if (categories.value.length > 0) {
-      for (const category of categories.value) {
-        const categoryProblems = await getProblemsByCategory(category.path, options);
-        allProblems = [...allProblems, ...categoryProblems];
-      }
-    } else {
-      // 如果没有分类，尝试获取默认题库
-      allProblems = await getProblemsByCategory('', options);
-    }
-    problems.value = allProblems;
-    
-    // 加载每个问题的标签
-    await loadProblemTags();
-  } catch (err) {
-    console.error('加载试题列表失败:', err);
-    error.value = '加载试题列表失败';
-    ElMessage.error('加载试题列表失败');
-  } finally {
-    loading.value = false;
-  }
+  // 直接调用loadAllData，因为它已经包含了过滤逻辑和缓存机制
+  await loadAllData();
 }, 300);
 
 // 包装函数，用于调用防抖函数
@@ -388,32 +396,29 @@ const loadProblems = () => {
   loadProblemsDebounced();
 };
 
-// 加载所有问题的标签
+// 兼容的加载问题标签函数（已被loadAllData替代，但保留用于向后兼容）
 const loadProblemTags = async () => {
   if (problems.value.length === 0) return;
   
   try {
-    // 收集所有问题的data_path，但仅包括那些在problemTags中不存在的
-    const missingPaths = problems.value
-      .filter(problem => problem.data_path && !problemTags.value[problem.data_path])
-      .map(problem => encodeURIComponent(problem.data_path));
+    // 收集所有问题的data_path
+    const allPaths = problems.value
+      .filter(problem => problem.data_path)
+      .map(problem => problem.data_path);
     
-    if (missingPaths.length === 0) {
-      console.log('所有问题标签已在本地缓存中，无需请求');
-      return; // 如果所有问题的标签都已经在本地缓存中，则不发起请求
-    }
+    if (allPaths.length === 0) return;
     
-    // 批量获取缺失的问题标签
-    console.log(`批量获取${missingPaths.length}个问题的标签`);
-    const batchTags = await getBatchProblemTags(missingPaths);
+    // 使用增强API批量获取所有问题的标签
+    console.log(`批量获取${allPaths.length}个问题的标签`);
+    const encodedPaths = allPaths.map(path => encodeURIComponent(path));
+    const batchTags = await enhancedProblemsAPI.getBatchProblemTags(encodedPaths);
     
-    // 将结果合并到problemTags中
+    // 为所有问题设置标签数据，包括没有标签的题目
     for (const problem of problems.value) {
       if (problem.data_path) {
         const encodedPath = encodeURIComponent(problem.data_path);
-        if (batchTags[encodedPath] && batchTags[encodedPath].length > 0) {
-          problemTags.value[problem.data_path] = batchTags[encodedPath];
-        }
+        // 关键修复：即使没有标签也要设置为空数组，而不是跳过
+        problemTags.value[problem.data_path] = batchTags[encodedPath] || [];
       }
     }
   } catch (err) {
@@ -540,9 +545,9 @@ const uploadProblemBank = () => {
 // 处理标签更新
 const handleTagsUpdate = async () => {
   ElMessage.success('标签更新成功');
-  // 重新加载标签和题目列表
-  await loadTags();
-  await loadProblems();
+  // 使用增强API的缓存失效功能，然后重新加载所有数据
+  enhancedProblemsAPI.invalidateAfterUpdate('tag');
+  await loadAllData({ forceRefresh: true });
 };
 
 // 审核请求相关方法
@@ -615,11 +620,16 @@ watch(activeTab, (newTab) => {
   }
 });
 
-// 页面加载时获取题库分类和标签
+// 页面加载时获取所有数据（优化版本）
 onMounted(async () => {
-  await loadCategories();
-  await loadTags();
-  await loadProblems(); // 直接加载所有题目
+  // 预加载基础数据到缓存
+  await enhancedProblemsAPI.preloadData({ preloadAllProblems: true });
+  
+  // 加载所有数据到页面
+  await loadAllData();
+  
+  // 记录优化后的加载完成
+  console.log('页面数据加载完成，使用了优化的API');
 });
 </script>
 

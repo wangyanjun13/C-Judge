@@ -99,6 +99,7 @@ import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getProblemCategories, getProblemsByCategory } from '../api/problems';
 import { getTagTypes, getTags, getProblemTags, getBatchProblemTags } from '../api/tags';
+import enhancedProblemsAPI from '../api/enhancedProblems';
 
 // 组件接收的属性
 const props = defineProps({
@@ -132,16 +133,95 @@ const selectTag = (tagTypeId, tagId) => {
   loadProblems();
 };
 
-// 加载题库分类
+// 加载所有数据（简化安全版本）
+const loadAllData = async (options = {}) => {
+  loading.value = true;
+  error.value = null;
+  
+  try {
+    console.log('ProblemSelector: 开始加载所有数据（简化版本）');
+    
+    // 并行加载基础数据
+    const [categoriesData, tagsData] = await Promise.all([
+      getProblemCategories(),
+      Promise.all([getTagTypes(), getTags()])
+    ]);
+    
+    // 更新基础数据
+    categories.value = categoriesData;
+    tagTypes.value = tagsData[0];
+    allTags.value = tagsData[1];
+    
+    // 初始化selectedTagIds对象和tagTypeMap
+    tagTypes.value.forEach(tagType => {
+      if (!(tagType.id in selectedTagIds.value)) {
+        selectedTagIds.value[tagType.id] = '';
+      }
+      tagTypeMap.value[tagType.id] = tagType.name;
+    });
+    
+    // 加载所有题目
+    await loadProblemsFromAllCategories();
+    
+    console.log('ProblemSelector: 所有数据加载完成:', {
+      categories: categories.value.length,
+      problems: problems.value.length,
+      tagTypes: tagTypes.value.length,
+      tags: allTags.value.length
+    });
+    
+  } catch (err) {
+    console.error('ProblemSelector: 加载所有数据失败:', err);
+    error.value = '加载数据失败';
+    ElMessage.error('加载数据失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 从所有分类加载题目
+const loadProblemsFromAllCategories = async () => {
+  const allProblems = [];
+  
+  // 构建过滤选项
+  const filterOptions = {};
+  for (const tagTypeId in selectedTagIds.value) {
+    if (selectedTagIds.value[tagTypeId]) {
+      filterOptions.tagId = selectedTagIds.value[tagTypeId];
+      break;
+    }
+  }
+  
+  // 遍历所有分类获取题目
+  for (const category of categories.value) {
+    try {
+      const categoryProblems = await getProblemsByCategory(category.path, filterOptions);
+      allProblems.push(...categoryProblems);
+    } catch (err) {
+      console.warn(`获取分类 ${category.path} 的题目失败:`, err);
+    }
+  }
+  
+  // 去重
+  const uniqueProblems = {};
+  for (const problem of allProblems) {
+    if (problem.data_path && !uniqueProblems[problem.data_path]) {
+      uniqueProblems[problem.data_path] = problem;
+    }
+  }
+  
+  problems.value = Object.values(uniqueProblems);
+  
+  // 加载题目标签
+  await loadProblemTags();
+};
+
+// 兼容的加载分类函数（已被loadAllData替代，但保留用于向后兼容）
 const loadCategories = async () => {
   try {
-    categories.value = await getProblemCategories();
+    categories.value = await enhancedProblemsAPI.getCategories();
     if (categories.value.length === 0) {
       ElMessage.warning('未找到题库分类，请确保题库目录已正确配置');
-    } else {
-      // 默认选择"全部"选项
-      selectedCategory.value = 'all';
-      loadProblems();
     }
   } catch (err) {
     console.error('加载题库分类失败:', err);
@@ -149,18 +229,18 @@ const loadCategories = async () => {
   }
 };
 
-// 加载标签类型和标签
+// 兼容的加载标签函数（已被loadAllData替代，但保留用于向后兼容）
 const loadTags = async () => {
   try {
-    // 加载标签类型
-    tagTypes.value = await getTagTypes();
-    
-    // 加载所有标签
-    allTags.value = await getTags();
+    const tagsData = await enhancedProblemsAPI.getTagsData();
+    tagTypes.value = tagsData.tagTypes;
+    allTags.value = tagsData.tags;
     
     // 初始化selectedTagIds对象和tagTypeMap
     tagTypes.value.forEach(tagType => {
+      if (!(tagType.id in selectedTagIds.value)) {
       selectedTagIds.value[tagType.id] = '';
+      }
       tagTypeMap.value[tagType.id] = tagType.name;
     });
   } catch (err) {
@@ -191,7 +271,7 @@ const groupTagsByType = (tags) => {
   return grouped;
 };
 
-// 加载所有问题的标签
+// 加载问题标签（简化安全版本）
 const loadProblemTags = async () => {
   if (problems.value.length === 0) return;
   
@@ -199,72 +279,27 @@ const loadProblemTags = async () => {
     // 收集所有问题的data_path
     const problemPaths = problems.value
       .filter(problem => problem.data_path)
-      .map(problem => encodeURIComponent(problem.data_path));
+      .map(problem => problem.data_path);
     
     if (problemPaths.length === 0) return;
     
-    // 批量获取所有问题的标签
+    // 使用原有API批量获取所有问题的标签
     const batchTags = await getBatchProblemTags(problemPaths);
   
     // 将结果存储到每个问题对象上
-  for (const problem of problems.value) {
-    if (problem.data_path) {
-        const encodedPath = encodeURIComponent(problem.data_path);
-        if (batchTags[encodedPath] && batchTags[encodedPath].length > 0) {
-          problem.tags = batchTags[encodedPath];
-        }
+    for (const problem of problems.value) {
+      if (problem.data_path && batchTags[problem.data_path]) {
+        problem.tags = batchTags[problem.data_path];
       }
-        }
-      } catch (err) {
+    }
+  } catch (err) {
     console.error('批量获取问题标签失败:', err);
   }
 };
 
-// 加载试题列表
+// 加载试题列表（简化版本）
 const loadProblems = async () => {
-  loading.value = true;
-  error.value = null;
-  
-  try {
-    // 构建过滤选项
-    const options = {};
-    
-    // 查找第一个被选中的标签
-    for (const tagTypeId in selectedTagIds.value) {
-      if (selectedTagIds.value[tagTypeId]) {
-        options.tagId = selectedTagIds.value[tagTypeId];
-        break; // 只使用第一个被选中的标签进行过滤
-      }
-    }
-    
-    // 获取所有题库，不再根据分类筛选
-    let allProblems = [];
-    if (categories.value.length > 0) {
-      for (const category of categories.value) {
-        const categoryProblems = await getProblemsByCategory(category.path, options);
-        allProblems = [...allProblems, ...categoryProblems];
-      }
-    } else {
-      // 如果没有分类，尝试获取默认题库
-      allProblems = await getProblemsByCategory('', options);
-    }
-    problems.value = allProblems;
-    
-    // 加载每个问题的标签
-    await loadProblemTags();
-    
-    // 保留当前选中的问题（如果它们仍然在问题列表中）
-    if (selectedProblems.value.length > 0) {
-      const problemIds = new Set(allProblems.map(p => p.id));
-      selectedProblems.value = selectedProblems.value.filter(p => problemIds.has(p.id));
-    }
-  } catch (err) {
-    console.error('加载试题列表失败:', err);
-    error.value = '加载试题列表失败';
-    ElMessage.error('加载试题列表失败');
-  } finally {
-    loading.value = false;
-  }
+  await loadProblemsFromAllCategories();
 };
 
 // 全选
@@ -311,11 +346,14 @@ const cancel = () => {
   emit('cancel');
 };
 
-// 页面加载时获取题库分类和标签
+// 页面加载时获取所有数据（简化安全版本）
 onMounted(async () => {
-  await loadTags();
-  await loadCategories();
-  await loadProblems(); // 直接加载所有题目
+  console.log('ProblemSelector: 开始加载数据');
+  
+  // 加载所有数据到页面
+  await loadAllData();
+  
+  console.log('ProblemSelector: 页面数据加载完成');
 });
 </script>
 
