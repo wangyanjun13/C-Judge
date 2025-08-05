@@ -72,9 +72,6 @@
               <router-link to="/admin/system?tab=password" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
                 <span class="item-icon">🔐</span>修改密码
               </router-link>
-              <router-link to="/admin/system?tab=settings" class="dropdown-item modern-dropdown-item" @click="closeDropdown">
-                <span class="item-icon">⚙️</span>系统设置
-              </router-link>
               <div class="dropdown-item modern-dropdown-item" @click="showHelp">
                 <span class="item-icon">❓</span>帮助
               </div>

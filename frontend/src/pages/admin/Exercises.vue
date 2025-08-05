@@ -52,7 +52,6 @@
               <td>
                 <button class="btn btn-edit" @click="showEditModal(exercise)">修改</button>
                 <button class="btn btn-danger" @click="confirmDelete(exercise)">删除</button>
-                <button class="btn btn-secondary" @click="downloadExercise(exercise.id)">下载</button>
               </td>
               <td>
                 <button class="btn btn-text" @click="showNoteModal(exercise)">备注</button>
@@ -416,16 +415,7 @@ const fetchCourses = async () => {
   }
 };
 
-// 下载练习
-const downloadExercise = (id) => {
-  ElMessage.info('下载功能正在开发中...');
-  const exercise = exercises.value.find(e => e.id === id);
-  if (exercise) {
-    logUserOperation(OperationType.DOWNLOAD_EXERCISE, `练习: ${exercise.name}`);
-  } else {
-    logUserOperation(OperationType.DOWNLOAD_EXERCISE, `练习ID: ${id}`);
-  }
-};
+
 
 // 格式化课程名称
 const formatCourseName = (exercise) => {

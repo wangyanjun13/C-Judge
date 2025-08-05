@@ -15,9 +15,6 @@ async def get_classes(
     current_user: User = Depends(get_current_active_user)
 ):
     """获取班级列表"""
-    # 记录操作日志
-    ClassService.log_operation(db, current_user.id, "查看班级列表", "班级列表")
-    
     # 获取班级列表
     classes = ClassService.get_classes(db, current_user.id)
     
@@ -164,9 +161,6 @@ async def get_teacher_classes(
     current_user: User = Depends(get_teacher_user)
 ):
     """获取当前教师关联的班级列表"""
-    # 记录操作日志
-    ClassService.log_operation(db, current_user.id, "查看教师班级列表", "教师班级列表")
-    
     # 使用现有服务方法获取教师关联的班级
     classes = ClassService.get_classes(db, current_user.id)
     
