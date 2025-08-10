@@ -1,8 +1,10 @@
 import os
 import shutil
 import logging
+import re
+import html
 from typing import List, Optional, Dict, Any
-from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDetail
+from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDetail, CustomProblemCreate, CustomProblemResponse
 from sqlalchemy.orm import Session
 from app.models import Problem, Tag, TagType
 
@@ -478,3 +480,379 @@ class ProblemService:
             return [p for p in problems if p.data_path in intersection_paths]
         
         return [] 
+
+    @staticmethod
+    def create_custom_problem(problem_data: CustomProblemCreate) -> CustomProblemResponse:
+        """
+        创建自定义题目，生成符合现有系统的文件结构
+        
+        Args:
+            problem_data: 题目创建数据
+            
+        Returns:
+            创建结果响应
+        """
+        try:
+            logger.info(f"开始创建自定义题目: {problem_data.name}")
+            
+            # 1. 数据验证
+            validation_result = ProblemService._validate_custom_problem_data(problem_data)
+            if not validation_result["valid"]:
+                return CustomProblemResponse(
+                    success=False,
+                    message=validation_result["message"]
+                )
+            
+            # 2. 确保题目名称唯一
+            unique_name = ProblemService._ensure_unique_problem_name(problem_data.name)
+            
+            # 3. 构建题目路径
+            custom_category_path = "自定义题库"
+            problem_dir = os.path.join(PROBLEMS_ROOT, custom_category_path, unique_name)
+            
+            # 4. 创建题目目录
+            os.makedirs(problem_dir, exist_ok=True)
+            logger.info(f"创建题目目录: {problem_dir}")
+            
+            # 5. 生成Question.INF文件
+            ProblemService._create_question_inf(problem_dir, unique_name, problem_data.chinese_name)
+            
+            # 6. 生成HTML文件
+            ProblemService._create_problem_html(problem_dir, unique_name, problem_data.description, problem_data.chinese_name)
+            
+            # 7. 生成测试用例文件
+            ProblemService._create_test_cases(problem_dir, problem_data.testcases)
+            
+            # 8. 计算相对路径
+            relative_path = os.path.join(custom_category_path, unique_name)
+            
+            logger.info(f"自定义题目创建成功: {relative_path}")
+            
+            return CustomProblemResponse(
+                success=True,
+                message=f"题目 '{problem_data.chinese_name}' 创建成功",
+                problem_path=relative_path
+            )
+            
+        except Exception as e:
+            logger.error(f"创建自定义题目失败: {str(e)}")
+            return CustomProblemResponse(
+                success=False,
+                message=f"创建题目失败: {str(e)}"
+            )
+
+    @staticmethod
+    def _validate_custom_problem_data(problem_data: CustomProblemCreate) -> Dict[str, Any]:
+        """验证自定义题目数据"""
+        
+        # 验证题目名称
+        if not problem_data.name or not problem_data.name.strip():
+            return {"valid": False, "message": "题目名称不能为空"}
+        
+        if len(problem_data.name) > 50:
+            return {"valid": False, "message": "题目名称不能超过50个字符"}
+        
+        if not re.match(r'^[a-zA-Z0-9_]+$', problem_data.name):
+            return {"valid": False, "message": "题目名称只能包含字母、数字和下划线"}
+        
+        # 验证中文名称
+        if not problem_data.chinese_name or not problem_data.chinese_name.strip():
+            return {"valid": False, "message": "题目中文名称不能为空"}
+        
+        if len(problem_data.chinese_name) > 100:
+            return {"valid": False, "message": "题目中文名称不能超过100个字符"}
+        
+        # 验证描述
+        if not problem_data.description or not problem_data.description.strip():
+            return {"valid": False, "message": "题目描述不能为空"}
+        
+        if len(problem_data.description) > 10000:
+            return {"valid": False, "message": "题目描述不能超过10000个字符"}
+        
+        # 验证测试用例
+        if not problem_data.testcases or len(problem_data.testcases) == 0:
+            return {"valid": False, "message": "至少需要一个测试用例"}
+        
+        if len(problem_data.testcases) > 20:
+            return {"valid": False, "message": "测试用例数量不能超过20个"}
+        
+        for i, testcase in enumerate(problem_data.testcases):
+            if not testcase.input or not testcase.input.strip():
+                return {"valid": False, "message": f"第{i+1}个测试用例的输入不能为空"}
+            
+            if not testcase.output or not testcase.output.strip():
+                return {"valid": False, "message": f"第{i+1}个测试用例的输出不能为空"}
+            
+            if len(testcase.input) > 2000:
+                return {"valid": False, "message": f"第{i+1}个测试用例的输入不能超过2000个字符"}
+            
+            if len(testcase.output) > 2000:
+                return {"valid": False, "message": f"第{i+1}个测试用例的输出不能超过2000个字符"}
+        
+        return {"valid": True, "message": "验证通过"}
+
+    @staticmethod
+    def _ensure_unique_problem_name(name: str) -> str:
+        """确保题目名称唯一，如果重复则添加数字后缀"""
+        custom_category_path = os.path.join(PROBLEMS_ROOT, "自定义题库")
+        
+        # 创建自定义题库目录（如果不存在）
+        os.makedirs(custom_category_path, exist_ok=True)
+        
+        base_name = name
+        counter = 1
+        current_name = base_name
+        
+        while os.path.exists(os.path.join(custom_category_path, current_name)):
+            current_name = f"{base_name}_{counter}"
+            counter += 1
+        
+        return current_name
+
+    @staticmethod
+    def _create_question_inf(problem_dir: str, name: str, chinese_name: str):
+        """创建Question.INF文件"""
+        inf_content = f"""试题中文名称={chinese_name}
+时间限制=1000ms
+内存限制=256M
+"""
+        
+        inf_path = os.path.join(problem_dir, "Question.INF")
+        
+        # 使用UTF-8编码写入文件
+        with open(inf_path, "w", encoding="utf-8") as f:
+            f.write(inf_content)
+        
+        logger.info(f"创建Question.INF文件: {inf_path}")
+
+    @staticmethod
+    def _create_problem_html(problem_dir: str, name: str, description: str, chinese_name: str):
+        """创建题目HTML文件"""
+        
+        # 解析描述中的结构化信息
+        parsed_sections = ProblemService._parse_description(description)
+        
+        # 生成统一格式的HTML
+        html_content = ProblemService._generate_problem_html({
+            'name': name,
+            'chinese_name': chinese_name,
+            **parsed_sections
+        })
+        
+        html_path = os.path.join(problem_dir, f"{name}.htm")
+        
+        # 使用GB2312编码写入文件以保持兼容性
+        with open(html_path, "w", encoding="gb2312") as f:
+            f.write(html_content)
+        
+        logger.info(f"创建HTML文件: {html_path}")
+
+    @staticmethod
+    def _parse_description(description: str) -> dict:
+        """解析题目描述，提取结构化信息"""
+        if not description:
+            return {'description': ''}
+        
+        sections = {}
+        lines = description.split('\n')
+        current_section = 'description'
+        content = []
+        
+        # 常见的章节标识符
+        section_patterns = {
+            'description': r'^(题目描述|问题描述|描述)[:：]?',
+            'input_format': r'^(输入格式?|输入)[:：]?',
+            'output_format': r'^(输出格式?|输出)[:：]?',
+            'sample_input': r'^(输入示例|样例输入|输入样例)[:：]?',
+            'sample_output': r'^(输出示例|样例输出|输出样例)[:：]?',
+            'data_range': r'^(数据范围|约束条件|限制条件)[:：]?',
+            'note': r'^(注意|备注|说明)[:：]?'
+        }
+        
+        import re
+        
+        for line in lines:
+            trimmed_line = line.strip()
+            
+            # 检查是否是新的章节
+            found_section = None
+            for section, pattern in section_patterns.items():
+                if re.match(pattern, trimmed_line, re.IGNORECASE):
+                    found_section = section
+                    break
+            
+            if found_section:
+                # 保存当前章节内容
+                if content:
+                    sections[current_section] = '\n'.join(content).strip()
+                
+                # 开始新章节
+                current_section = found_section
+                content = []
+                
+                # 如果这行除了标题还有内容，也要包含进去
+                content_after_title = re.sub(section_patterns[found_section], '', trimmed_line, flags=re.IGNORECASE).strip()
+                if content_after_title:
+                    content.append(content_after_title)
+            else:
+                # 添加到当前章节
+                content.append(line)
+        
+        # 保存最后一个章节
+        if content:
+            sections[current_section] = '\n'.join(content).strip()
+        
+        return sections
+
+    @staticmethod
+    def _generate_problem_html(problem_data: dict) -> str:
+        """生成统一格式的题目HTML"""
+        name = problem_data.get('name', '')
+        chinese_name = problem_data.get('chinese_name', '')
+        description = problem_data.get('description', '')
+        input_format = problem_data.get('input_format', '')
+        output_format = problem_data.get('output_format', '')
+        sample_input = problem_data.get('sample_input', '')
+        sample_output = problem_data.get('sample_output', '')
+        data_range = problem_data.get('data_range', '')
+        note = problem_data.get('note', '')
+        
+        # 转义HTML特殊字符
+        def escape_html(text):
+            if not text:
+                return ''
+            return (html.escape(text)
+                   .replace('\n', '</br>'))
+        
+        # 转义不带换行的文本
+        def escape_simple(text):
+            if not text:
+                return ''
+            return html.escape(text)
+        
+        html_template = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=gb2312" />
+    <title>题目</title>
+    <style type="text/css">
+        .SimSun
+        {{
+            font-size: 14px;
+            font-family: 宋体;
+        }}
+        body {{
+            background: #FFFFFF;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            margin: 0px auto;
+            width: 1000px;
+            padding: 20px;
+        }}
+        .title {{
+            font-family: 宋体;
+            font-size: 18px;
+            font-weight: bold;
+            color: Green;
+            text-align: center;
+            margin-bottom: 20px;
+        }}
+        .section-title {{
+            font-family: 宋体;
+            font-size: 16px;
+            font-weight: bold;
+            color: Green;
+            margin-left: 20px;
+            margin-top: 15px;
+            margin-bottom: 5px;
+        }}
+        .content {{
+            line-height: 22px;
+            margin-left: 20px;
+            margin-right: 20px;
+        }}
+        .note-text {{
+            color: #FF0000;
+        }}
+        .sample-data {{
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 5px;
+            border: 1px solid #ddd;
+            margin: 5px 0;
+        }}
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <p class="title">{escape_simple(chinese_name or name)}</p>"""
+        
+        if description:
+            html_template += f"""
+        
+        <p class="section-title">题目描述</p>
+        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(description)}</p>"""
+        
+        if input_format:
+            html_template += f"""
+        
+        <p class="section-title">输入</p>
+        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(input_format)}</p>"""
+        
+        if output_format:
+            html_template += f"""
+        
+        <p class="section-title">输出</p>
+        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(output_format)}</p>"""
+        
+        if sample_input:
+            html_template += f"""
+        
+        <p class="section-title">输入示例</p>
+        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_simple(sample_input)}</p>"""
+        
+        if sample_output:
+            html_template += f"""
+        
+        <p class="section-title">输出示例</p>
+        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_simple(sample_output)}</p>"""
+        
+        if data_range:
+            html_template += f"""
+        
+        <p class="section-title">数据范围</p>
+        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(data_range)}</p>"""
+        
+        if note:
+            html_template += f"""
+        
+        <p class="section-title">注意</p>
+        <p class="SimSun content">&nbsp;&nbsp;&nbsp;<span class="note-text">{escape_html(note)}</span></p>"""
+        
+        html_template += """
+    </div>
+</body>
+</html>"""
+        
+        return html_template
+
+    @staticmethod
+    def _create_test_cases(problem_dir: str, testcases: List):
+        """创建测试用例文件"""
+        for i, testcase in enumerate(testcases, 1):
+            # 创建输入文件
+            input_path = os.path.join(problem_dir, f"{i}.in")
+            with open(input_path, "w", encoding="utf-8") as f:
+                f.write(testcase.input)
+            
+            # 创建输出文件
+            output_path = os.path.join(problem_dir, f"{i}.out")
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(testcase.output)
+            
+            logger.info(f"创建测试用例 {i}: {input_path}, {output_path}")
+        
+        logger.info(f"总共创建了 {len(testcases)} 组测试用例") 

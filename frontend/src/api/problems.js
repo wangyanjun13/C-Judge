@@ -139,3 +139,66 @@ export const getAllProblemsData = async (options = {}) => {
     };
   }
 } 
+
+/**
+ * 创建自定义题目
+ * @param {Object} problemData - 题目数据
+ * @param {String} problemData.name - 题目名称（英文）
+ * @param {String} problemData.chineseName - 题目中文名称
+ * @param {String} problemData.description - 题目描述
+ * @param {Array} problemData.testcases - 测试用例数组
+ * @returns {Promise<Object>} - 返回创建结果
+ */
+export const createCustomProblem = async (problemData) => {
+  try {
+    console.log('开始创建自定义题目:', problemData.name);
+    
+    // 数据验证
+    if (!problemData.name || !problemData.chineseName || !problemData.description) {
+      throw new Error('题目名称、中文名称和描述都不能为空');
+    }
+    
+    if (!problemData.testcases || problemData.testcases.length === 0) {
+      throw new Error('至少需要一个测试用例');
+    }
+    
+    // 验证测试用例
+    for (let i = 0; i < problemData.testcases.length; i++) {
+      const testcase = problemData.testcases[i];
+      if (!testcase.input || !testcase.output) {
+        throw new Error(`第${i + 1}个测试用例的输入和输出都不能为空`);
+      }
+    }
+    
+    // 构造请求数据
+    const requestData = {
+      name: problemData.name.trim(),
+      chinese_name: problemData.chineseName.trim(),
+      description: problemData.description.trim(),
+      testcases: problemData.testcases.map(tc => ({
+        input: tc.input.trim(),
+        output: tc.output.trim()
+      }))
+    };
+    
+    console.log('发送创建自定义题目请求:', requestData);
+    
+    const response = await axios.post('/api/problems/custom', requestData);
+    
+    console.log('创建自定义题目响应:', response.data);
+    
+    return response.data;
+    
+  } catch (error) {
+    console.error('创建自定义题目失败:', error);
+    
+    // 处理不同类型的错误
+    if (error.response && error.response.data && error.response.data.detail) {
+      throw new Error(error.response.data.detail);
+    } else if (error.message) {
+      throw new Error(error.message);
+    } else {
+      throw new Error('创建题目失败，请重试');
+    }
+  }
+} 
