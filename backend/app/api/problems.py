@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, Response
 from typing import List, Optional
-from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail
+from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail, CustomProblemCreate, CustomProblemResponse
 from app.services.problem_service import ProblemService
 from app.models import get_db, Problem
 from sqlalchemy.orm import Session
 from fastapi import Depends, Query
+from app.utils.auth import get_teacher_user, get_admin_user
+from app.models import User
 import logging
 
 # 创建路由
@@ -162,3 +164,35 @@ async def get_problem_detail(
     except Exception as e:
         logger.error(f"获取题目详情失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取题目详情失败: {str(e)}") 
+
+@router.post("/custom", response_model=CustomProblemResponse)
+async def create_custom_problem(
+    problem_data: CustomProblemCreate,
+    current_user: User = Depends(get_teacher_user)  # 需要教师或管理员权限
+):
+    """
+    创建自定义题目
+    
+    Args:
+        problem_data: 题目创建数据
+        current_user: 当前用户（需要教师或管理员权限）
+        
+    Returns:
+        创建结果
+    """
+    try:
+        logger.info(f"用户 {current_user.username} 开始创建自定义题目: {problem_data.name}")
+        
+        # 调用服务层创建题目
+        result = ProblemService.create_custom_problem(problem_data)
+        
+        if result.success:
+            logger.info(f"用户 {current_user.username} 创建自定义题目成功: {result.problem_path}")
+        else:
+            logger.warning(f"用户 {current_user.username} 创建自定义题目失败: {result.message}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"创建自定义题目API失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"创建题目失败: {str(e)}") 

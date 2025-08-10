@@ -96,17 +96,227 @@
 
     <!-- 上传题库 -->
     <div v-if="activeTab === 'upload'" class="tab-content">
-      <div class="upload-section">
-        <h3>上传题库</h3>
-        <p>请选择题库文件（ZIP格式）进行上传</p>
-        <div class="upload-form">
-          <input type="file" accept=".zip" @change="handleFileChange" />
-          <button @click="uploadProblemBank" class="btn btn-primary" :disabled="!selectedFile">
-            上传
-          </button>
+      <div class="upload-container">
+        <!-- 页面标题 -->
+        <div class="page-header">
+          <h2 class="page-title">创建自定义题目</h2>
+          <p class="page-subtitle">填写题目信息，创建您的专属练习题目</p>
         </div>
-        <div v-if="uploadStatus" class="upload-status">
-          {{ uploadStatus }}
+        
+        <div class="form-container">
+          <!-- 基本信息卡片 -->
+          <div class="form-card">
+            <div class="card-header">
+              <h3 class="card-title">基本信息</h3>
+            </div>
+            <div class="card-body">
+              <div class="form-grid">
+                <div class="form-field">
+                  <label class="field-label required">题目名称（英文）</label>
+                  <input 
+                    v-model="problemForm.name" 
+                    placeholder="例如: fibonacci"
+                    class="field-input"
+                    :class="{ error: errors.name }"
+                    @input="validateField('name')"
+                  />
+                  <div v-if="errors.name" class="error-message">{{ errors.name }}</div>
+                  <div class="field-hint">只允许字母、数字、下划线，用作题目文件夹名称</div>
+                </div>
+                
+                <div class="form-field">
+                  <label class="field-label required">题目中文名称</label>
+                  <input 
+                    v-model="problemForm.chineseName" 
+                    placeholder="例如: 斐波那契数列"
+                    class="field-input"
+                    :class="{ error: errors.chineseName }"
+                    @input="validateField('chineseName')"
+                  />
+                  <div v-if="errors.chineseName" class="error-message">{{ errors.chineseName }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 题目描述卡片 -->
+          <div class="form-card">
+            <div class="card-header">
+              <h3 class="card-title">题目描述</h3>
+              <div class="header-actions">
+                <button 
+                  type="button" 
+                  @click="useDescriptionTemplate"
+                  class="action-btn template-btn"
+                >
+                  <span class="btn-icon">📝</span>
+                  使用模板
+                </button>
+                <button 
+                  type="button" 
+                  @click="showDescriptionPreview = !showDescriptionPreview"
+                  class="action-btn preview-btn"
+                >
+                  <span class="btn-icon">👁</span>
+                  {{ showDescriptionPreview ? '隐藏预览' : '预览效果' }}
+                </button>
+                <button 
+                  type="button" 
+                  @click="showFormatHelp = !showFormatHelp"
+                  class="action-btn help-btn"
+                >
+                  <span class="btn-icon">❓</span>
+                  格式帮助
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="form-field full-width">
+                <!-- 格式帮助 -->
+                <div v-if="showFormatHelp" class="format-help">
+                  <h5>🔍 自动格式识别说明</h5>
+                  <p>系统会自动识别以下格式并转换为统一的HTML显示：</p>
+                  <div class="help-grid">
+                    <div class="help-item">
+                      <strong>题目描述：</strong> 以"题目描述："、"问题描述："或"描述："开头
+                    </div>
+                    <div class="help-item">
+                      <strong>输入格式：</strong> 以"输入格式："、"输入："开头
+                    </div>
+                    <div class="help-item">
+                      <strong>输出格式：</strong> 以"输出格式："、"输出："开头
+                    </div>
+                    <div class="help-item">
+                      <strong>输入示例：</strong> 以"输入示例："、"样例输入："开头
+                    </div>
+                    <div class="help-item">
+                      <strong>输出示例：</strong> 以"输出示例："、"样例输出："开头
+                    </div>
+                    <div class="help-item">
+                      <strong>数据范围：</strong> 以"数据范围："、"约束条件："开头
+                    </div>
+                  </div>
+                  <p class="help-note"><em>💡 如果没有使用上述格式，整个内容将作为题目描述处理。</em></p>
+                </div>
+                
+                <label class="field-label required">题目描述内容</label>
+                <textarea 
+                  v-model="problemForm.description" 
+                  rows="8"
+                  placeholder="请输入题目描述，推荐使用结构化格式：&#10;&#10;题目描述：&#10;这里是题目的具体要求...&#10;&#10;输入：&#10;输入格式说明...&#10;&#10;输出：&#10;输出格式说明...&#10;&#10;输入示例：&#10;16 24&#10;&#10;输出示例：&#10;8&#10;&#10;数据范围：&#10;数据范围说明..."
+                  class="field-textarea"
+                  :class="{ error: errors.description }"
+                  @input="validateField('description')"
+                ></textarea>
+                
+                <!-- 预览区域 -->
+                <div v-if="showDescriptionPreview" class="preview-panel">
+                  <div class="preview-header">
+                    <h5>📋 预览效果</h5>
+                  </div>
+                  <div class="preview-content" v-html="formattedDescription"></div>
+                </div>
+                
+                <div v-if="errors.description" class="error-message">{{ errors.description }}</div>
+                <div class="field-meta">
+                  <span class="char-count">{{ problemForm.description.length }}/{{ LIMITS.description }} 字符</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 测试用例卡片 -->
+          <div class="form-card">
+            <div class="card-header">
+              <h3 class="card-title">测试用例 <span class="required-mark">*</span></h3>
+              <div class="header-actions">
+                <button 
+                  @click="addTestcase()" 
+                  class="action-btn add-btn"
+                  :disabled="problemForm.testcases.length >= LIMITS.max_testcases"
+                  type="button"
+                >
+                  <span class="btn-icon">➕</span>
+                  添加用例 ({{ problemForm.testcases.length }}/{{ LIMITS.max_testcases }})
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="testcases-grid">
+                <div 
+                  v-for="(testcase, index) in problemForm.testcases" 
+                  :key="index" 
+                  class="testcase-card"
+                  :class="{ error: errors[`testcase_${index}`] }"
+                >
+                  <div class="testcase-header">
+                    <h4 class="testcase-title">
+                      <span class="case-number">{{ index + 1 }}</span>
+                      测试用例
+                    </h4>
+                    <button 
+                      v-if="problemForm.testcases.length > 1"
+                      @click="removeTestcase(index)" 
+                      class="remove-btn"
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  <div class="testcase-content">
+                    <div class="io-section">
+                      <label class="io-label">📥 输入数据</label>
+                      <textarea 
+                        v-model="testcase.input" 
+                        placeholder="输入测试数据..."
+                        rows="3"
+                        class="io-input"
+                        @input="validateTestcase(index)"
+                      ></textarea>
+                      <span class="char-counter">{{ testcase.input.length }}/{{ LIMITS.testcase_input }}</span>
+                    </div>
+                    
+                    <div class="io-section">
+                      <label class="io-label">📤 期望输出</label>
+                      <textarea 
+                        v-model="testcase.output" 
+                        placeholder="期望的输出结果..."
+                        rows="3"
+                        class="io-input"
+                        @input="validateTestcase(index)"
+                      ></textarea>
+                      <span class="char-counter">{{ testcase.output.length }}/{{ LIMITS.testcase_output }}</span>
+                    </div>
+                  </div>
+                  
+                  <div v-if="errors[`testcase_${index}`]" class="error-message">
+                    {{ errors[`testcase_${index}`] }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作按钮卡片 -->
+          <div class="form-card action-card">
+            <div class="card-body">
+              <div class="action-buttons">
+                <button @click="resetForm()" class="action-btn secondary-btn" type="button">
+                  <span class="btn-icon">🔄</span>
+                  清空重置
+                </button>
+                <button @click="previewProblem()" class="action-btn info-btn" type="button" :disabled="!isFormValid">
+                  <span class="btn-icon">👁</span>
+                  预览题目
+                </button>
+                <button @click="submitCustomProblem()" class="action-btn primary-btn" type="button" :disabled="!isFormValid || isSubmitting">
+                  <span class="btn-icon">{{ isSubmitting ? '⏳' : '✅' }}</span>
+                  {{ isSubmitting ? '创建中...' : '创建题目' }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -206,6 +416,41 @@
       </div>
     </div>
     
+    <!-- 题目预览弹窗 -->
+    <div v-if="showProblemPreview" class="modal-overlay" @click="showProblemPreview = false">
+      <div class="modal large-modal" @click.stop>
+        <div class="modal-header">
+          <h3>📋 题目预览</h3>
+          <button @click="showProblemPreview = false" class="close-btn">✕</button>
+        </div>
+        <div class="modal-content">
+          <div class="preview-container">
+            <div class="preview-info">
+              <h4>{{ problemForm.chineseName || '题目中文名称' }}</h4>
+              <p class="problem-name">英文名称: {{ problemForm.name || '题目英文名称' }}</p>
+            </div>
+            <div class="preview-content" v-html="formattedDescription"></div>
+            <div class="testcases-preview">
+              <h5>📝 测试用例</h5>
+              <div v-for="(testcase, index) in problemForm.testcases" :key="index" class="testcase-preview">
+                <div class="testcase-preview-header">测试用例 {{ index + 1 }}</div>
+                <div class="io-preview">
+                  <div class="input-preview">
+                    <strong>输入:</strong>
+                    <pre>{{ testcase.input || '（无输入数据）' }}</pre>
+                  </div>
+                  <div class="output-preview">
+                    <strong>输出:</strong>
+                    <pre>{{ testcase.output || '（无输出数据）' }}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- 打标签对话框 -->
     <div v-if="showTagDialog" class="modal-overlay" @click="closeTagDialog">
       <div class="modal large-modal" @click.stop>
@@ -230,6 +475,8 @@ import TagManager from '../../components/TagManager.vue';
 import ProblemTagDialog from '../../components/ProblemTagDialog.vue';
 import { getTagTypes, getTags, getProblemTags, setProblemTags, getBatchProblemTags, getMyApprovalRequests } from '../../api/tags';
 import enhancedProblemsAPI from '../../api/enhancedProblems';
+import { createCustomProblem } from '../../api/problems';
+import { smartFormatProblem } from '../../utils/problemFormatter';
 
 // 获取路由参数
 const route = useRoute();
@@ -241,8 +488,53 @@ const selectedCategory = ref('');
 const problems = ref([]);
 const loading = ref(false);
 const error = ref(null);
-const selectedFile = ref(null);
-const uploadStatus = ref('');
+// 自定义题目相关状态
+const isSubmitting = ref(false);
+
+// 题目描述模板
+const DESCRIPTION_TEMPLATE = `题目描述：
+计算两个整数的最大公约数
+
+输入：
+两个正整数 a 和 b，用空格分隔
+
+输出：
+输出它们的最大公约数
+
+输入示例：
+16 24
+
+输出示例：
+8
+
+数据范围：
+1 ≤ a, b ≤ 10^9
+
+注意：
+请使用辗转相除法实现`;
+
+// 表单数据
+const problemForm = ref({
+  name: '',
+  chineseName: '',
+  description: '',
+  testcases: [
+    { input: '', output: '' }
+  ]
+});
+
+// 验证错误
+const errors = ref({});
+
+// 安全限制
+const LIMITS = {
+  description: 10000,
+  testcase_input: 2000,
+  testcase_output: 2000,
+  max_testcases: 20,
+  name_max_length: 50,
+  chinese_name_max_length: 100
+};
 
 // 打标签相关状态
 const showTagDialog = ref(false);
@@ -262,6 +554,11 @@ const lastFilterOptions = ref({});
 // 审核请求相关状态
 const myRequests = ref([]);
 const requestsLoading = ref(false);
+
+// 题目描述预览相关状态
+const showDescriptionPreview = ref(false);
+const showFormatHelp = ref(false);
+const showProblemPreview = ref(false);
 const requestFilter = ref('all');
 const pendingRequests = computed(() => myRequests.value.filter(r => r.status === 'pending').length);
 const filteredRequests = computed(() => {
@@ -269,6 +566,24 @@ const filteredRequests = computed(() => {
     return myRequests.value.filter(r => r.status === 'pending');
   }
   return myRequests.value;
+});
+
+// 格式化后的题目描述预览
+const formattedDescription = computed(() => {
+  if (!problemForm.value.description) {
+    return '<p class="no-content">请输入题目描述...</p>';
+  }
+  
+  try {
+    return smartFormatProblem({
+      name: problemForm.value.name || '题目',
+      chineseName: problemForm.value.chineseName || '题目',
+      description: problemForm.value.description
+    });
+  } catch (error) {
+    console.error('格式化题目描述失败:', error);
+    return '<p class="error">格式化失败，请检查输入内容</p>';
+  }
 });
 
 // 选择标签
@@ -528,31 +843,228 @@ const deleteProblem = async (problem) => {
   }
 };
 
-// 处理文件选择
-const handleFileChange = (event) => {
-  selectedFile.value = event.target.files[0];
-  uploadStatus.value = '';
-};
-
-// 上传题库
-const uploadProblemBank = () => {
-  if (!selectedFile.value) {
-    ElMessage.warning('请先选择文件');
-    return;
-  }
-  
-  uploadStatus.value = '上传中...';
-  ElMessage.info('上传题库功能正在开发中...');
-  logUserOperation(OperationType.UPLOAD_PROBLEM_BANK, `文件: ${selectedFile.value.name}`);
-  // 此处实现文件上传逻辑
-};
-
 // 处理标签更新
 const handleTagsUpdate = async () => {
   ElMessage.success('标签更新成功');
   // 使用增强API的缓存失效功能，然后重新加载所有数据
   enhancedProblemsAPI.invalidateAfterUpdate('tag');
   await loadAllData({ forceRefresh: true });
+};
+
+// ================= 自定义题目相关函数 =================
+
+// 验证题目名称
+const validateProblemName = (name) => {
+  if (!name || name.trim() === '') {
+    return '题目名称不能为空';
+  }
+  if (name.length > LIMITS.name_max_length) {
+    return `题目名称不能超过${LIMITS.name_max_length}个字符`;
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(name)) {
+    return '题目名称只能包含字母、数字和下划线';
+  }
+  return null;
+};
+
+// 验证中文名称
+const validateChineseName = (name) => {
+  if (!name || name.trim() === '') {
+    return '题目中文名称不能为空';
+  }
+  if (name.length > LIMITS.chinese_name_max_length) {
+    return `题目中文名称不能超过${LIMITS.chinese_name_max_length}个字符`;
+  }
+  return null;
+};
+
+// 验证题目描述
+const validateDescription = (description) => {
+  if (!description || description.trim() === '') {
+    return '题目描述不能为空';
+  }
+  if (description.length > LIMITS.description) {
+    return `题目描述不能超过${LIMITS.description}个字符`;
+  }
+  return null;
+};
+
+// 验证测试用例
+const validateTestcaseData = (input, output) => {
+  if (!input || input.trim() === '') {
+    return '输入数据不能为空';
+  }
+  if (!output || output.trim() === '') {
+    return '输出数据不能为空';
+  }
+  if (input.length > LIMITS.testcase_input) {
+    return `输入数据不能超过${LIMITS.testcase_input}个字符`;
+  }
+  if (output.length > LIMITS.testcase_output) {
+    return `输出数据不能超过${LIMITS.testcase_output}个字符`;
+  }
+  return null;
+};
+
+// 验证单个字段
+const validateField = (fieldName) => {
+  switch (fieldName) {
+    case 'name':
+      errors.value.name = validateProblemName(problemForm.value.name);
+      break;
+    case 'chineseName':
+      errors.value.chineseName = validateChineseName(problemForm.value.chineseName);
+      break;
+    case 'description':
+      errors.value.description = validateDescription(problemForm.value.description);
+      break;
+  }
+};
+
+// 验证测试用例
+const validateTestcase = (index) => {
+  const testcase = problemForm.value.testcases[index];
+  if (testcase) {
+    errors.value[`testcase_${index}`] = validateTestcaseData(testcase.input, testcase.output);
+  }
+};
+
+// 验证整个表单
+const validateForm = () => {
+  errors.value = {};
+  
+  // 验证基本字段
+  validateField('name');
+  validateField('chineseName'); 
+  validateField('description');
+  
+  // 验证测试用例
+  problemForm.value.testcases.forEach((testcase, index) => {
+    validateTestcase(index);
+  });
+  
+  // 检查是否有测试用例
+  if (problemForm.value.testcases.length === 0) {
+    errors.value.testcases = '至少需要一个测试用例';
+  }
+  
+  return Object.keys(errors.value).every(key => !errors.value[key]);
+};
+
+// 计算表单是否有效
+const isFormValid = computed(() => {
+  return problemForm.value.name && 
+         problemForm.value.chineseName && 
+         problemForm.value.description && 
+         problemForm.value.testcases.length > 0 &&
+         problemForm.value.testcases.every(tc => tc.input && tc.output) &&
+         Object.keys(errors.value).every(key => !errors.value[key]);
+});
+
+// 添加测试用例
+const addTestcase = () => {
+  if (problemForm.value.testcases.length < LIMITS.max_testcases) {
+    problemForm.value.testcases.push({ input: '', output: '' });
+  }
+};
+
+// 删除测试用例
+const removeTestcase = (index) => {
+  if (problemForm.value.testcases.length > 1) {
+    problemForm.value.testcases.splice(index, 1);
+    // 清除对应的错误信息
+    delete errors.value[`testcase_${index}`];
+  }
+};
+
+// 重置表单
+const resetForm = () => {
+  problemForm.value = {
+    name: '',
+    chineseName: '',
+    description: '',
+    testcases: [{ input: '', output: '' }]
+  };
+  errors.value = {};
+  ElMessage.success('表单已重置');
+};
+
+// 使用描述模板
+const useDescriptionTemplate = () => {
+  problemForm.value.description = DESCRIPTION_TEMPLATE;
+  validateField('description');
+  ElMessage.success('已填充描述模板');
+};
+
+// 预览题目
+const previewProblem = () => {
+  if (!validateForm()) {
+    ElMessage.warning('请完善表单信息');
+    return;
+  }
+  
+  // 显示预览弹窗
+  showProblemPreview.value = true;
+};
+
+// 提交自定义题目
+const submitCustomProblem = async () => {
+  if (!validateForm()) {
+    ElMessage.error('请检查表单中的错误');
+    return;
+  }
+  
+  isSubmitting.value = true;
+  
+  try {
+    ElMessage.info('正在创建题目...');
+    
+    // 构造API调用数据
+    const problemData = {
+      name: problemForm.value.name,
+      chineseName: problemForm.value.chineseName,
+      description: problemForm.value.description,
+      testcases: problemForm.value.testcases
+    };
+    
+    // 调用真正的API
+    const result = await createCustomProblem(problemData);
+    
+    if (result.success) {
+      // 显示成功弹窗，指导用户去题库维护查看
+      ElMessageBox.alert(
+        '题目创建成功！您可以在"题库维护"标签页中查看和管理已创建的题目与标签。',
+        '创建成功',
+        {
+          confirmButtonText: '前往题库维护',
+          type: 'success'
+        }
+      ).then(() => {
+        // 用户点击确认后，切换到题库维护标签页
+        activeTab.value = 'problems';
+        // 强制刷新题库数据
+        loadAllData({ forceRefresh: true });
+      }).catch(() => {
+        // 用户取消也要刷新数据
+        loadAllData({ forceRefresh: true });
+      });
+      
+      logUserOperation(OperationType.CREATE_CUSTOM_PROBLEM, 
+        `题目: ${problemForm.value.chineseName}`);
+      
+      // 重置表单
+      resetForm();
+      
+    } else {
+      ElMessage.error(result.message || '创建题目失败');
+    }
+    
+  } catch (error) {
+    console.error('创建题目失败:', error);
+    ElMessage.error(error.message || '创建题目失败，请重试');
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
 // 审核请求相关方法
@@ -831,25 +1343,10 @@ onMounted(async () => {
 }
 
 .upload-section {
-  max-width: 600px;
-  margin: 0 auto;
+  width: 100%;
 }
 
-.upload-form {
-  margin: 20px 0;
-  display: flex;
-  align-items: center;
-}
 
-.upload-form input {
-  flex-grow: 1;
-  margin-right: 10px;
-}
-
-.upload-status {
-  margin-top: 10px;
-  color: #409eff;
-}
 
 /* 打标签对话框样式 */
 .modal-overlay {
@@ -1145,5 +1642,933 @@ onMounted(async () => {
   font-size: 12px;
   font-style: italic;
   margin-top: 5px;
+}
+
+/* ================= 现代化表单样式 ================= */
+
+.upload-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem 0;
+  background: linear-gradient(135deg, var(--primary-gradient));
+  color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.page-subtitle {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-card {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.form-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 1rem 1.5rem;
+  border-bottom: 2px solid var(--primary-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.card-title::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--primary-gradient);
+  margin-right: 10px;
+  border-radius: 2px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.field-label.required::after {
+  content: ' *';
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.required-mark {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.field-input, .field-textarea {
+  padding: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  transition: var(--transition);
+  background-color: #fafbfc;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.field-input:focus, .field-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  transform: translateY(-1px);
+}
+
+.field-input.error, .field-textarea.error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.field-input.error:focus, .field-textarea.error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+  text-decoration: none;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.template-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.template-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.preview-btn, .help-btn {
+  background: linear-gradient(135deg, #6b7280, #9ca3af);
+  color: white;
+  box-shadow: 0 2px 4px rgba(107, 114, 128, 0.2);
+}
+
+.preview-btn:hover:not(:disabled), .help-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(107, 114, 128, 0.3);
+}
+
+.primary-btn {
+  background: var(--primary-gradient);
+  color: white;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+.primary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.secondary-btn {
+  background: linear-gradient(135deg, #6b7280, #9ca3af);
+  color: white;
+  box-shadow: 0 2px 4px rgba(107, 114, 128, 0.2);
+}
+
+.secondary-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(107, 114, 128, 0.3);
+}
+
+.info-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.info-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.add-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.add-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-icon {
+  font-size: 1rem;
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.error-message::before {
+  content: '⚠';
+}
+
+.field-hint {
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.field-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.char-count {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.testcases-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.testcase-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border: 2px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.testcase-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--primary-gradient);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.testcase-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.testcase-card:hover::before {
+  opacity: 1;
+}
+
+.testcase-card.error {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+}
+
+.testcase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.testcase-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.case-number {
+  background: var(--primary-gradient);
+  color: white;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.remove-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.remove-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.testcase-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.io-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.io-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.io-input {
+  padding: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  transition: var(--transition);
+  background-color: #fafbfc;
+  resize: vertical;
+  min-height: 4rem;
+}
+
+.io-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.char-counter {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.75rem;
+  font-size: 0.625rem;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  pointer-events: none;
+}
+
+.format-help {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border: 2px solid #3b82f6;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.format-help h5 {
+  color: #1e40af;
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.format-help p {
+  margin: 0.5rem 0;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.help-item {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.help-note {
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  margin: 0.75rem 0 0 0;
+  color: #1e40af;
+}
+
+.preview-panel {
+  margin-top: 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  background: white;
+  overflow: hidden;
+}
+
+.preview-header {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.preview-header h5 {
+  margin: 0;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.preview-content {
+  padding: 1rem;
+  min-height: 8rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  background: white;
+}
+
+.action-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 2px solid var(--primary-color);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 预览弹窗样式 */
+.preview-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.preview-info {
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.preview-info h4 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.problem-name {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.testcases-preview {
+  margin-top: 1.5rem;
+  border-top: 2px solid #e2e8f0;
+  padding-top: 1.5rem;
+}
+
+.testcases-preview h5 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.testcase-preview {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.testcase-preview-header {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.io-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.input-preview, .output-preview {
+  background: white;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+}
+
+.input-preview strong, .output-preview strong {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.input-preview pre, .output-preview pre {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #374151;
+  background: #f9fafb;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-add-testcase {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #67c23a, #85ce61);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.3);
+}
+
+.btn-add-testcase:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.4);
+}
+
+.btn-add-testcase:disabled {
+  background: #c0c4cc;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #f0f2f5;
+}
+
+.form-actions .btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.form-actions .btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.form-actions .btn:hover::before {
+  width: 100px;
+  height: 100px;
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #909399, #b1b3b8);
+  color: white;
+  box-shadow: 0 2px 8px rgba(144, 147, 153, 0.3);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(144, 147, 153, 0.4);
+}
+
+.btn-info {
+  background: linear-gradient(135deg, #909399, #b1b3b8);
+  color: white;
+  box-shadow: 0 2px 8px rgba(144, 147, 153, 0.3);
+}
+
+.btn-info:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(144, 147, 153, 0.4);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #409eff, #66b1ff);
+  color: white;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+}
+
+.btn:disabled {
+  background: #c0c4cc !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+
+
+/* 题目描述预览相关样式 */
+.description-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.description-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-preview, .btn-help {
+  padding: 4px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: white;
+  color: #606266;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-preview:hover, .btn-help:hover {
+  color: #409eff;
+  border-color: #409eff;
+}
+
+.btn-template {
+  padding: 4px 12px;
+  border: 1px solid #67c23a;
+  border-radius: 4px;
+  background: #67c23a;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-template:hover {
+  background: #5daf34;
+  border-color: #5daf34;
+}
+
+.format-help {
+  background: #f0f9ff;
+  border: 1px solid #91d5ff;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.format-help h5 {
+  color: #1890ff;
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.format-help ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.format-help li {
+  margin-bottom: 5px;
+  color: #666;
+  font-size: 13px;
+}
+
+.format-help p {
+  margin: 8px 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.description-input-area {
+  position: relative;
+}
+
+.description-preview {
+  margin-top: 15px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #f9f9f9;
+}
+
+.description-preview h5 {
+  margin: 0;
+  padding: 10px 15px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #e4e7ed;
+  color: #303133;
+  font-size: 14px;
+  border-radius: 6px 6px 0 0;
+}
+
+.preview-content {
+  padding: 15px;
+  background: white;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 0 0 6px 6px;
+}
+
+.preview-content .no-content {
+  color: #909399;
+  font-style: italic;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.preview-content .error {
+  color: #f56c6c;
+  text-align: center;
+  margin: 20px 0;
+}
+
+/* 预览内容样式 - 模拟HTML显示效果 */
+.preview-content .SimSun {
+  font-size: 14px;
+  font-family: 宋体, SimSun, serif;
+}
+
+.preview-content .title {
+  font-family: 宋体, SimSun, serif;
+  font-size: 18px;
+  font-weight: bold;
+  color: Green;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.preview-content .section-title {
+  font-family: 宋体, SimSun, serif;
+  font-size: 16px;
+  font-weight: bold;
+  color: Green;
+  margin-left: 20px;
+  margin-top: 15px;
+  margin-bottom: 5px;
+}
+
+.preview-content .content {
+  line-height: 22px;
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+.preview-content .note-text {
+  color: #FF0000;
+}
+
+.preview-content .sample-data {
+  font-family: monospace;
+  background-color: #f5f5f5;
+  padding: 5px;
+  border: 1px solid #ddd;
+  margin: 5px 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .testcase-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .io-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .upload-container {
+    padding: 0 1rem;
+  }
+  
+  .page-header {
+    padding: 1.5rem 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  
+  .header-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .modal {
+    width: 95%;
+    margin: 1rem;
+  }
+  
+  .preview-container {
+    max-height: 60vh;
+  }
 }
 </style> 

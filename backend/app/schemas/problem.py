@@ -40,3 +40,21 @@ class ProblemDetail(BaseModel):
 
     class Config:
         orm_mode = True 
+
+class TestCase(BaseModel):
+    """测试用例模型"""
+    input: str
+    output: str
+
+class CustomProblemCreate(BaseModel):
+    """自定义题目创建模型"""
+    name: str
+    chinese_name: str
+    description: str
+    testcases: List[TestCase]
+
+class CustomProblemResponse(BaseModel):
+    """自定义题目创建响应模型"""
+    success: bool
+    message: str
+    problem_path: Optional[str] = None 

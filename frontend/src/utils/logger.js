@@ -44,6 +44,7 @@ export const OperationType = {
   UPDATE_PROBLEM_TAGS: '更新题目标签',
   DELETE_PROBLEM: '删除题目',
   UPLOAD_PROBLEM_BANK: '上传题库',
+  CREATE_CUSTOM_PROBLEM: '创建自定义题目',
   
   // 提交相关
   SUBMIT_CODE: '提交代码',
