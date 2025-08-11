@@ -148,6 +148,17 @@ async def get_problem_html_content(problem_path: str):
         logger.error(f"获取题目HTML内容失败: {str(e)}")
         return Response(content="<p>题目内容加载失败</p>", media_type="text/html")
 
+@router.get("/testcases/{problem_path:path}")
+async def get_problem_testcases(problem_path: str):
+    """根据题目路径获取测试用例"""
+    try:
+        from app.services.judge_service import JudgeService
+        test_cases = JudgeService.get_test_cases(problem_path)
+        return {"test_cases": test_cases}
+    except Exception as e:
+        logger.error(f"获取题目测试用例失败: {str(e)}")
+        return {"test_cases": []}
+
 @router.get("/{problem_id}", response_model=ProblemDetail)
 async def get_problem_detail(
     problem_id: int, 
