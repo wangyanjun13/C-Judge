@@ -413,16 +413,26 @@ class ProblemService:
         for html_path in possible_html_paths:
             if os.path.exists(html_path):
                 try:
-                    # 尝试以不同编码读取文件
-                    encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'latin1']
-                    for encoding in encodings:
-                        try:
-                            with open(html_path, "r", encoding=encoding) as f:
-                                html_content = f.read()
-                                logger.info(f"成功读取题目HTML文件: {html_path}，使用编码: {encoding}")
-                                break  # 成功读取，退出编码循环
-                        except UnicodeDecodeError:
-                            continue  # 尝试下一种编码
+                    # 二进制读取，检测BOM
+                    with open(html_path, "rb") as f:
+                        raw_data = f.read()
+                        if raw_data.startswith(b'\xff\xfe'):  # UTF-16 LE
+                            content = raw_data[2:].decode('utf-16-le')
+                        elif raw_data.startswith(b'\xef\xbb\xbf'):  # UTF-8
+                            content = raw_data[3:].decode('utf-8')
+                        else:
+                            # 尝试编码
+                            for encoding in ['utf-8', 'gbk', 'gb2312', 'gb18030', 'latin1']:
+                                try:
+                                    content = raw_data.decode(encoding)
+                                    break
+                                except UnicodeDecodeError:
+                                    continue
+                            else:
+                                content = raw_data.decode('latin1')
+                    
+                    html_content = content
+                    logger.info(f"成功读取题目HTML文件: {html_path}")
                     break  # 文件读取成功，退出文件路径循环
                 except Exception as e:
                     logger.error(f"读取题目HTML文件失败: {str(e)}")

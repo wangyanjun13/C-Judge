@@ -756,27 +756,68 @@ class JudgeService:
     @staticmethod
     def get_test_cases(data_path: str) -> List[Dict[str, str]]:
         """
-        获取测试用例数据
+        获取测试用例数据（包含输入和输出）
         """
         test_cases = []
         try:
+            # 构建完整的文件系统路径
+            # 如果data_path是相对路径，需要加上题库根目录
+            if not os.path.isabs(data_path):
+                full_path = os.path.join(PROBLEMS_ROOT, data_path)
+            else:
+                full_path = data_path
+                
+            print(f"[Judge] 获取测试用例，原始路径: {data_path}, 完整路径: {full_path}")
+            
+            # 检查路径是否存在
+            if not os.path.exists(full_path):
+                print(f"[Judge] 路径不存在: {full_path}")
+                return []
+            
             # 遍历测试用例文件
             i = 1
             while True:
-                input_file = os.path.join(data_path, f"{i}.in")
+                input_file = os.path.join(full_path, f"{i}.in")
+                output_file = os.path.join(full_path, f"{i}.out")
+                
                 if not os.path.exists(input_file):
                     break
                     
-                # 读取输入数据
-                with open(input_file, 'r') as f:
-                    input_data = f.read().strip()
+                # 读取输入数据 - 尝试多种编码
+                input_data = ""
+                try:
+                    with open(input_file, 'r', encoding='utf-8') as f:
+                        input_data = f.read().strip()
+                except UnicodeDecodeError:
+                    try:
+                        with open(input_file, 'r', encoding='gbk') as f:
+                            input_data = f.read().strip()
+                    except UnicodeDecodeError:
+                        with open(input_file, 'r', encoding='latin-1') as f:
+                            input_data = f.read().strip()
+                
+                # 读取输出数据 - 尝试多种编码
+                output_data = ""
+                if os.path.exists(output_file):
+                    try:
+                        with open(output_file, 'r', encoding='utf-8') as f:
+                            output_data = f.read().strip()
+                    except UnicodeDecodeError:
+                        try:
+                            with open(output_file, 'r', encoding='gbk') as f:
+                                output_data = f.read().strip()
+                        except UnicodeDecodeError:
+                            with open(output_file, 'r', encoding='latin-1') as f:
+                                output_data = f.read().strip()
                     
                 test_cases.append({
                     "test_case": i,
-                    "input": input_data
+                    "input": input_data,
+                    "output": output_data
                 })
                 i += 1
                 
+            print(f"[Judge] 找到 {len(test_cases)} 个测试用例")
             return test_cases
         except Exception as e:
             print(f"读取测试用例失败: {e}")

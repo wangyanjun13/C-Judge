@@ -1,12 +1,11 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Depends, Query
 from typing import List, Optional
+from urllib.parse import unquote
 from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail, CustomProblemCreate, CustomProblemResponse
 from app.services.problem_service import ProblemService
-from app.models import get_db, Problem
+from app.models import get_db, Problem, User, Submission
 from sqlalchemy.orm import Session
-from fastapi import Depends, Query
 from app.utils.auth import get_teacher_user, get_admin_user
-from app.models import User
 import logging
 
 # 创建路由
@@ -82,14 +81,62 @@ async def update_problem(problem_path: str, problem_data: dict, db: Session = De
         raise HTTPException(status_code=500, detail=f"更新试题失败: {str(e)}")
 
 @router.delete("/{problem_path:path}")
-async def delete_problem(problem_path: str, db: Session = Depends(get_db)):
+async def delete_problem(problem_path: str, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
     """删除试题"""
     try:
-        # 这里需要实现删除试题的逻辑
-        # 目前只是一个占位符
-        return {"message": "试题删除成功", "problem_path": problem_path}
+        # URL解码路径
+        decoded_path = unquote(problem_path)
+        
+        # 查找对应的数据库记录
+        problem = db.query(Problem).filter(Problem.data_path == decoded_path).first()
+        
+        # 如果直接匹配失败，尝试模糊匹配
+        if not problem:
+            path_parts = decoded_path.split('/')
+            if len(path_parts) > 1:
+                last_part = path_parts[-1]
+                problems = db.query(Problem).filter(Problem.data_path.endswith(last_part)).all()
+                for p in problems:
+                    if p.data_path and (decoded_path.endswith(p.data_path) or p.data_path.endswith(decoded_path)):
+                        problem = p
+                        break
+        
+        if not problem:
+            # 如果数据库中没有记录，只删除文件系统
+            result = ProblemService.delete_problem(decoded_path)
+            return {"message": result, "problem_path": decoded_path}
+        
+        problem_id = problem.id
+        
+        # 删除相关的数据库记录（按依赖关系顺序）
+        
+        # 1. 删除提交记录
+        from app.models import Submission
+        db.query(Submission).filter(Submission.problem_id == problem_id).delete()
+        
+        # 2. 删除练习-题目关联
+        from app.models.exercise import exercise_problem
+        db.query(exercise_problem).filter(exercise_problem.c.problem_id == problem_id).delete()
+        
+        # 3. 删除题目标签关系
+        from app.models.tag import problem_tag
+        db.query(problem_tag).filter(problem_tag.c.problem_id == problem_id).delete()
+        
+        # 4. 删除题目记录
+        db.delete(problem)
+        
+        # 提交所有数据库更改
+        db.commit()
+        
+        # 5. 删除文件系统中的题目文件
+        result = ProblemService.delete_problem(decoded_path)
+        
+        return {"message": result, "problem_path": decoded_path}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"删除试题失败: {str(e)}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"删除试题失败: {str(e)}")
 
 @router.get("/all-data")
@@ -147,6 +194,17 @@ async def get_problem_html_content(problem_path: str):
     except Exception as e:
         logger.error(f"获取题目HTML内容失败: {str(e)}")
         return Response(content="<p>题目内容加载失败</p>", media_type="text/html")
+
+@router.get("/testcases/{problem_path:path}")
+async def get_problem_testcases(problem_path: str):
+    """根据题目路径获取测试用例"""
+    try:
+        from app.services.judge_service import JudgeService
+        test_cases = JudgeService.get_test_cases(problem_path)
+        return {"test_cases": test_cases}
+    except Exception as e:
+        logger.error(f"获取题目测试用例失败: {str(e)}")
+        return {"test_cases": []}
 
 @router.get("/{problem_id}", response_model=ProblemDetail)
 async def get_problem_detail(

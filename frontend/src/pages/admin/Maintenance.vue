@@ -476,19 +476,11 @@
     
     <!-- 打标签对话框 -->
     <div v-if="showTagDialog" class="modal-overlay" @click="closeTagDialog">
-      <div class="modal large-modal" @click.stop>
-        <div class="modal-header">
-          <h3>为"{{ selectedProblem?.chinese_name || selectedProblem?.name }}"设置标签</h3>
-          <button @click="closeTagDialog" class="close-btn">✕</button>
-        </div>
-        <div class="modal-content">
-          <ProblemTagDialog 
-            :problemInfo="selectedProblem"
-            @cancel="closeTagDialog"
-            @saved="handleTagsSaved"
-          />
-        </div>
-      </div>
+      <ProblemTagDialog 
+        :problemInfo="selectedProblem"
+        @cancel="closeTagDialog"
+        @saved="handleTagsSaved"
+      />
     </div>
   </div>
 </template>
@@ -1427,6 +1419,7 @@ onMounted(async () => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 0;
 }
 
 .modal {

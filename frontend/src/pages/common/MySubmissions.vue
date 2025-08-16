@@ -3,10 +3,16 @@
     <div class="dashboard-header">
       <div class="header-content">
         <div class="title-section">
-          <h2 class="dashboard-title">
-            <span class="title-icon">📊</span>
-            答题仪表盘
-          </h2>
+          <div class="title-with-back">
+            <button class="back-btn" @click="goBack">
+              <span class="back-icon">←</span>
+              返回
+            </button>
+            <h2 class="dashboard-title">
+              <span class="title-icon">📊</span>
+              答题仪表盘
+            </h2>
+          </div>
           <p class="dashboard-subtitle">跟踪学习进度和答题表现</p>
         </div>
         <div class="header-decoration">
@@ -545,6 +551,11 @@ watch(showAllSubmissions, (newValue) => {
 onMounted(() => {
   fetchSubmissions();
 });
+
+// 返回上一页
+const goBack = () => {
+  window.history.back();
+};
 </script>
 
 <style scoped>
@@ -573,6 +584,35 @@ onMounted(() => {
 
 .title-section {
   flex: 1;
+}
+
+.title-with-back {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.back-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.back-icon {
+  font-size: 18px;
 }
 
 .dashboard-title {
