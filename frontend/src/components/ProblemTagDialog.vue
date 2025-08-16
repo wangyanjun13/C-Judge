@@ -1,17 +1,44 @@
 <template>
   <div class="problem-tag-dialog">
+    <!-- 关闭按钮 -->
+    <div class="close-button" @click="handleCancel">
+      <span>✕</span>
+    </div>
+    
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else-if="error" class="error">
       <p>{{ error }}</p>
     </div>
     <div v-else class="dialog-content">
-      <!-- 左侧：题目内容 -->
+      <!-- 左侧：题目内容和测试用例 -->
       <div class="problem-content">
         <h3>{{ problem.chinese_name || problem.name }}</h3>
         <div class="problem-html" v-html="problem.html_content"></div>
+        
+        <!-- 测试用例部分 -->
+        <div v-if="testCases.length > 0" class="testcases-section">
+          <h4>📝 测试用例</h4>
+          <div class="testcases-list">
+            <div v-for="testCase in testCases" :key="testCase.test_case" class="testcase-item">
+              <div class="testcase-header">
+                <span class="testcase-number">测试用例 {{ testCase.test_case }}</span>
+              </div>
+              <div class="testcase-content">
+                <div class="input-section">
+                  <h5>📥 输入</h5>
+                  <pre class="testcase-data">{{ testCase.input || '（无输入数据）' }}</pre>
+                </div>
+                <div class="output-section">
+                  <h5>📤 期望输出</h5>
+                  <pre class="testcase-data">{{ testCase.output || '（无输出数据）' }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
-              <!-- 右侧：标签选择、显示或审核 -->
+      <!-- 右侧：标签选择、显示或审核 -->
       <div class="tags-section">
         <h4>{{ reviewMode ? '标签审核' : (viewOnly ? '题目标签' : '设置标签') }}</h4>
         
@@ -165,6 +192,7 @@ const tagTypes = ref([]);
 const allTags = ref([]);
 const selectedTags = ref([]);
 const requestMessage = ref('');
+const testCases = ref([]);
 
 // 审核相关状态
 const reviewData = ref({
@@ -315,6 +343,21 @@ const loadData = async () => {
         console.error('获取已有标签失败:', err);
         selectedTags.value = [];
       }
+      
+      // 获取测试用例
+      try {
+        const response = await fetch(`/api/problems/testcases/${encodeURIComponent(props.problemInfo.data_path)}`);
+        if (response.ok) {
+          const data = await response.json();
+          testCases.value = data.test_cases || [];
+        } else {
+          console.error('获取测试用例失败:', response.status);
+          testCases.value = [];
+        }
+      } catch (err) {
+        console.error('获取测试用例失败:', err);
+        testCases.value = [];
+      }
     }
   } catch (err) {
     console.error('加载数据失败:', err);
@@ -355,48 +398,52 @@ const handleReviewed = (data) => {
 <style scoped>
 .problem-tag-dialog {
   width: 100%;
-  height: auto;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-height: 80vh;
-  min-height: 400px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background-color: white;
 }
 
-@media (max-height: 600px) {
-  .problem-tag-dialog {
-    max-height: 90vh;
-    min-height: 300px;
-  }
-  
-  .problem-content {
-    max-height: 40vh;
-  }
-  
-  .tag-selection, .existing-tags-display, .review-mode-display {
-    max-height: 35vh;
-  }
+/* 关闭按钮样式 */
+.close-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: bold;
+  z-index: 1001;
+  transition: all 0.3s ease;
 }
 
-@media (max-height: 500px) {
-  .problem-tag-dialog {
-    max-height: 95vh;
-    min-height: 250px;
-  }
-  
-  .problem-content {
-    max-height: 30vh;
-  }
-  
-  .tag-selection, .existing-tags-display, .review-mode-display {
-    max-height: 25vh;
-  }
+.close-button:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
 }
 
 .loading, .error {
-  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
   text-align: center;
   color: #909399;
+  font-size: 18px;
 }
 
 .error {
@@ -409,19 +456,19 @@ const handleReviewed = (data) => {
   gap: 20px;
   overflow: hidden;
   min-height: 0;
-  height: auto;
+  height: 100vh;
 }
 
 .problem-content {
   flex: 2;
   overflow-y: auto;
-  padding: 15px;
+  padding: 20px;
   background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  border-radius: 0;
+  box-shadow: none;
   border: none;
   min-width: 60%;
-  max-height: 60vh;
+  height: 100%;
 }
 
 .problem-content h3 {
@@ -448,15 +495,99 @@ const handleReviewed = (data) => {
   overflow-x: auto;
 }
 
+/* 测试用例样式 */
+.testcases-section {
+  margin-top: 30px;
+  border-top: 2px solid #e4e7ed;
+  padding-top: 20px;
+}
+
+.testcases-section h4 {
+  margin: 0 0 20px 0;
+  color: #303133;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.testcases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.testcase-item {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background-color: #fafbfc;
+  overflow: hidden;
+}
+
+.testcase-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.testcase-number {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.testcase-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.input-section, .output-section {
+  padding: 16px;
+  border-right: 1px solid #e4e7ed;
+}
+
+.output-section {
+  border-right: none;
+}
+
+.input-section h5, .output-section h5 {
+  margin: 0 0 12px 0;
+  color: #606266;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.testcase-data {
+  background-color: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #303133;
+  min-height: 60px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 .tags-section {
   flex: 1;
   display: flex;
   flex-direction: column;
   border-left: 1px solid #ebeef5;
-  padding-left: 20px;
+  padding: 20px;
   min-width: 300px;
   max-width: 400px;
   overflow: hidden;
+  height: 100%;
 }
 
 .tags-section h4 {
@@ -472,7 +603,7 @@ const handleReviewed = (data) => {
   overflow-y: auto;
   padding-right: 5px;
   min-height: 0;
-  max-height: 50vh;
+  height: 100%;
 }
 
 .tag-type-section {
@@ -512,7 +643,7 @@ const handleReviewed = (data) => {
 }
 
 .dialog-actions {
-  padding: 15px 0;
+  padding: 20px;
   border-top: 1px solid #ebeef5;
   display: flex;
   justify-content: flex-end;
