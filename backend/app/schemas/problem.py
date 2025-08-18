@@ -52,6 +52,7 @@ class CustomProblemCreate(BaseModel):
     chinese_name: str
     description: str
     testcases: List[TestCase]
+    tag_ids: Optional[List[int]] = []  # 可选的标签ID列表
 
 class CustomProblemResponse(BaseModel):
     """自定义题目创建响应模型"""

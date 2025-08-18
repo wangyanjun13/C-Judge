@@ -226,7 +226,8 @@ async def get_problem_detail(
 @router.post("/custom", response_model=CustomProblemResponse)
 async def create_custom_problem(
     problem_data: CustomProblemCreate,
-    current_user: User = Depends(get_teacher_user)  # 需要教师或管理员权限
+    current_user: User = Depends(get_teacher_user),  # 需要教师或管理员权限
+    db: Session = Depends(get_db)
 ):
     """
     创建自定义题目
@@ -234,6 +235,7 @@ async def create_custom_problem(
     Args:
         problem_data: 题目创建数据
         current_user: 当前用户（需要教师或管理员权限）
+        db: 数据库会话
         
     Returns:
         创建结果
@@ -241,8 +243,8 @@ async def create_custom_problem(
     try:
         logger.info(f"用户 {current_user.username} 开始创建自定义题目: {problem_data.name}")
         
-        # 调用服务层创建题目
-        result = ProblemService.create_custom_problem(problem_data)
+        # 调用服务层创建题目，传入数据库会话以支持标签设置
+        result = ProblemService.create_custom_problem(problem_data, db)
         
         if result.success:
             logger.info(f"用户 {current_user.username} 创建自定义题目成功: {result.problem_path}")
