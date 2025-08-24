@@ -178,7 +178,8 @@ export const createCustomProblem = async (problemData) => {
       testcases: problemData.testcases.map(tc => ({
         input: tc.input.trim(),
         output: tc.output.trim()
-      }))
+      })),
+      tag_ids: problemData.tag_ids || []  // 添加标签ID列表
     };
     
     console.log('发送创建自定义题目请求:', requestData);
