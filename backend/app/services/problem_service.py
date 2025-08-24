@@ -492,12 +492,13 @@ class ProblemService:
         return [] 
 
     @staticmethod
-    def create_custom_problem(problem_data: CustomProblemCreate) -> CustomProblemResponse:
+    def create_custom_problem(problem_data: CustomProblemCreate, db: Session = None) -> CustomProblemResponse:
         """
         创建自定义题目，生成符合现有系统的文件结构
         
         Args:
             problem_data: 题目创建数据
+            db: 数据库会话（用于设置标签）
             
         Returns:
             创建结果响应
@@ -535,6 +536,15 @@ class ProblemService:
             
             # 8. 计算相对路径
             relative_path = os.path.join(custom_category_path, unique_name)
+            
+            # 9. 如果有标签且数据库会话可用，设置标签
+            if problem_data.tag_ids and db:
+                try:
+                    from app.services.tag_service import TagService
+                    TagService.set_problem_tags(db, relative_path, problem_data.tag_ids)
+                    logger.info(f"为题目 {relative_path} 设置标签: {problem_data.tag_ids}")
+                except Exception as e:
+                    logger.warning(f"设置标签失败: {str(e)}")
             
             logger.info(f"自定义题目创建成功: {relative_path}")
             

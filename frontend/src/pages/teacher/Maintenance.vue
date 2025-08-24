@@ -97,223 +97,265 @@
     <!-- 上传题库 -->
     <div v-if="activeTab === 'upload'" class="tab-content">
       <div class="upload-container">
-        <!-- 页面标题 -->
-        <div class="page-header">
-          <h2 class="page-title">创建自定义题目</h2>
-          <p class="page-subtitle">填写题目信息，创建您的专属练习题目</p>
-        </div>
         
-        <div class="form-container">
-          <!-- 基本信息卡片 -->
-          <div class="form-card">
-            <div class="card-header">
-              <h3 class="card-title">基本信息</h3>
+        <div class="upload-layout">
+          <!-- 左侧表单 -->
+          <div class="form-container">
+            <!-- 页面标题 -->
+            <div class="page-header">
+              <h2 class="page-title">创建自定义题目</h2>
+              <p class="page-subtitle">填写题目信息，创建您的专属练习题目</p>
             </div>
-            <div class="card-body">
-              <div class="form-grid">
-                <div class="form-field">
-                  <label class="field-label required">题目名称（英文）</label>
-                  <input 
-                    v-model="problemForm.name" 
-                    placeholder="例如: fibonacci"
-                    class="field-input"
-                    :class="{ error: errors.name }"
-                    @input="validateField('name')"
-                  />
-                  <div v-if="errors.name" class="error-message">{{ errors.name }}</div>
-                  <div class="field-hint">只允许字母、数字、下划线，用作题目文件夹名称</div>
-                </div>
-                
-                <div class="form-field">
-                  <label class="field-label required">题目中文名称</label>
-                  <input 
-                    v-model="problemForm.chineseName" 
-                    placeholder="例如: 斐波那契数列"
-                    class="field-input"
-                    :class="{ error: errors.chineseName }"
-                    @input="validateField('chineseName')"
-                  />
-                  <div v-if="errors.chineseName" class="error-message">{{ errors.chineseName }}</div>
-                </div>
+            
+            <!-- 基本信息卡片 -->
+            <div class="form-card">
+              <div class="card-header">
+                <h3 class="card-title">基本信息</h3>
               </div>
-            </div>
-          </div>
-
-          <!-- 题目描述卡片 -->
-          <div class="form-card">
-            <div class="card-header">
-              <h3 class="card-title">题目描述</h3>
-              <div class="header-actions">
-                <button 
-                  type="button" 
-                  @click="useDescriptionTemplate"
-                  class="action-btn template-btn"
-                >
-                  <span class="btn-icon">📝</span>
-                  使用模板
-                </button>
-                <button 
-                  type="button" 
-                  @click="showDescriptionPreview = !showDescriptionPreview"
-                  class="action-btn preview-btn"
-                >
-                  <span class="btn-icon">👁</span>
-                  {{ showDescriptionPreview ? '隐藏预览' : '预览效果' }}
-                </button>
-                <button 
-                  type="button" 
-                  @click="showFormatHelp = !showFormatHelp"
-                  class="action-btn help-btn"
-                >
-                  <span class="btn-icon">❓</span>
-                  格式帮助
-                </button>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="form-field full-width">
-                <!-- 格式帮助 -->
-                <div v-if="showFormatHelp" class="format-help">
-                  <h5>🔍 自动格式识别说明</h5>
-                  <p>系统会自动识别以下格式并转换为统一的HTML显示：</p>
-                  <div class="help-grid">
-                    <div class="help-item">
-                      <strong>题目描述：</strong> 以"题目描述："、"问题描述："或"描述："开头
-                    </div>
-                    <div class="help-item">
-                      <strong>输入格式：</strong> 以"输入格式："、"输入："开头
-                    </div>
-                    <div class="help-item">
-                      <strong>输出格式：</strong> 以"输出格式："、"输出："开头
-                    </div>
-                    <div class="help-item">
-                      <strong>输入示例：</strong> 以"输入示例："、"样例输入："开头
-                    </div>
-                    <div class="help-item">
-                      <strong>输出示例：</strong> 以"输出示例："、"样例输出："开头
-                    </div>
-                    <div class="help-item">
-                      <strong>数据范围：</strong> 以"数据范围："、"约束条件："开头
-                    </div>
-                  </div>
-                  <p class="help-note"><em>💡 如果没有使用上述格式，整个内容将作为题目描述处理。</em></p>
-                </div>
-                
-                <label class="field-label required">题目描述内容</label>
-                <textarea 
-                  v-model="problemForm.description" 
-                  rows="8"
-                  placeholder="请输入题目描述，推荐使用结构化格式：&#10;&#10;题目描述：&#10;这里是题目的具体要求...&#10;&#10;输入：&#10;输入格式说明...&#10;&#10;输出：&#10;输出格式说明...&#10;&#10;输入示例：&#10;16 24&#10;&#10;输出示例：&#10;8&#10;&#10;数据范围：&#10;数据范围说明..."
-                  class="field-textarea"
-                  :class="{ error: errors.description }"
-                  @input="validateField('description')"
-                ></textarea>
-                
-                <!-- 预览区域 -->
-                <div v-if="showDescriptionPreview" class="preview-panel">
-                  <div class="preview-header">
-                    <h5>📋 预览效果</h5>
-                  </div>
-                  <div class="preview-content" v-html="formattedDescription"></div>
-                </div>
-                
-                <div v-if="errors.description" class="error-message">{{ errors.description }}</div>
-                <div class="field-meta">
-                  <span class="char-count">{{ problemForm.description.length }}/{{ LIMITS.description }} 字符</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 测试用例卡片 -->
-          <div class="form-card">
-            <div class="card-header">
-              <h3 class="card-title">测试用例 <span class="required-mark">*</span></h3>
-              <div class="header-actions">
-                <button 
-                  @click="addTestcase()" 
-                  class="action-btn add-btn"
-                  :disabled="problemForm.testcases.length >= LIMITS.max_testcases"
-                  type="button"
-                >
-                  <span class="btn-icon">➕</span>
-                  添加用例 ({{ problemForm.testcases.length }}/{{ LIMITS.max_testcases }})
-                </button>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="testcases-grid">
-                <div 
-                  v-for="(testcase, index) in problemForm.testcases" 
-                  :key="index" 
-                  class="testcase-card"
-                  :class="{ error: errors[`testcase_${index}`] }"
-                >
-                  <div class="testcase-header">
-                    <h4 class="testcase-title">
-                      <span class="case-number">{{ index + 1 }}</span>
-                      测试用例
-                    </h4>
-                    <button 
-                      v-if="problemForm.testcases.length > 1"
-                      @click="removeTestcase(index)" 
-                      class="remove-btn"
-                      type="button"
-                    >
-                      ✕
-                    </button>
+              <div class="card-body">
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label class="field-label required">题目名称（英文）</label>
+                    <input 
+                      v-model="problemForm.name" 
+                      placeholder="例如: fibonacci"
+                      class="field-input"
+                      :class="{ error: errors.name }"
+                      @input="validateField('name')"
+                    />
+                    <div v-if="errors.name" class="error-message">{{ errors.name }}</div>
+                    <div class="field-hint">只允许字母、数字、下划线，用作题目文件夹名称</div>
                   </div>
                   
-                  <div class="testcase-content">
-                    <div class="io-section">
-                      <label class="io-label">📥 输入数据</label>
-                      <textarea 
-                        v-model="testcase.input" 
-                        placeholder="输入测试数据..."
-                        rows="3"
-                        class="io-input"
-                        @input="validateTestcase(index)"
-                      ></textarea>
-                      <span class="char-counter">{{ testcase.input.length }}/{{ LIMITS.testcase_input }}</span>
+                  <div class="form-field">
+                    <label class="field-label required">题目中文名称</label>
+                    <input 
+                      v-model="problemForm.chineseName" 
+                      placeholder="例如: 斐波那契数列"
+                      class="field-input"
+                      :class="{ error: errors.chineseName }"
+                      @input="validateField('chineseName')"
+                    />
+                    <div v-if="errors.chineseName" class="error-message">{{ errors.chineseName }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 题目描述卡片 -->
+            <div class="form-card">
+              <div class="card-header">
+                <h3 class="card-title">题目描述</h3>
+                <div class="header-actions">
+                  <button 
+                    type="button" 
+                    @click="useDescriptionTemplate"
+                    class="action-btn template-btn"
+                  >
+                    <span class="btn-icon">📝</span>
+                    使用模板
+                  </button>
+                  <button 
+                    type="button" 
+                    @click="showDescriptionPreview = !showDescriptionPreview"
+                    class="action-btn preview-btn"
+                  >
+                    <span class="btn-icon">👁</span>
+                    {{ showDescriptionPreview ? '隐藏预览' : '预览效果' }}
+                  </button>
+                  <button 
+                    type="button" 
+                    @click="showFormatHelp = !showFormatHelp"
+                    class="action-btn help-btn"
+                  >
+                    <span class="btn-icon">❓</span>
+                    格式帮助
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="form-field full-width">
+                  <!-- 格式帮助 -->
+                  <div v-if="showFormatHelp" class="format-help">
+                    <h5>🔍 自动格式识别说明</h5>
+                    <p>系统会自动识别以下格式并转换为统一的HTML显示：</p>
+                    <div class="help-grid">
+                      <div class="help-item">
+                        <strong>题目描述：</strong> 以"题目描述："、"问题描述："或"描述："开头
+                      </div>
+                      <div class="help-item">
+                        <strong>输入格式：</strong> 以"输入格式："、"输入："开头
+                      </div>
+                      <div class="help-item">
+                        <strong>输出格式：</strong> 以"输出格式："、"输出："开头
+                      </div>
+                      <div class="help-item">
+                        <strong>输入示例：</strong> 以"输入示例："、"样例输入："开头
+                      </div>
+                      <div class="help-item">
+                        <strong>输出示例：</strong> 以"输出示例："、"样例输出："开头
+                      </div>
+                      <div class="help-item">
+                        <strong>数据范围：</strong> 以"数据范围："、"约束条件："开头
+                      </div>
+                    </div>
+                    <p class="help-note"><em>💡 如果没有使用上述格式，整个内容将作为题目描述处理。</em></p>
+                  </div>
+                  
+                  <label class="field-label required">题目描述内容</label>
+                  <textarea 
+                    v-model="problemForm.description" 
+                    rows="8"
+                    placeholder="请输入题目描述，推荐使用结构化格式：&#10;&#10;题目描述：&#10;这里是题目的具体要求...&#10;&#10;输入：&#10;输入格式说明...&#10;&#10;输出：&#10;输出格式说明...&#10;&#10;输入示例：&#10;16 24&#10;&#10;输出示例：&#10;8&#10;&#10;数据范围：&#10;数据范围说明..."
+                    class="field-textarea"
+                    :class="{ error: errors.description }"
+                    @input="validateField('description')"
+                  ></textarea>
+                  
+                  <!-- 预览区域 -->
+                  <div v-if="showDescriptionPreview" class="preview-panel">
+                    <div class="preview-header">
+                      <h5>📋 预览效果</h5>
+                    </div>
+                    <div class="preview-content" v-html="formattedDescription"></div>
+                  </div>
+                  
+                  <div v-if="errors.description" class="error-message">{{ errors.description }}</div>
+                  <div class="field-meta">
+                    <span class="char-count">{{ problemForm.description.length }}/{{ LIMITS.description }} 字符</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 测试用例卡片 -->
+            <div class="form-card">
+              <div class="card-header">
+                <h3 class="card-title">测试用例 <span class="required-mark">*</span></h3>
+                <div class="header-actions">
+                  <button 
+                    @click="addTestcase()" 
+                    class="action-btn add-btn"
+                    :disabled="problemForm.testcases.length >= LIMITS.max_testcases"
+                    type="button"
+                  >
+                    <span class="btn-icon">➕</span>
+                    添加用例 ({{ problemForm.testcases.length }}/{{ LIMITS.max_testcases }})
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="testcases-grid">
+                  <div 
+                    v-for="(testcase, index) in problemForm.testcases" 
+                    :key="index" 
+                    class="testcase-card"
+                    :class="{ error: errors[`testcase_${index}`] }"
+                  >
+                    <div class="testcase-header">
+                      <h4 class="testcase-title">
+                        <span class="case-number">{{ index + 1 }}</span>
+                        测试用例
+                      </h4>
+                      <button 
+                        v-if="problemForm.testcases.length > 1"
+                        @click="removeTestcase(index)" 
+                        class="remove-btn"
+                        type="button"
+                      >
+                        ✕
+                      </button>
                     </div>
                     
-                    <div class="io-section">
-                      <label class="io-label">📤 期望输出</label>
-                      <textarea 
-                        v-model="testcase.output" 
-                        placeholder="期望的输出结果..."
-                        rows="3"
-                        class="io-input"
-                        @input="validateTestcase(index)"
-                      ></textarea>
-                      <span class="char-counter">{{ testcase.output.length }}/{{ LIMITS.testcase_output }}</span>
+                    <div class="testcase-content">
+                      <div class="io-section">
+                        <label class="io-label">📥 输入数据</label>
+                        <textarea 
+                          v-model="testcase.input" 
+                          placeholder="输入测试数据..."
+                          rows="3"
+                          class="io-input"
+                          @input="validateTestcase(index)"
+                        ></textarea>
+                        <span class="char-counter">{{ testcase.input.length }}/{{ LIMITS.testcase_input }}</span>
+                      </div>
+                      
+                      <div class="io-section">
+                        <label class="io-label">📤 期望输出</label>
+                        <textarea 
+                          v-model="testcase.output" 
+                          placeholder="期望的输出结果..."
+                          rows="3"
+                          class="io-input"
+                          @input="validateTestcase(index)"
+                        ></textarea>
+                        <span class="char-counter">{{ testcase.output.length }}/{{ LIMITS.testcase_output }}</span>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div v-if="errors[`testcase_${index}`]" class="error-message">
-                    {{ errors[`testcase_${index}`] }}
+                    
+                    <div v-if="errors[`testcase_${index}`]" class="error-message">
+                      {{ errors[`testcase_${index}`] }}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- 操作按钮卡片 -->
-          <div class="form-card action-card">
-            <div class="card-body">
-              <div class="action-buttons">
-                <button @click="resetForm()" class="action-btn secondary-btn" type="button">
-                  <span class="btn-icon">🔄</span>
-                  清空重置
-                </button>
-                <button @click="previewProblem()" class="action-btn info-btn" type="button" :disabled="!isFormValid">
-                  <span class="btn-icon">👁</span>
-                  预览题目
-                </button>
-                <button @click="submitCustomProblem()" class="action-btn primary-btn" type="button" :disabled="!isFormValid || isSubmitting">
-                  <span class="btn-icon">{{ isSubmitting ? '⏳' : '✅' }}</span>
-                  {{ isSubmitting ? '创建中...' : '创建题目' }}
-                </button>
+            <!-- 操作按钮卡片 -->
+            <div class="form-card action-card">
+              <div class="card-body">
+                <div class="action-buttons">
+                  <button @click="resetForm()" class="action-btn secondary-btn" type="button">
+                    <span class="btn-icon">🔄</span>
+                    清空重置
+                  </button>
+                  <button @click="previewProblem()" class="action-btn info-btn" type="button" :disabled="!isFormValid">
+                    <span class="btn-icon">👁</span>
+                    预览题目
+                  </button>
+                  <button @click="submitCustomProblem()" class="action-btn primary-btn" type="button" :disabled="!isFormValid || isSubmitting">
+                    <span class="btn-icon">{{ isSubmitting ? '⏳' : '✅' }}</span>
+                    {{ isSubmitting ? '创建中...' : '创建题目' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 右侧标签选择 -->
+          <div class="tags-sidebar">
+            <div class="tags-sidebar-header">
+              <h3>🏷️ 设置标签</h3>
+              <p class="sidebar-subtitle">为题目选择合适的标签，方便后续分类管理</p>
+            </div>
+            
+            <div class="tags-selection-content">
+              <div v-for="tagType in tagTypes" :key="tagType.id" class="tag-type-section">
+                <h5>{{ tagType.name }}</h5>
+                <div class="tag-list">
+                  <div 
+                    v-for="tag in getTagsByType(tagType.id)" 
+                    :key="tag.id" 
+                    class="tag-item"
+                    :class="{ selected: selectedTagsForUpload.includes(tag.id) }"
+                    @click="toggleUploadTag(tag.id)"
+                  >
+                    {{ tag.name }}
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="selectedTagsForUpload.length > 0" class="selected-tags-summary">
+                <h5>已选择标签 ({{ selectedTagsForUpload.length }})</h5>
+                <div class="selected-tags-list">
+                  <span 
+                    v-for="tagId in selectedTagsForUpload" 
+                    :key="tagId"
+                    class="tag-badge"
+                    :style="{ backgroundColor: getTagColorById(tagId) }">
+                    {{ getTagNameById(tagId) }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -457,6 +499,7 @@
         :problemInfo="selectedProblem"
         @cancel="closeTagDialog"
         @saved="handleTagsSaved"
+        @click.stop
       />
     </div>
   </div>
@@ -544,6 +587,9 @@ const allTags = ref([]); // 存储所有标签
 const selectedTagIds = ref({}); // 存储每种标签类型的选中值
 const problemTags = ref({}); // 存储每个问题的标签
 const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
+
+// 上传题库标签选择状态
+const selectedTagsForUpload = ref([]);
 
 // 缓存上一次的过滤选项
 const lastFilterOptions = ref({});
@@ -983,7 +1029,18 @@ const resetForm = () => {
     testcases: [{ input: '', output: '' }]
   };
   errors.value = {};
+  selectedTagsForUpload.value = []; // 重置标签选择
   ElMessage.success('表单已重置');
+};
+
+// 切换上传题库标签选择
+const toggleUploadTag = (tagId) => {
+  const index = selectedTagsForUpload.value.indexOf(tagId);
+  if (index === -1) {
+    selectedTagsForUpload.value.push(tagId);
+  } else {
+    selectedTagsForUpload.value.splice(index, 1);
+  }
 };
 
 // 使用描述模板
@@ -1021,7 +1078,8 @@ const submitCustomProblem = async () => {
       name: problemForm.value.name,
       chineseName: problemForm.value.chineseName,
       description: problemForm.value.description,
-      testcases: problemForm.value.testcases
+      testcases: problemForm.value.testcases,
+      tag_ids: selectedTagsForUpload.value // 添加标签ID列表
     };
     
     // 调用真正的API
@@ -1650,6 +1708,113 @@ onMounted(async () => {
   padding: 0;
 }
 
+.upload-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.form-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.tags-sidebar {
+  width: 350px;
+  flex-shrink: 0;
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  position: sticky;
+  top: 20px;
+}
+
+.tags-sidebar-header {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 1rem 1.5rem;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.tags-sidebar-header h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.sidebar-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.tags-selection-content {
+  padding: 1.5rem;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.tags-selection-content .tag-type-section {
+  margin-bottom: 1.5rem;
+}
+
+.tags-selection-content .tag-type-section h5 {
+  margin: 0 0 0.75rem 0;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tags-selection-content .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tags-selection-content .tag-item {
+  padding: 0.5rem 0.75rem;
+  background-color: #f4f4f5;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 0.75rem;
+  border: 1px solid #dcdfe6;
+  user-select: none;
+}
+
+.tags-selection-content .tag-item:hover {
+  background-color: #e9e9eb;
+  transform: translateY(-1px);
+}
+
+.tags-selection-content .tag-item.selected {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.selected-tags-summary {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.selected-tags-summary h5 {
+  margin: 0 0 0.75rem 0;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.selected-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .page-header {
   text-align: center;
   margin-bottom: 2rem;
@@ -1671,12 +1836,6 @@ onMounted(async () => {
   font-size: 1rem;
   opacity: 0.9;
   margin: 0;
-}
-
-.form-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
 }
 
 .form-card {
@@ -2503,6 +2662,16 @@ onMounted(async () => {
 
 /* 响应式设计 */
 @media (max-width: 1024px) {
+  .upload-layout {
+    flex-direction: column;
+  }
+  
+  .tags-sidebar {
+    width: 100%;
+    position: static;
+    order: -1;
+  }
+  
   .form-grid {
     grid-template-columns: 1fr;
   }
