@@ -147,6 +147,7 @@ export const getAllProblemsData = async (options = {}) => {
  * @param {String} problemData.chineseName - 题目中文名称
  * @param {String} problemData.description - 题目描述
  * @param {Array} problemData.testcases - 测试用例数组
+ * @param {String} problemData.reference_answer - 参考答案（可选）
  * @returns {Promise<Object>} - 返回创建结果
  */
 export const createCustomProblem = async (problemData) => {
@@ -179,7 +180,8 @@ export const createCustomProblem = async (problemData) => {
         input: tc.input.trim(),
         output: tc.output.trim()
       })),
-      tag_ids: problemData.tag_ids || []  // 添加标签ID列表
+      tag_ids: problemData.tag_ids || [],  // 添加标签ID列表
+      reference_answer: problemData.reference_answer || null  // 添加参考答案
     };
     
     console.log('发送创建自定义题目请求:', requestData);
@@ -201,5 +203,20 @@ export const createCustomProblem = async (problemData) => {
     } else {
       throw new Error('创建题目失败，请重试');
     }
+  }
+} 
+
+/**
+ * 获取题目的参考代码
+ * @param {String} problemPath - 题目路径
+ * @returns {Promise<Object>} - 返回参考代码信息
+ */
+export const getProblemReferenceAnswer = async (problemPath) => {
+  try {
+    const response = await axios.get(`/api/problems/reference-answer/${encodeURIComponent(problemPath)}`);
+    return response.data;
+  } catch (error) {
+    console.error('获取题目参考代码失败:', error);
+    return { reference_answer: null };
   }
 } 

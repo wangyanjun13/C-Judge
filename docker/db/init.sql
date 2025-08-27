@@ -90,6 +90,7 @@ CREATE TABLE problems (
     runtime_score INTEGER DEFAULT 80,
     score_method VARCHAR(20) DEFAULT 'sum', -- 'sum' or 'max'
     data_path VARCHAR(255),
+    reference_answer TEXT, -- 新增：参考答案（可为空）
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

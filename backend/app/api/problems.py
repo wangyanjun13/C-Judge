@@ -256,3 +256,26 @@ async def create_custom_problem(
     except Exception as e:
         logger.error(f"创建自定义题目API失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"创建题目失败: {str(e)}") 
+
+@router.get("/reference-answer/{problem_path:path}")
+async def get_problem_reference_answer(problem_path: str, db: Session = Depends(get_db)):
+    """获取题目的参考代码"""
+    try:
+        # URL解码路径
+        decoded_path = unquote(problem_path)
+        
+        # 从数据库查找题目
+        problem = db.query(Problem).filter(Problem.data_path == decoded_path).first()
+        
+        if not problem:
+            raise HTTPException(status_code=404, detail="题目不存在")
+        
+        # 返回参考代码，如果没有则为null
+        return {
+            "reference_answer": problem.reference_answer
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取题目参考代码失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取参考代码失败") 
