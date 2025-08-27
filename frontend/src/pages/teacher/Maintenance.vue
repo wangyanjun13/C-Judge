@@ -301,6 +301,49 @@
               </div>
             </div>
 
+            <!-- 参考代码卡片 -->
+            <div class="form-card">
+              <div class="card-header">
+                <h3 class="card-title">💻 参考代码</h3>
+                <div class="header-actions">
+                  <button 
+                    type="button" 
+                    @click="showReferencePreview = !showReferencePreview"
+                    class="action-btn preview-btn"
+                  >
+                    <span class="btn-icon">👁</span>
+                    {{ showReferencePreview ? '隐藏预览' : '预览代码' }}
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="form-field full-width">
+                  <label class="field-label">参考代码（可选）</label>
+                  <textarea 
+                    v-model="problemForm.referenceAnswer" 
+                    rows="8"
+                    placeholder="请输入参考代码，支持C/C++、Java、Python等语言...&#10;&#10;示例：&#10;#include &lt;stdio.h&gt;&#10;int main() {&#10;    int a, b;&#10;    scanf(&quot;%d %d&quot;, &amp;a, &amp;b);&#10;    printf(&quot;%d&quot;, a + b);&#10;    return 0;&#10;}"
+                    class="field-textarea code-textarea"
+                  ></textarea>
+                  
+                  <!-- 代码预览区域 -->
+                  <div v-if="showReferencePreview && problemForm.referenceAnswer" class="preview-panel">
+                    <div class="preview-header">
+                      <h5>💻 代码预览</h5>
+                    </div>
+                    <div class="preview-content">
+                      <pre class="code-preview">{{ problemForm.referenceAnswer }}</pre>
+                    </div>
+                  </div>
+                  
+                  <div class="field-meta">
+                    <div class="char-count">{{ problemForm.referenceAnswer.length }}/{{ LIMITS.reference_answer }} 字符</div>
+                    <div class="field-hint">提供参考代码有助于学生理解解题思路，可选填写</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- 操作按钮卡片 -->
             <div class="form-card action-card">
               <div class="card-body">
@@ -488,6 +531,13 @@
                 </div>
               </div>
             </div>
+            
+            <div v-if="problemForm.referenceAnswer" class="reference-preview">
+              <h5>💻 参考代码</h5>
+              <div class="code-preview-container">
+                <pre class="code-preview">{{ problemForm.referenceAnswer }}</pre>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -560,7 +610,8 @@ const problemForm = ref({
   description: '',
   testcases: [
     { input: '', output: '' }
-  ]
+  ],
+  referenceAnswer: ''
 });
 
 // 验证错误
@@ -573,7 +624,8 @@ const LIMITS = {
   testcase_output: 2000,
   max_testcases: 20,
   name_max_length: 50,
-  chinese_name_max_length: 100
+  chinese_name_max_length: 100,
+  reference_answer: 50000
 };
 
 // 打标签相关状态
@@ -602,6 +654,7 @@ const requestsLoading = ref(false);
 const showDescriptionPreview = ref(false);
 const showFormatHelp = ref(false);
 const showProblemPreview = ref(false);
+const showReferencePreview = ref(false);
 const requestFilter = ref('all');
 const pendingRequests = computed(() => myRequests.value.filter(r => r.status === 'pending').length);
 const filteredRequests = computed(() => {
@@ -1026,7 +1079,8 @@ const resetForm = () => {
     name: '',
     chineseName: '',
     description: '',
-    testcases: [{ input: '', output: '' }]
+    testcases: [{ input: '', output: '' }],
+    referenceAnswer: ''
   };
   errors.value = {};
   selectedTagsForUpload.value = []; // 重置标签选择
@@ -1079,7 +1133,8 @@ const submitCustomProblem = async () => {
       chineseName: problemForm.value.chineseName,
       description: problemForm.value.description,
       testcases: problemForm.value.testcases,
-      tag_ids: selectedTagsForUpload.value // 添加标签ID列表
+      tag_ids: selectedTagsForUpload.value, // 添加标签ID列表
+      reference_answer: problemForm.value.referenceAnswer || null // 添加参考答案
     };
     
     // 调用真正的API
@@ -2621,6 +2676,45 @@ onMounted(async () => {
 .preview-content .SimSun {
   font-size: 14px;
   font-family: 宋体, SimSun, serif;
+}
+
+/* 代码预览样式 */
+.code-textarea {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.code-preview {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reference-preview {
+  margin-top: 1.5rem;
+  border-top: 2px solid #e2e8f0;
+  padding-top: 1.5rem;
+}
+
+.reference-preview h5 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.code-preview-container {
+  background: #1e1e1e;
+  border-radius: 0.375rem;
+  overflow: hidden;
 }
 
 .preview-content .title {
