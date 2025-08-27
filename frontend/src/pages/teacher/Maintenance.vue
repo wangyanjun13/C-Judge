@@ -322,7 +322,7 @@
                   <textarea 
                     v-model="problemForm.referenceAnswer" 
                     rows="8"
-                    placeholder="请输入参考代码，支持C/C++、Java、Python等语言...&#10;&#10;示例：&#10;#include &lt;stdio.h&gt;&#10;int main() {&#10;    int a, b;&#10;    scanf(&quot;%d %d&quot;, &amp;a, &amp;b);&#10;    printf(&quot;%d&quot;, a + b);&#10;    return 0;&#10;}"
+                    placeholder="请输入参考代码，支持C/C++语言...&#10;&#10;示例：&#10;#include &lt;stdio.h&gt;&#10;int main() {&#10;    int a, b;&#10;    scanf(&quot;%d %d&quot;, &amp;a, &amp;b);&#10;    printf(&quot;%d&quot;, a + b);&#10;    return 0;&#10;}"
                     class="field-textarea code-textarea"
                   ></textarea>
                   
