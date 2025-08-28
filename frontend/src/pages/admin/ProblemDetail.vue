@@ -60,6 +60,14 @@
               </template>
             </div>
           </div>
+
+          <!-- 参考代码显示区域 - 管理员随时可以查看 -->
+          <div v-if="referenceAnswer" class="reference-answer-section">
+            <h4>💻 参考代码</h4>
+            <div class="reference-answer-content">
+              <pre class="reference-code">{{ referenceAnswer }}</pre>
+            </div>
+          </div>
         </div>
 
         <!-- 右侧区域: 统计信息和提交结果 -->
@@ -245,6 +253,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
+import { getProblemReferenceAnswer } from '../../api/problems';
 import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions, getProblemRanking } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
@@ -267,6 +276,7 @@ const submissionResult = ref(null);
 const isSubmitted = ref(false);
 const isRedoing = ref(false);
 const showRanking = ref(false); // 新增：控制排名弹窗的显示
+const referenceAnswer = ref(''); // 新增：参考代码
 
 // 新增：获取班级排名数据
 const totalStudents = ref(null);
@@ -319,6 +329,9 @@ const fetchProblemDetail = async () => {
     
     // 获取历史提交记录
     await fetchSubmissionHistory();
+    
+    // 获取参考代码
+    await fetchReferenceAnswer();
   } catch (err) {
     error.value = '获取题目详情失败，请稍后重试';
     ElMessage.error('获取题目详情失败');
@@ -370,6 +383,19 @@ const fetchSubmissionHistory = async () => {
   } catch (error) {
     console.error('管理员版本：获取提交历史失败:', error);
     code.value = codeTemplates[selectedLanguage.value] || '';
+  }
+};
+
+// 获取参考代码
+const fetchReferenceAnswer = async () => {
+  try {
+    if (problem.value && problem.value.data_path) {
+      const refData = await getProblemReferenceAnswer(problem.value.data_path);
+      referenceAnswer.value = refData.reference_answer || '';
+    }
+  } catch (err) {
+    console.error('获取参考代码失败:', err);
+    referenceAnswer.value = '';
   }
 };
 
@@ -1185,5 +1211,51 @@ onMounted(() => {
 .stats-item.ranking-item.teacher-ranking-btn .ranking-value {
   color: #e6a23c;  /* 黄色文字 */
   font-weight: 600;
+}
+
+/* 参考代码样式 */
+.reference-answer-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e4e7ed;
+}
+
+.reference-answer-section h4 {
+  margin: 0 0 15px 0;
+  color: #303133;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.reference-answer-content {
+  background-color: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 15px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #303133;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.reference-code {
+  margin: 0;
+  background-color: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 15px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #303133;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
 }
 </style> 
