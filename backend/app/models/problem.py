@@ -24,6 +24,9 @@ class Problem(Base):
     is_shared = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
+    # 新增：参考答案（可为空）
+    reference_answer = Column(Text, nullable=True)
+    
     # 关系
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner = relationship("User")

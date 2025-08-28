@@ -36,6 +36,20 @@
             </div>
           </div>
         </div>
+        
+        <!-- 参考代码部分 -->
+        <div v-if="referenceAnswer" class="reference-answer-section">
+          <h4>💻 参考代码</h4>
+          <div class="reference-answer-content">
+            <pre class="reference-code">{{ referenceAnswer }}</pre>
+          </div>
+        </div>
+        <div v-else class="reference-answer-section">
+          <h4>💻 参考代码</h4>
+          <div class="reference-answer-content">
+            <p class="no-reference">暂无参考代码</p>
+          </div>
+        </div>
       </div>
       
       <!-- 右侧：标签选择、显示或审核 -->
@@ -161,6 +175,7 @@ import { ref, onMounted, computed, getCurrentInstance, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../api/exercises';
 import { getTagTypes, getTags, getProblemTags, setProblemTags, createTagApprovalRequest, approveTagRequest } from '../api/tags';
+import { getProblemReferenceAnswer } from '../api/problems';
 import { useAuthStore } from '../store/auth';
 
 const props = defineProps({
@@ -193,7 +208,8 @@ const allTags = ref([]);
 const selectedTags = ref([]);
 const requestMessage = ref('');
 const testCases = ref([]);
-
+const referenceAnswer = ref('');
+  
 // 审核相关状态
 const reviewData = ref({
   status: '',
@@ -357,6 +373,15 @@ const loadData = async () => {
       } catch (err) {
         console.error('获取测试用例失败:', err);
         testCases.value = [];
+      }
+      
+      // 获取参考代码
+      try {
+        const refData = await getProblemReferenceAnswer(props.problemInfo.data_path);
+        referenceAnswer.value = refData.reference_answer || '';
+      } catch (err) {
+        console.error('获取参考代码失败:', err);
+        referenceAnswer.value = '';
       }
     }
   } catch (err) {
@@ -842,5 +867,54 @@ const handleReviewed = (data) => {
 
 .review-message-input textarea::placeholder {
   color: #c0c4cc;
+}
+
+/* 参考代码样式 */
+.reference-answer-section {
+  margin-top: 30px;
+  border-top: 2px solid #e4e7ed;
+  padding-top: 20px;
+}
+
+.reference-answer-section h4 {
+  margin: 0 0 20px 0;
+  color: #303133;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.reference-answer-content {
+  background-color: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 15px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #303133;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.reference-code {
+  margin: 0;
+  background-color: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 15px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #303133;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.no-reference {
+  color: #909399;
+  font-style: italic;
+  margin: 0;
 }
 </style> 

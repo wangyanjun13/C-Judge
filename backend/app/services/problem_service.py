@@ -537,7 +537,28 @@ class ProblemService:
             # 8. 计算相对路径
             relative_path = os.path.join(custom_category_path, unique_name)
             
-            # 9. 如果有标签且数据库会话可用，设置标签
+            # 9. 如果有数据库会话，保存题目信息到数据库
+            if db:
+                try:
+                    # 创建数据库记录
+                    from app.models.problem import Problem
+                    problem = Problem(
+                        name=unique_name,
+                        chinese_name=problem_data.chinese_name,
+                        data_path=relative_path,
+                        category=custom_category_path,
+                        is_shared=False,
+                        reference_answer=problem_data.reference_answer  # 保存参考答案
+                    )
+                    db.add(problem)
+                    db.commit()
+                    logger.info(f"题目记录已保存到数据库: ID {problem.id}")
+                except Exception as e:
+                    logger.error(f"保存题目到数据库失败: {str(e)}")
+                    db.rollback()
+                    # 数据库保存失败不影响文件创建，继续执行
+            
+            # 10. 如果有标签且数据库会话可用，设置标签
             if problem_data.tag_ids and db:
                 try:
                     from app.services.tag_service import TagService

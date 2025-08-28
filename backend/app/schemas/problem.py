@@ -53,6 +53,7 @@ class CustomProblemCreate(BaseModel):
     description: str
     testcases: List[TestCase]
     tag_ids: Optional[List[int]] = []  # 可选的标签ID列表
+    reference_answer: Optional[str] = None  # 新增：参考答案（可为空）
 
 class CustomProblemResponse(BaseModel):
     """自定义题目创建响应模型"""
