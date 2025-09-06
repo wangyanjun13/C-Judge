@@ -1523,7 +1523,7 @@ onMounted(async () => {
 /* 打标签对话框样式 */
 .modal-overlay {
   position: fixed;
-  top: 0;
+  top: 80px;
   left: 0;
   right: 0;
   bottom: 0;
@@ -1531,8 +1531,9 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
-  padding: 0;
+  z-index: 999;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .modal {
@@ -1541,16 +1542,17 @@ onMounted(async () => {
   padding: 20px;
   width: 600px;
   max-width: 90vw;
-  max-height: 80vh;
+  max-height: calc(100vh - 140px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  margin: auto;
 }
 
 .large-modal {
   width: 1200px;
   max-width: 95vw;
-  max-height: 90vh;
+  max-height: calc(100vh - 140px);
   overflow: hidden;
 }
 
@@ -1562,7 +1564,7 @@ onMounted(async () => {
 
 .tag-dialog-content {
   overflow-y: auto;
-  max-height: 60vh;
+  max-height: calc(100vh - 280px);
   padding-right: 10px;
 }
 

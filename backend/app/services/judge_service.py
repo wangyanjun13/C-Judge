@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from sqlalchemy import func # Added for latest_submissions
 
-from app.models import Submission, Problem, User
+from app.models import Submission, Problem, User, Exercise, Course, Class
 from app.models.class_model import student_class
 from config.settings import settings
 
@@ -828,6 +828,19 @@ class JudgeService:
         db: Session, problem_id: int, exercise_id: int, class_id: Optional[int] = None, current_user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """获取题目在班级中的排名情况"""
+        # 获取练习相关的班级ID列表
+        exercise_class_ids = []
+        try:
+            # 通过练习ID获取相关的班级ID
+            exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+            if exercise and exercise.course:
+                course = exercise.course
+                exercise_class_ids = [cls.id for cls in course.classes]
+                print(f"练习 {exercise_id} 关联的班级ID: {exercise_class_ids}")
+        except Exception as e:
+            print(f"获取练习相关班级失败: {str(e)}")
+            exercise_class_ids = []
+        
         # 使用子查询获取每个学生的最新提交ID
         latest_submission_ids = {}
         try:
@@ -867,6 +880,15 @@ class JudgeService:
                 and_(
                     User.id == student_class.c.student_id,
                     student_class.c.class_id == class_id
+                )
+            )
+        # 如果没有指定班级，但有练习相关的班级，则限制为练习相关班级的学生
+        elif exercise_class_ids:
+            query = query.join(
+                student_class, 
+                and_(
+                    User.id == student_class.c.student_id,
+                    student_class.c.class_id.in_(exercise_class_ids)
                 )
             )
         
@@ -972,8 +994,18 @@ class JudgeService:
                 .filter(User.role == "student")
             )
             all_students = student_query.all()
+        elif exercise_class_ids:
+            # 获取练习相关班级的所有学生
+            student_query = (
+                db.query(User)
+                .join(student_class, User.id == student_class.c.student_id)
+                .filter(student_class.c.class_id.in_(exercise_class_ids))
+                .filter(User.role == "student")
+            )
+            all_students = student_query.all()
+            print(f"练习相关班级学生数量: {len(all_students)}")
         else:
-            # 获取所有学生
+            # 如果没有练习相关班级信息，获取所有学生（保持兼容性）
             all_students = db.query(User).filter(User.role == "student").all()
             
         # 获取班级内的总学生数（仅计算学生）
