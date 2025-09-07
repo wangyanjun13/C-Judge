@@ -41,4 +41,7 @@ class User(Base):
         "Class",
         secondary="student_class",
         back_populates="students"
-    ) 
+    )
+    
+    # 收藏关系 - 用户收藏的题目
+    favorite_problems = relationship("Problem", secondary="user_favorites", back_populates="favorited_by") 

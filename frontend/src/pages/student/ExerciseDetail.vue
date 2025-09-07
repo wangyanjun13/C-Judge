@@ -82,6 +82,14 @@
                     <span v-if="isExerciseEnded" class="deadline-badge">已截止</span>
                     <span v-else-if="!isExerciseStarted" class="not-started-badge">未开始</span>
                   </button>
+                  <button 
+                    @click="toggleFavorite(problem.id)" 
+                    class="btn btn-favorite"
+                    :class="{ 'favorited': isFavorited(problem.id) }"
+                    :title="isFavorited(problem.id) ? '取消收藏' : '收藏题目'"
+                  >
+                    {{ isFavorited(problem.id) ? '★' : '☆' }}
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -115,6 +123,7 @@ import { getSubmissions } from '../../api/submissions';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import { getProblemTags, getTagTypes, getBatchProblemTags } from '../../api/tags';
+import { toggleFavoriteProblem, getBatchFavoriteStatus } from '../../api/problems';
 import ExerciseStatistics from '../../components/ExerciseStatistics.vue';
 
 const route = useRoute();
@@ -128,6 +137,7 @@ const error = ref(null);
 const statisticsModalVisible = ref(false);
 const submissionMap = ref({}); // 保存题目ID到提交记录的映射
 const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
+const favoriteStatusMap = ref({}); // 存储题目ID到收藏状态的映射
 
 // 在script setup部分添加计算练习时间的函数
 const isExerciseStarted = computed(() => {
@@ -240,6 +250,50 @@ const isSubmitted = (problem) => {
   return !!submissionMap.value[problem.id];
 };
 
+// 加载收藏状态
+const loadFavoriteStatus = async () => {
+  if (!exercise.value.problems || exercise.value.problems.length === 0) return;
+  
+  try {
+    const problemIds = exercise.value.problems.map(p => p.id);
+    const favoriteStatus = await getBatchFavoriteStatus(problemIds);
+    favoriteStatusMap.value = favoriteStatus;
+  } catch (error) {
+    console.error('加载收藏状态失败:', error);
+  }
+};
+
+// 检查题目是否已收藏
+const isFavorited = (problemId) => {
+  return favoriteStatusMap.value[problemId]?.is_favorited || false;
+};
+
+// 切换收藏状态
+const toggleFavorite = async (problemId) => {
+  try {
+    const result = await toggleFavoriteProblem(problemId);
+    
+    // 更新本地收藏状态
+    if (favoriteStatusMap.value[problemId]) {
+      favoriteStatusMap.value[problemId].is_favorited = result.is_favorited;
+    } else {
+      favoriteStatusMap.value[problemId] = { is_favorited: result.is_favorited };
+    }
+    
+    // 显示操作结果
+    ElMessage.success(result.message);
+    
+    // 记录操作日志
+    const problem = exercise.value.problems.find(p => p.id === problemId);
+    const action = result.is_favorited ? '收藏' : '取消收藏';
+    logUserOperation(OperationType.FAVORITE_PROBLEM, `${action}题目: ${problem?.name || problemId}`);
+    
+  } catch (error) {
+    console.error('收藏操作失败:', error);
+    ElMessage.error('收藏操作失败，请重试');
+  }
+};
+
 // 获取练习详情
 const fetchExerciseDetail = async () => {
   loading.value = true;
@@ -260,6 +314,8 @@ const fetchExerciseDetail = async () => {
     // 加载每个题目的标签
     if (result.problems && result.problems.length > 0) {
       await loadProblemTags();
+      // 加载收藏状态
+      await loadFavoriteStatus();
     }
   } catch (err) {
     console.error('获取练习详情失败', err);
@@ -562,6 +618,31 @@ onMounted(() => {
 .btn-info:hover {
   background-color: #667eea;
   border: 2px solid #8a9ceb;
+}
+
+.btn-favorite {
+  background-color: transparent;
+  color: #999;
+  font-size: 25px;
+  padding: 6px 10px;
+  min-width: 36px;
+  border: none;
+}
+
+.btn-favorite:hover {
+  background-color: transparent;
+  color: #000000;
+}
+
+.btn-favorite.favorited {
+  background-color: transparent;
+  color: #dec206f0;
+  border: none;
+}
+
+.btn-favorite.favorited:hover {
+  background-color: transparent;
+  color: #dec206f0;
 }
 
 .modal-overlay {

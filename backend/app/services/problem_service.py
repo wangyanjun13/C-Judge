@@ -897,3 +897,136 @@ class ProblemService:
             logger.info(f"创建测试用例 {i}: {input_path}, {output_path}")
         
         logger.info(f"总共创建了 {len(testcases)} 组测试用例") 
+
+
+
+    @staticmethod
+    def check_favorite_status(db: Session, user_id: int, problem_id: int) -> dict:
+        """
+        检查题目的收藏状态
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            problem_id: 题目ID
+            
+        Returns:
+            收藏状态和收藏总数
+        """
+        try:
+            from app.models import user_favorites
+            
+            # 检查当前用户是否收藏了该题目
+            is_favorited = db.query(user_favorites).filter(
+                user_favorites.c.user_id == user_id,
+                user_favorites.c.problem_id == problem_id
+            ).first() is not None
+            
+            # 获取该题目的总收藏数
+            favorite_count = db.query(user_favorites).filter(
+                user_favorites.c.problem_id == problem_id
+            ).count()
+            
+            return {
+                "is_favorited": is_favorited,
+                "favorite_count": favorite_count
+            }
+            
+        except Exception as e:
+            logger.error(f"检查收藏状态失败: {str(e)}")
+            return {"is_favorited": False, "favorite_count": 0}
+
+    @staticmethod
+    def get_batch_favorite_status(db: Session, user_id: int, problem_ids: List[int]) -> dict:
+        """
+        批量获取题目的收藏状态
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            problem_ids: 题目ID列表
+            
+        Returns:
+            题目ID到收藏状态的映射
+        """
+        try:
+            from app.models import user_favorites
+            
+            # 查询用户收藏的题目
+            favorited_problems = db.query(user_favorites.c.problem_id).filter(
+                user_favorites.c.user_id == user_id,
+                user_favorites.c.problem_id.in_(problem_ids)
+            ).all()
+            
+            favorited_ids = {row[0] for row in favorited_problems}
+            
+            # 构建结果字典
+            result = {}
+            for problem_id in problem_ids:
+                result[problem_id] = {
+                    "is_favorited": problem_id in favorited_ids
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"批量获取收藏状态失败: {str(e)}")
+            return {}
+
+    @staticmethod
+    def toggle_favorite(db: Session, user_id: int, problem_id: int) -> dict:
+        """
+        切换题目的收藏状态
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            problem_id: 题目ID
+            
+        Returns:
+            操作结果字典
+        """
+        try:
+            from app.models import Problem, User, user_favorites
+            
+            # 验证用户和题目是否存在
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                return {"success": False, "message": "用户不存在"}
+            
+            problem = db.query(Problem).filter(Problem.id == problem_id).first()
+            if not problem:
+                return {"success": False, "message": "题目不存在"}
+            
+            # 检查当前收藏状态
+            existing = db.query(user_favorites).filter(
+                user_favorites.c.user_id == user_id,
+                user_favorites.c.problem_id == problem_id
+            ).first()
+            
+            if existing:
+                # 已收藏，取消收藏
+                stmt = user_favorites.delete().where(
+                    user_favorites.c.user_id == user_id,
+                    user_favorites.c.problem_id == problem_id
+                )
+                db.execute(stmt)
+                db.commit()
+                
+                logger.info(f"用户 {user_id} 取消收藏题目 {problem_id}")
+                return {"success": True, "message": "取消收藏成功", "is_favorited": False}
+            else:
+                # 未收藏，添加收藏
+                stmt = user_favorites.insert().values(user_id=user_id, problem_id=problem_id)
+                db.execute(stmt)
+                db.commit()
+                
+                logger.info(f"用户 {user_id} 收藏了题目 {problem_id}")
+                return {"success": True, "message": "收藏成功", "is_favorited": True}
+                
+        except Exception as e:
+            logger.error(f"切换收藏状态失败: {str(e)}")
+            db.rollback()
+            return {"success": False, "message": f"操作失败: {str(e)}"}
+
+ 
