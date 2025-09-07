@@ -6,8 +6,16 @@
       <button @click="goBack" class="btn btn-primary">返回</button>
     </div>
     <div v-else class="problem-content">
-      <!-- 右上角返回按钮 -->
+      <!-- 右上角收藏和返回按钮 -->
       <div class="top-actions">
+        <button 
+          @click="toggleFavorite(problemId)" 
+          class="btn btn-favorite"
+          :class="{ 'favorited': isFavorited(problemId) }"
+          :title="isFavorited(problemId) ? '取消收藏' : '收藏题目'"
+        >
+          {{ isFavorited(problemId) ? '★' : '☆' }}
+        </button>
         <button @click="goBack" class="btn btn-back">返回</button>
       </div>
 
@@ -255,6 +263,7 @@ import { ElMessage } from 'element-plus';
 import { getProblemDetail } from '../../api/exercises';
 import { getProblemReferenceAnswer } from '../../api/problems';
 import { submitCode as submitCodeAPI, getSubmissionDetail, getSubmissions, getProblemRanking } from '../../api/submissions';
+import { toggleFavoriteProblem, getBatchFavoriteStatus } from '../../api/problems';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import ProblemRanking from '../../components/ProblemRanking.vue'; // 导入排名组件
@@ -277,6 +286,7 @@ const isSubmitted = ref(false);
 const isRedoing = ref(false);
 const showRanking = ref(false); // 新增：控制排名弹窗的显示
 const referenceAnswer = ref(''); // 新增：参考代码
+const favoriteStatusMap = ref({}); // 收藏状态映射
 
 // 新增：获取班级排名数据
 const userRank = ref(null);
@@ -335,6 +345,9 @@ const fetchProblemDetail = async () => {
     
     // 获取参考代码
     await fetchReferenceAnswer();
+    
+    // 加载收藏状态
+    await loadFavoriteStatus();
   } catch (err) {
     error.value = '获取题目详情失败，请稍后重试';
     ElMessage.error('获取题目详情失败');
@@ -542,6 +555,48 @@ const fetchRanking = async () => {
   }
 };
 
+// 加载收藏状态
+const loadFavoriteStatus = async () => {
+  if (!problemId) return;
+  
+  try {
+    const favoriteStatus = await getBatchFavoriteStatus([problemId]);
+    favoriteStatusMap.value = favoriteStatus;
+  } catch (error) {
+    console.error('加载收藏状态失败:', error);
+  }
+};
+
+// 检查题目是否已收藏
+const isFavorited = (problemId) => {
+  return favoriteStatusMap.value[problemId]?.is_favorited || false;
+};
+
+// 切换收藏状态
+const toggleFavorite = async (problemId) => {
+  try {
+    const result = await toggleFavoriteProblem(problemId);
+    
+    // 更新本地收藏状态
+    if (favoriteStatusMap.value[problemId]) {
+      favoriteStatusMap.value[problemId].is_favorited = result.is_favorited;
+    } else {
+      favoriteStatusMap.value[problemId] = { is_favorited: result.is_favorited };
+    }
+    
+    // 显示操作结果
+    ElMessage.success(result.message);
+    
+    // 记录操作日志
+    const action = result.is_favorited ? '收藏' : '取消收藏';
+    logUserOperation(OperationType.FAVORITE_PROBLEM, `${action}题目: ${problem.value.name || problemId}`);
+    
+  } catch (error) {
+    console.error('收藏操作失败:', error);
+    ElMessage.error('收藏操作失败，请重试');
+  }
+};
+
 onMounted(() => {
   fetchProblemDetail();
   fetchRanking(); // 在组件挂载时获取排名
@@ -573,6 +628,8 @@ onMounted(() => {
 .top-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 5px;
 }
 
@@ -736,6 +793,31 @@ onMounted(() => {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
   background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+.btn-favorite {
+  background-color: transparent;
+  color: #999;
+  font-size: 25px;
+  padding: 6px 10px;
+  min-width: 36px;
+  border: none;
+}
+
+.btn-favorite:hover {
+  background-color: transparent;
+  color: #000000;
+}
+
+.btn-favorite.favorited {
+  background-color: transparent;
+  color: #dec206f0;
+  border: none;
+}
+
+.btn-favorite.favorited:hover {
+  background-color: transparent;
+  color: #dec206f0;
 }
 
 .btn-submit {
