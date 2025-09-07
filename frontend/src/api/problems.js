@@ -219,4 +219,51 @@ export const getProblemReferenceAnswer = async (problemPath) => {
     console.error('获取题目参考代码失败:', error);
     return { reference_answer: null };
   }
+}
+
+// 收藏相关API
+/**
+ * 添加或取消收藏题目
+ * @param {Number} problemId - 题目ID
+ * @returns {Promise<Object>} - 返回收藏操作结果
+ */
+export const toggleFavoriteProblem = async (problemId) => {
+  try {
+    const response = await axios.post(`/api/problems/favorites/toggle/${problemId}`);
+    return response.data;
+  } catch (error) {
+    console.error('收藏操作失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取题目收藏状态
+ * @param {Number} problemId - 题目ID
+ * @returns {Promise<Object>} - 返回收藏状态
+ */
+export const getFavoriteStatus = async (problemId) => {
+  try {
+    const response = await axios.get(`/api/problems/favorites/status/${problemId}`);
+    return response.data;
+  } catch (error) {
+    console.error('获取收藏状态失败:', error);
+    return { is_favorited: false, favorite_count: 0 };
+  }
+}
+
+/**
+ * 批量获取多个题目的收藏状态
+ * @param {Array} problemIds - 题目ID数组
+ * @returns {Promise<Object>} - 返回收藏状态映射
+ */
+export const getBatchFavoriteStatus = async (problemIds) => {
+  try {
+    if (!problemIds || problemIds.length === 0) return {};
+    const response = await axios.post('/api/problems/favorites/batch-status', problemIds);
+    return response.data;
+  } catch (error) {
+    console.error('批量获取收藏状态失败:', error);
+    return {};
+  }
 } 

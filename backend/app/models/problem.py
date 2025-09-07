@@ -1,10 +1,19 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text, Boolean, DateTime, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.models.database import Base
 from .exercise import exercise_problem
 from .tag import problem_tag
+
+# 用户收藏关联表
+user_favorites = Table(
+    "user_favorites",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("problem_id", Integer, ForeignKey("problems.id"), primary_key=True),
+    Column("created_at", DateTime(timezone=True), server_default=func.now())
+)
 
 
 class Problem(Base):
@@ -35,6 +44,9 @@ class Problem(Base):
     exercise = relationship("Exercise", secondary=exercise_problem, back_populates="problems")
     submissions = relationship("Submission", back_populates="problem")
     tags = relationship("Tag", secondary=problem_tag, back_populates="problems")
+    
+    # 收藏关系 - 被哪些用户收藏
+    favorited_by = relationship("User", secondary=user_favorites, back_populates="favorite_problems")
 
 # 保留ProblemCategory类，但修复与Problem的关系
 class ProblemCategory(Base):
