@@ -1029,4 +1029,93 @@ class ProblemService:
             db.rollback()
             return {"success": False, "message": f"操作失败: {str(e)}"}
 
+    @staticmethod
+    def get_user_favorite_problems(db: Session, user_id: int) -> List[dict]:
+        """
+        获取用户收藏的题目列表，包含得分、练习、课程等信息
+        
+        Args:
+            db: 数据库会话
+            user_id: 用户ID
+            
+        Returns:
+            收藏的题目列表，包含额外的提交信息
+        """
+        try:
+            from app.models import Problem, user_favorites, Submission, Exercise, Course
+            from sqlalchemy import func, desc
+            
+            # 查询用户收藏的题目，按收藏时间倒序排列
+            favorites = db.query(
+                Problem,
+                user_favorites.c.created_at.label('favorite_time')
+            ).join(
+                user_favorites, Problem.id == user_favorites.c.problem_id
+            ).filter(
+                user_favorites.c.user_id == user_id
+            ).order_by(
+                user_favorites.c.created_at.desc()
+            ).all()
+            
+            # 组装返回数据
+            favorite_list = []
+            for problem, favorite_time in favorites:
+                # 获取该用户在此题目上的最佳得分
+                best_submission = db.query(Submission).filter(
+                    Submission.user_id == user_id,
+                    Submission.problem_id == problem.id
+                ).order_by(desc(Submission.total_score)).first()
+                
+                # 获取最近一次提交的练习和课程信息
+                recent_submission = db.query(Submission).filter(
+                    Submission.user_id == user_id,
+                    Submission.problem_id == problem.id
+                ).order_by(desc(Submission.submitted_at)).first()
+                
+                exercise_name = None
+                course_name = None
+                exercise_id = None
+                course_id = None
+                
+                if recent_submission and recent_submission.exercise_id:
+                    exercise = db.query(Exercise).filter(Exercise.id == recent_submission.exercise_id).first()
+                    if exercise:
+                        exercise_name = exercise.name
+                        exercise_id = exercise.id
+                        if exercise.course_id:
+                            course = db.query(Course).filter(Course.id == exercise.course_id).first()
+                            if course:
+                                course_name = course.name
+                                course_id = course.id
+                
+                favorite_item = {
+                    "id": problem.id,
+                    "name": problem.name,
+                    "chinese_name": problem.chinese_name,
+                    "category": problem.category,
+                    "data_path": problem.data_path,
+                    "time_limit": problem.time_limit,
+                    "memory_limit": problem.memory_limit,
+                    "code_check_score": problem.code_check_score,
+                    "runtime_score": problem.runtime_score,
+                    "score_method": problem.score_method,
+                    "is_shared": problem.is_shared,
+                    "created_at": problem.created_at,
+                    "favorite_time": favorite_time,
+                    # 添加提交相关信息
+                    "best_score": best_submission.total_score if best_submission else None,
+                    "exercise_id": exercise_id,
+                    "exercise_name": exercise_name,
+                    "course_id": course_id,
+                    "course_name": course_name
+                }
+                favorite_list.append(favorite_item)
+            
+            logger.info(f"获取用户 {user_id} 的收藏列表，共 {len(favorite_list)} 个题目")
+            return favorite_list
+            
+        except Exception as e:
+            logger.error(f"获取用户收藏列表失败: {str(e)}")
+            return []
+
  

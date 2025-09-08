@@ -266,4 +266,18 @@ export const getBatchFavoriteStatus = async (problemIds) => {
     console.error('批量获取收藏状态失败:', error);
     return {};
   }
+}
+
+/**
+ * 获取当前用户的收藏题目列表
+ * @returns {Promise<Array>} - 返回收藏的题目列表
+ */
+export const getUserFavoriteProblems = async () => {
+  try {
+    const response = await axios.get('/api/problems/favorites/list');
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('获取收藏列表失败:', error);
+    return [];
+  }
 } 

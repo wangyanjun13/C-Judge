@@ -325,4 +325,17 @@ async def get_batch_favorite_status(
         return result
     except Exception as e:
         logger.error(f"批量获取收藏状态失败: {str(e)}")
-        raise HTTPException(status_code=500, detail="批量获取收藏状态失败") 
+        raise HTTPException(status_code=500, detail="批量获取收藏状态失败")
+
+@router.get("/favorites/list", response_model=List[dict])
+async def get_user_favorite_problems(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取当前用户的收藏题目列表"""
+    try:
+        favorite_list = ProblemService.get_user_favorite_problems(db, current_user.id)
+        return favorite_list
+    except Exception as e:
+        logger.error(f"获取用户收藏列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取收藏列表失败") 
