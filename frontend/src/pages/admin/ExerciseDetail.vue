@@ -82,6 +82,14 @@
                     查看
                     <span v-if="isExerciseEnded" class="deadline-badge">已截止</span>
                   </button>
+                  <button 
+                    @click="toggleFavorite(problem.id)" 
+                    class="btn btn-favorite"
+                    :class="{ 'favorited': isFavorited(problem.id) }"
+                    :title="isFavorited(problem.id) ? '取消收藏' : '收藏题目'"
+                  >
+                    {{ isFavorited(problem.id) ? '★' : '☆' }}
+                  </button>
                   <!-- 暂时注释掉修改按钮，后续需要再开放 -->
                   <!-- <button @click="showEditProblemModal(problem)" class="btn btn-edit">修改</button> -->
                   <button @click="removeProblem(problem.id)" class="btn btn-danger">删除</button>
@@ -207,6 +215,7 @@ import ActiveStudentsMonitor from '../../components/ActiveStudentsMonitor.vue';
 import { useAuthStore } from '../../store/auth';
 import { logUserOperation, OperationType } from '../../utils/logger';
 import { getProblemTags, getTagTypes, getBatchProblemTags } from '../../api/tags';
+import { toggleFavoriteProblem, getBatchFavoriteStatus } from '../../api/problems';
 
 const route = useRoute();
 const router = useRouter();
@@ -222,6 +231,7 @@ const statisticsModalVisible = ref(false);
 const activeStudentsModalVisible = ref(false);
 const submissionMap = ref({}); // 保存题目ID到提交记录的映射
 const tagTypeMap = ref({}); // 存储标签类型ID到名称的映射
+const favoriteStatusMap = ref({}); // 存储题目ID到收藏状态的映射
 
 // 编辑题目表单
 const editProblemForm = ref({
@@ -277,6 +287,8 @@ const fetchExerciseDetail = async () => {
     // 加载每个题目的标签
     if (result.problems && result.problems.length > 0) {
       await loadProblemTags();
+      // 加载收藏状态
+      await loadFavoriteStatus();
     }
   } catch (err) {
     console.error('获取练习详情失败', err);
@@ -645,6 +657,50 @@ const isSubmitted = (problem) => {
   return !!submissionMap.value[problem.id];
 };
 
+// 加载收藏状态
+const loadFavoriteStatus = async () => {
+  if (!exercise.value.problems || exercise.value.problems.length === 0) return;
+  
+  try {
+    const problemIds = exercise.value.problems.map(p => p.id);
+    const favoriteStatus = await getBatchFavoriteStatus(problemIds);
+    favoriteStatusMap.value = favoriteStatus;
+  } catch (error) {
+    console.error('加载收藏状态失败:', error);
+  }
+};
+
+// 检查题目是否已收藏
+const isFavorited = (problemId) => {
+  return favoriteStatusMap.value[problemId]?.is_favorited || false;
+};
+
+// 切换收藏状态
+const toggleFavorite = async (problemId) => {
+  try {
+    const result = await toggleFavoriteProblem(problemId);
+    
+    // 更新本地收藏状态
+    if (favoriteStatusMap.value[problemId]) {
+      favoriteStatusMap.value[problemId].is_favorited = result.is_favorited;
+    } else {
+      favoriteStatusMap.value[problemId] = { is_favorited: result.is_favorited };
+    }
+    
+    // 显示操作结果
+    ElMessage.success(result.message);
+    
+    // 记录操作日志
+    const problem = exercise.value.problems.find(p => p.id === problemId);
+    const action = result.is_favorited ? '收藏' : '取消收藏';
+    logUserOperation(OperationType.FAVORITE_PROBLEM, `${action}题目: ${problem?.name || problemId}`);
+    
+  } catch (error) {
+    console.error('收藏操作失败:', error);
+    ElMessage.error('收藏操作失败，请重试');
+  }
+};
+
 onMounted(() => {
   fetchExerciseDetail();
 });
@@ -819,12 +875,22 @@ onMounted(() => {
 }
 
 .btn-back {
-  background-color: #f4f4f5;
-  color: #606266;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
+  font-size: 14px;
 }
 
 .btn-back:hover {
-  background-color: #e9e9eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
 }
 
 .btn-cancel {
@@ -867,6 +933,31 @@ onMounted(() => {
 
 .btn-success:hover {
   background-color: #85ce61;
+}
+
+.btn-favorite {
+  background-color: transparent;
+  color: #999;
+  font-size: 25px;
+  padding: 6px 10px;
+  min-width: 36px;
+  border: none;
+}
+
+.btn-favorite:hover {
+  background-color: transparent;
+  color: #000000;
+}
+
+.btn-favorite.favorited {
+  background-color: transparent;
+  color: #dec206f0;
+  border: none;
+}
+
+.btn-favorite.favorited:hover {
+  background-color: transparent;
+  color: #dec206f0;
 }
 
 .btn-warning {

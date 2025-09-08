@@ -15,10 +15,27 @@
           </div>
           <p class="dashboard-subtitle">跟踪学习进度和答题表现</p>
         </div>
-        <div class="header-decoration">
-          <div class="decoration-circle"></div>
-          <div class="decoration-circle small"></div>
+        <div class="header-actions">
+          <div class="view-switcher">
+            <button 
+              class="switch-btn" 
+              :class="{ active: currentView === 'submissions' }"
+              @click="switchView('submissions')"
+            >
+              <span class="btn-icon">📊</span>
+              答题记录
+            </button>
+            <button 
+              class="switch-btn" 
+              :class="{ active: currentView === 'favorites' }"
+              @click="switchView('favorites')"
+            >
+              <span class="btn-icon">⭐</span>
+              题目收藏列表
+            </button>
+          </div>
         </div>
+
       </div>
     </div>
     
@@ -47,6 +64,92 @@
       <p class="empty-hint">完成题目后，您的答题记录将显示在这里</p>
     </div>
     
+    <!-- 收藏列表内容 -->
+    <div v-else-if="currentView === 'favorites'" class="dashboard-content">
+      <div v-if="favoriteLoading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p>正在加载收藏列表...</p>
+      </div>
+      
+      <div v-else-if="favoriteProblems.length === 0" class="empty-container">
+        <div class="empty-illustration">
+          <div class="empty-icon">⭐</div>
+          <div class="empty-bg-circles">
+            <div class="bg-circle"></div>
+            <div class="bg-circle"></div>
+          </div>
+        </div>
+        <h3>还没有收藏的题目</h3>
+        <p>收藏感兴趣的题目，方便以后查看和练习</p>
+      </div>
+      
+      <div v-else class="favorites-content">
+        <div class="section-header">
+          <div class="header-left">
+            <h3 class="section-title">我的收藏题目</h3>
+            <span class="record-count">共 {{ favoriteProblems.length }} 个收藏</span>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <div class="table-wrapper">
+            <table class="submissions-table">
+              <thead>
+                <tr>
+                  <th class="col-problem">题目信息</th>
+                  <th class="col-score">得分</th>
+                  <th class="col-exercise">所属练习</th>
+                  <th class="col-course">课程</th>
+                  <th class="col-favorite-time">收藏时间</th>
+                  <th class="col-actions">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="problem in favoriteProblems" :key="problem.id" class="table-row clickable-row" @click="goToProblemDetail(problem.id)">
+                  <td class="col-problem">
+                    <div class="problem-info">
+                      <div class="problem-name clickable-title">{{ problem.name }}</div>
+                      <div class="problem-chinese" v-if="problem.chinese_name">
+                        {{ problem.chinese_name }}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="col-score">
+                    <div v-if="problem.best_score !== null" class="score-badge" :class="getScoreBadgeClass(problem.best_score)">
+                      {{ problem.best_score }}
+                    </div>
+                    <span v-else class="no-score">未提交</span>
+                  </td>
+                  <td class="col-exercise">
+                    <span class="exercise-name">{{ problem.exercise_name || '独立提交' }}</span>
+                  </td>
+                  <td class="col-course">
+                    <span class="course-name">{{ problem.course_name || '-' }}</span>
+                  </td>
+                  <td class="col-favorite-time">
+                    <span class="time-text">{{ formatFavoriteTime(problem.favorite_time) }}</span>
+                  </td>
+                  <td class="col-actions">
+                    <button 
+                      class="unfavorite-btn" 
+                      @click.stop="toggleFavorite(problem.id)"
+                      @mousedown.stop
+                      @mouseup.stop
+                      title="取消收藏"
+                      style="z-index: 999 !important; position: relative !important;"
+                    >
+                      💔 取消收藏
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 答题记录内容 -->
     <div v-else class="dashboard-content">
       <!-- 学生版：个人数据概览 -->
       <div v-if="authStore.user.role === 'student'" class="stats-section">
@@ -204,7 +307,8 @@
           </thead>
           <tbody>
                 <tr v-for="item in filteredSubmissions" :key="item.id" 
-                    class="table-row" :class="getScoreClass(item.total_score)">
+                    class="table-row clickable-row" :class="getScoreClass(item.total_score)"
+                    @click="goToProblemDetail(item.problem_id)">
                   <td v-if="authStore.user.role !== 'student' && showAllSubmissions" class="col-student">
                     <div class="student-info">
                       <div class="student-username">
@@ -217,7 +321,7 @@
                   </td>
                   <td class="col-problem">
                     <div class="problem-info">
-                      <div class="problem-name">{{ item.problem_name }}</div>
+                      <div class="problem-name clickable-title">{{ item.problem_name }}</div>
                       <div class="problem-chinese" v-if="item.problem_chinese_name">
                         {{ item.problem_chinese_name }}
                       </div>
@@ -277,13 +381,16 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../store/auth';
 import { getMySubmissions, getProblemRanking, getAllSubmissions, getStudents } from '../../api/submissions';
+import { getUserFavoriteProblems, toggleFavoriteProblem } from '../../api/problems';
 import ProblemRanking from '../../components/ProblemRanking.vue';
 import { ElMessage } from 'element-plus';
 
 
 
+const router = useRouter();
 const authStore = useAuthStore();
 const loading = ref(false);
 const error = ref(null);
@@ -296,6 +403,11 @@ const rankingDialog = ref({
   classId: null,
   problemName: ''
 });
+
+// 收藏列表相关状态
+const currentView = ref('submissions'); // 'submissions' 或 'favorites'
+const favoriteProblems = ref([]);
+const favoriteLoading = ref(false);
 
 // 排名缓存和加载状态
 const rankingCache = ref({});
@@ -345,7 +457,7 @@ const loadRanking = async (item) => {
       // 管理员和教师显示提交情况
       rankingCache.value[key] = `${submissionCount}/${totalStudents}`;
     } else if (totalStudents > 0) {
-      rankingCache.value[key] = `0/${totalStudents}`;
+      rankingCache.value[key] = '0/${totalStudents}';
     } else {
       rankingCache.value[key] = '暂无数据';
     }
@@ -556,6 +668,73 @@ onMounted(() => {
 const goBack = () => {
   window.history.back();
 };
+
+// 切换视图
+const switchView = (view) => {
+  currentView.value = view;
+  if (view === 'favorites') {
+    fetchFavoriteProblems();
+  }
+};
+
+// 获取收藏列表
+const fetchFavoriteProblems = async () => {
+  favoriteLoading.value = true;
+  try {
+    const favoriteList = await getUserFavoriteProblems();
+    favoriteProblems.value = favoriteList;
+  } catch (error) {
+    console.error('获取收藏列表失败:', error);
+    ElMessage.error('获取收藏列表失败');
+  } finally {
+    favoriteLoading.value = false;
+  }
+};
+
+// 切换收藏状态
+const toggleFavorite = async (problemId) => {
+  console.log('toggleFavorite 被调用, problemId:', problemId);
+  try {
+    const result = await toggleFavoriteProblem(problemId);
+    console.log('API 调用结果:', result);
+    if (result.success) {
+      ElMessage.success(result.message);
+      // 如果当前在收藏页面，重新获取收藏列表
+      if (currentView.value === 'favorites') {
+        fetchFavoriteProblems();
+      }
+    } else {
+      ElMessage.error(result.message || '操作失败');
+    }
+  } catch (error) {
+    console.error('切换收藏状态失败:', error);
+    ElMessage.error('操作失败');
+  }
+};
+
+// 跳转到题目详情页
+const goToProblemDetail = (problemId) => {
+  // 根据用户角色跳转到不同的题目详情页
+  const userRole = authStore.user?.role;
+  let routePath = '';
+  
+  if (userRole === 'admin') {
+    routePath = `/admin/problem/${problemId}`;
+  } else if (userRole === 'teacher') {
+    routePath = `/teacher/problem/${problemId}`;
+  } else {
+    routePath = `/student/problem/${problemId}`;
+  }
+  
+  router.push(routePath);
+};
+
+// 格式化时间（用于收藏列表）
+const formatFavoriteTime = (dateStr) => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 </script>
 
 <style scoped>
@@ -580,6 +759,52 @@ const goBack = () => {
   align-items: center;
   position: relative;
   z-index: 2;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.view-switcher {
+  display: flex;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 4px;
+  backdrop-filter: blur(10px);
+}
+
+.switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.switch-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.switch-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-icon {
+  font-size: 16px;
 }
 
 .title-section {
@@ -639,23 +864,7 @@ const goBack = () => {
   position: relative;
 }
 
-.decoration-circle {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  position: absolute;
-  top: -60px;
-  right: 0;
-}
 
-.decoration-circle.small {
-  width: 60px;
-  height: 60px;
-  top: -30px;
-  right: 80px;
-  background: rgba(255, 255, 255, 0.05);
-}
 
 /* 加载状态 */
 .loading-container {
@@ -1073,6 +1282,15 @@ const goBack = () => {
   border-bottom: none;
 }
 
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+  background-color: #e6f7ff !important;
+}
+
 /* 表格列 */
 .col-student {
   min-width: 120px;
@@ -1230,6 +1448,12 @@ const goBack = () => {
   80%, 100% { opacity: 0; }
 }
 
+.no-score {
+  color: #a0aec0;
+  font-size: 13px;
+  font-style: italic;
+}
+
 .ranking-placeholder {
   color: #718096;
   font-size: 12px;
@@ -1240,10 +1464,87 @@ const goBack = () => {
   font-size: 12px;
 }
 
+/* 收藏相关样式 */
+.favorites-content {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.unfavorite-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer !important;
+  transition: all 0.3s ease;
+  min-width: 100px;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(238, 90, 82, 0.2);
+  position: relative !important;
+  z-index: 999 !important;
+  pointer-events: auto !important;
+}
+
+.unfavorite-btn:hover {
+  background: linear-gradient(135deg, #ee5a52, #dc4c47);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(238, 90, 82, 0.4);
+}
+
+.unfavorite-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(238, 90, 82, 0.2);
+}
+
+.category-text,
+.time-limit-text,
+.memory-limit-text {
+  font-size: 13px;
+  color: #666;
+  padding: 4px 8px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.col-favorite-time {
+  width: 120px;
+}
+
+.time-text {
+  font-size: 13px;
+  color: #888;
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .dashboard-header {
     padding: 24px 20px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .view-switcher {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .switch-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 12px 16px;
   }
   
   .dashboard-title {
@@ -1278,12 +1579,33 @@ const goBack = () => {
   
   .col-exercise,
   .col-course,
-  .col-class {
-    min-width: 100px;
+  .col-class,
+  .col-favorite-time {
+    display: none;
   }
   
   .col-ranking {
     min-width: 110px;
   }
+  
+  .col-actions {
+    width: 100px;
+  }
+  
+  .unfavorite-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+}
+
+.clickable-title {
+  color: #409eff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.clickable-title:hover {
+  color: #66b1ff;
+  text-decoration: underline;
 }
 </style> 

@@ -4,7 +4,7 @@ from app.models.class_model import Class, class_course, student_class, teacher_c
 from app.models.course import Course
 from app.models.exercise import Exercise
 from app.models.tag import TagType, Tag, TagApprovalRequest, problem_tag
-from app.models.problem import Problem, ProblemCategory
+from app.models.problem import Problem, ProblemCategory, user_favorites
 from app.models.submission import Submission
 from app.models.operation_log import OperationLog
 from app.models.system_setting import SystemSetting
@@ -17,7 +17,7 @@ __all__ = [
     "Course",
     "Exercise",
     "TagType", "Tag", "TagApprovalRequest", "problem_tag",
-    "Problem", "ProblemCategory",
+    "Problem", "ProblemCategory", "user_favorites",
     "Submission",
     "OperationLog",
     "SystemSetting"

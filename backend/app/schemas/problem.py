@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 from app.schemas.tag import Tag
 
 class ProblemCategory(BaseModel):
@@ -59,4 +60,39 @@ class CustomProblemResponse(BaseModel):
     """自定义题目创建响应模型"""
     success: bool
     message: str
-    problem_path: Optional[str] = None 
+    problem_path: Optional[str] = None
+
+# 收藏相关Schema
+class FavoriteRequest(BaseModel):
+    """添加收藏请求"""
+    problem_id: int
+
+class FavoriteResponse(BaseModel):
+    """收藏操作响应"""
+    success: bool
+    message: str
+    is_favorited: Optional[bool] = None
+
+class FavoriteProblemInfo(BaseModel):
+    """收藏的题目信息"""
+    id: int
+    name: str
+    chinese_name: Optional[str] = None
+    data_path: Optional[str] = None
+    category: Optional[str] = None
+    time_limit: Optional[int] = None
+    memory_limit: Optional[int] = None
+    favorited_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class UserFavoritesResponse(BaseModel):
+    """用户收藏列表响应"""
+    total: int
+    favorites: List[FavoriteProblemInfo]
+
+class FavoriteStatusResponse(BaseModel):
+    """收藏状态响应"""
+    is_favorited: bool
+    favorite_count: int 
