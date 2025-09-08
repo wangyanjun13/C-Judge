@@ -1,11 +1,15 @@
 from fastapi import APIRouter, HTTPException, Response, Depends, Query
 from typing import List, Optional
 from urllib.parse import unquote
-from app.schemas.problem import ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail, CustomProblemCreate, CustomProblemResponse
+from app.schemas.problem import (
+    ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail, 
+    CustomProblemCreate, CustomProblemResponse,
+    FavoriteResponse, FavoriteStatusResponse
+)
 from app.services.problem_service import ProblemService
 from app.models import get_db, Problem, User, Submission
 from sqlalchemy.orm import Session
-from app.utils.auth import get_teacher_user, get_admin_user
+from app.utils.auth import get_teacher_user, get_admin_user, get_current_user
 import logging
 
 # 创建路由
@@ -279,3 +283,59 @@ async def get_problem_reference_answer(problem_path: str, db: Session = Depends(
     except Exception as e:
         logger.error(f"获取题目参考代码失败: {str(e)}")
         raise HTTPException(status_code=500, detail="获取参考代码失败") 
+
+# 收藏相关接口（简化版）
+@router.post("/favorites/toggle/{problem_id}", response_model=FavoriteResponse)
+async def toggle_favorite(
+    problem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """切换题目的收藏状态"""
+    try:
+        result = ProblemService.toggle_favorite(db, current_user.id, problem_id)
+        return FavoriteResponse(**result)
+    except Exception as e:
+        logger.error(f"切换收藏状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="切换收藏状态失败")
+
+@router.get("/favorites/status/{problem_id}", response_model=FavoriteStatusResponse)
+async def get_favorite_status(
+    problem_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取题目的收藏状态"""
+    try:
+        result = ProblemService.check_favorite_status(db, current_user.id, problem_id)
+        return FavoriteStatusResponse(**result)
+    except Exception as e:
+        logger.error(f"获取收藏状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取收藏状态失败")
+
+@router.post("/favorites/batch-status", response_model=dict)
+async def get_batch_favorite_status(
+    problem_ids: List[int],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """批量获取题目的收藏状态"""
+    try:
+        result = ProblemService.get_batch_favorite_status(db, current_user.id, problem_ids)
+        return result
+    except Exception as e:
+        logger.error(f"批量获取收藏状态失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="批量获取收藏状态失败")
+
+@router.get("/favorites/list", response_model=List[dict])
+async def get_user_favorite_problems(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取当前用户的收藏题目列表"""
+    try:
+        favorite_list = ProblemService.get_user_favorite_problems(db, current_user.id)
+        return favorite_list
+    except Exception as e:
+        logger.error(f"获取用户收藏列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取收藏列表失败") 
