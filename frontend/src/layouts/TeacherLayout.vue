@@ -83,6 +83,8 @@
         </nav>
         
         <div class="header-actions">
+          <VideoTutorial />
+          
           <button class="online-users-btn glass-effect" @click="showOnlineUsersModal">
             <span class="online-icon">👥</span>
             <span>在线用户</span>
@@ -169,6 +171,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import Footer from '../components/Footer.vue';
 import OnlineUsers from '../components/OnlineUsers.vue';
+import VideoTutorial from '../components/VideoTutorial.vue';
 import { logUserOperation, OperationType } from '../utils/logger';
 
 const router = useRouter();
