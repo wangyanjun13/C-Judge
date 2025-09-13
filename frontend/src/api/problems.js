@@ -280,4 +280,34 @@ export const getUserFavoriteProblems = async () => {
     console.error('获取收藏列表失败:', error);
     return [];
   }
+}
+
+// 视频教程相关API
+/**
+ * 获取视频教程列表
+ * @returns {Promise<Object>} - 返回视频列表
+ */
+export const getVideoList = async () => {
+  try {
+    const response = await axios.get('/api/problems/videos/list');
+    return response.data;
+  } catch (error) {
+    console.error('获取视频列表失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取指定视频的流媒体URL
+ * @param {String} filename - 视频文件名
+ * @returns {Promise<Object>} - 返回视频流信息
+ */
+export const getVideoStream = async (filename) => {
+  try {
+    const response = await axios.get(`/api/problems/videos/${encodeURIComponent(filename)}`);
+    return response.data;
+  } catch (error) {
+    console.error('获取视频流失败:', error);
+    throw error;
+  }
 } 
