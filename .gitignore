@@ -38,7 +38,11 @@
 /docker/data/
 /docker/data/*
 !/docker/data/.gitkeep
-
+/video/mp4/
+/video/mp4/**
+!/video/mp4/.gitkeep
+/video/**
+!/video/.gitkeep
 # 题库相关
 /题库/
 /题库/**
