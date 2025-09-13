@@ -42,6 +42,8 @@
         </nav>
         
         <div class="header-actions">
+          <VideoTutorial />
+          
           <button class="dashboard-btn glass-effect" @click="goToMySubmissions">
             <img src="/个人仪表盘.svg" alt="仪表盘" class="dashboard-icon" />
             <span>个人面板</span>
@@ -105,6 +107,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 import Footer from '../components/Footer.vue';
+import VideoTutorial from '../components/VideoTutorial.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();

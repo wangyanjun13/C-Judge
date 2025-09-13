@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Response, Depends, Query
+from fastapi.responses import StreamingResponse
 from typing import List, Optional
 from urllib.parse import unquote
+import os
 from app.schemas.problem import (
     ProblemCategory, ProblemInfo, ProblemDelete, ProblemDetail, 
     CustomProblemCreate, CustomProblemResponse,
@@ -338,4 +340,110 @@ async def get_user_favorite_problems(
         return favorite_list
     except Exception as e:
         logger.error(f"获取用户收藏列表失败: {str(e)}")
-        raise HTTPException(status_code=500, detail="获取收藏列表失败") 
+        raise HTTPException(status_code=500, detail="获取收藏列表失败")
+
+@router.get("/videos/list")
+async def get_tutorial_videos_list(current_user: User = Depends(get_current_user)):
+    """获取当前用户角色的教程视频列表"""
+    try:
+        logger.info(f"获取视频列表请求 - 用户: {current_user.username}, 角色: {current_user.role}")
+        
+        # 根据用户角色返回不同的视频列表
+        if current_user.role == "admin":
+            videos = [
+                {"filename": "student1.mp4", "title": "学生使用教程", "description": "学生如何参与练习和查看成绩"}
+            ]
+        elif current_user.role == "teacher":
+            videos = [
+                {"filename": "teacher_start.mp4", "title": "创建练习、班级、学生", "description": "教师如何创建练习、班级、学生"},
+                {"filename": "teacher_manage.mp4", "title": "管理题库", "description": "教师如何管理题库"},
+                {"filename": "teacher_other.mp4", "title": "其他功能", "description": "其他的额外功能"}
+            ]
+        else:  # student
+            videos = [
+                {"filename": "student1.mp4", "title": "学生使用教程", "description": "学生如何参与练习和查看成绩"}
+            ]
+        
+        logger.info(f"返回视频列表: {videos}")
+        return {"videos": videos}
+        
+    except Exception as e:
+        logger.error(f"获取教程视频列表失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="获取视频列表失败")
+
+@router.get("/videos/{filename}")
+async def get_tutorial_video(filename: str):
+    """获取教程视频文件"""
+    try:
+        # 验证文件名安全性，只允许.mp4文件
+        if not filename.endswith('.mp4') or '/' in filename or '\\' in filename:
+            raise HTTPException(status_code=400, detail="无效的视频文件名")
+        
+        # 构建视频文件路径 - 支持本地开发和Docker部署
+        # 本地开发: C-Judge/video/
+        # Docker部署: /app_root/video/
+        
+        # 尝试多个可能的视频路径，按优先级排序
+        possible_paths = []
+        
+        # 1. 本地开发路径（最高优先级）
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(current_dir))  # backend/app/api -> backend -> C-Judge
+        local_video_path = os.path.join(project_root, "video", filename)
+        possible_paths.append(local_video_path)
+        
+        # 2. Docker部署路径
+        possible_paths.extend([
+            os.path.join("/app_root/video", filename),      # Docker部署: /app_root/video/
+            os.path.join("/app/video", filename),           # 备用Docker路径
+            os.path.join("video", filename),                # 当前目录下的video文件夹
+        ])
+        
+        video_path = None
+        logger.info(f"查找视频文件: {filename}")
+        for path in possible_paths:
+            logger.info(f"检查路径: {path}, 存在: {os.path.exists(path)}")
+            if os.path.exists(path):
+                video_path = path
+                logger.info(f"找到视频文件: {path}")
+                break
+        
+        if video_path is None:
+            logger.error(f"视频文件不存在: {filename}, 检查的路径: {possible_paths}")
+            raise HTTPException(status_code=404, detail="视频文件不存在")
+        
+        # 检查文件是否存在
+        if not os.path.exists(video_path):
+            raise HTTPException(status_code=404, detail="视频文件不存在")
+        
+        # 获取文件大小
+        file_size = os.path.getsize(video_path)
+        
+        # 设置响应头
+        headers = {
+            "Content-Type": "video/mp4",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
+            "Cache-Control": "public, max-age=3600"  # 缓存1小时
+        }
+        
+        # 流式返回视频文件
+        def iterfile():
+            with open(video_path, "rb") as file:
+                while True:
+                    chunk = file.read(8192)  # 8KB chunks
+                    if not chunk:
+                        break
+                    yield chunk
+        
+        return StreamingResponse(
+            iterfile(), 
+            media_type="video/mp4",
+            headers=headers
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取教程视频失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取视频失败") 
