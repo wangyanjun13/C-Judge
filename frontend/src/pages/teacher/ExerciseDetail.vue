@@ -45,7 +45,7 @@
                 <th>试题名称</th>
                 <th>试题中文名称</th>
                 <th>得分</th>
-                <th>标签</th>
+                <!-- <th>标签</th> -->
                 <th>操作</th>
               </tr>
             </thead>
@@ -59,7 +59,7 @@
                   <span v-if="isSubmitted(problem)" class="submitted-tag">已提交</span>
                   <span v-else class="not-submitted-tag">未提交</span>
                 </td>
-                <td class="tags-cell">
+                <!-- <td class="tags-cell">
                   <div v-if="problem.tags && problem.tags.length > 0" class="problem-tags">
                     <template v-for="(tags, tagType) in groupTagsByType(problem.tags)" :key="tagType">
                       <div class="tag-group">
@@ -76,7 +76,7 @@
                     </template>
                   </div>
                   <span v-else class="no-tags">暂无标签</span>
-                </td>
+                </td> -->
                 <td>
                   <button @click="viewProblem(problem.id)" class="btn btn-primary">
                     查看
