@@ -202,7 +202,8 @@
       </div>
     </div>
 
-
+    <!-- 悬浮下载按钮 -->
+    <FloatingDownload />
   </div>
 </template>
 
@@ -219,6 +220,7 @@ import {
   getCourses
 } from '../../api/exercises';
 import { logUserOperation, OperationType } from '../../utils/logger';
+import FloatingDownload from '../../components/FloatingDownload.vue';
 
 const router = useRouter();
 const exercises = ref([]);
