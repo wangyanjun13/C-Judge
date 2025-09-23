@@ -1,7 +1,6 @@
---index-url https://pypi.tuna.tsinghua.edu.cn/simple
---trusted-host pypi.tuna.tsinghua.edu.cn
+# Using official PyPI index
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
 pydantic
 psycopg2-binary
@@ -14,3 +13,5 @@ redis
 alembic
 python-dotenv
 requests
+uvloop
+httptools
