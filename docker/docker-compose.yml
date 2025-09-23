@@ -11,8 +11,23 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=cjudge
       - POSTGRES_DB=cjudge
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     ports:
       - "5432:5432"
+    command: >
+      postgres
+      -c max_connections=100
+      -c shared_buffers=128MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=32MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=100
+      -c work_mem=2MB
+      -c min_wal_size=512MB
+      -c max_wal_size=2GB
 
   # Redis缓存
   redis:
@@ -21,7 +36,16 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --save 60 1 --loglevel warning
+    command: >
+      redis-server
+      --appendonly yes
+      --save 300 1
+      --loglevel warning
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 60
+      --timeout 0
+      --tcp-backlog 256
 
   # 后端API服务
   backend:
@@ -52,7 +76,7 @@ services:
       sh -c "
         mkdir -p /app/data &&
         pip install -r requirements.txt &&
-        uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+        uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2 --loop uvloop --http httptools
       "
 
   # 前端服务

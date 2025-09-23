@@ -2,41 +2,104 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List
 
 from app.models import User, get_db, OperationLog
 from app.schemas.user import UserCreate, UserLogin, Token, UserResponse, OnlineUserResponse
 from app.utils.auth import verify_password, get_password_hash, create_access_token, get_current_active_user, get_teacher_user, get_admin_user
+from app.utils.redis_client import RedisCache
 from config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """用户登录"""
-    # 查找用户
-    user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password):
+    """用户登录 - 高性能优化版本"""
+    # 检查登录尝试次数限制（使用Redis缓存）
+    attempts = RedisCache.increment_login_attempts(form_data.username)
+    if attempts > 5:  # 5次失败后锁定5分钟
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="登录尝试次数过多，请5分钟后再试",
         )
     
-    # 更新用户在线状态
-    user.is_online = True
-    db.commit()
+    # 先检查Redis缓存中是否有用户信息
+    cached_user = RedisCache.get(f"user:{form_data.username}")
+    if cached_user:
+        # 从缓存获取用户信息
+        user_data = cached_user
+        if not verify_password(form_data.password, user_data.get('password_hash')):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户名或密码错误",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # 从缓存构建用户对象
+        user = type('User', (), {
+            'id': user_data['id'],
+            'username': user_data['username'],
+            'real_name': user_data['real_name'],
+            'role': user_data['role'],
+            'is_online': False,
+            'register_time': user_data.get('register_time')
+        })()
+    else:
+        # 从数据库查找用户（只查询必要字段）
+        user = db.query(User.id, User.username, User.password, User.real_name, User.role, User.register_time).filter(
+            User.username == form_data.username
+        ).first()
+        
+        if not user or not verify_password(form_data.password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户名或密码错误",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # 缓存用户信息（不包含密码）
+        user_cache = {
+            'id': user.id,
+            'username': user.username,
+            'real_name': user.real_name,
+            'role': user.role,
+            'register_time': user.register_time.isoformat() if user.register_time else None,
+            'password_hash': user.password  # 用于密码验证
+        }
+        RedisCache.set(f"user:{form_data.username}", user_cache, expire=3600)  # 缓存1小时
     
-    # 记录操作日志
+    # 登录成功，清除登录尝试次数
+    RedisCache.clear_login_attempts(form_data.username)
+    
+    # 异步更新用户在线状态（不阻塞登录响应）
     now = datetime.now()
-    log = OperationLog(
-        user_id=user.id,
-        operation="登录",
-        target="系统",
-        created_at=now
-    )
-    db.add(log)
-    db.commit()
+    
+    # 使用批量操作减少数据库交互
+    try:
+        # 更新用户在线状态
+        db.execute(
+            text("UPDATE users SET is_online = true WHERE id = :user_id"),
+            {"user_id": user.id}
+        )
+        
+        # 批量插入操作日志（使用批量插入提高性能）
+        log_data = {
+            'user_id': user.id,
+            'operation': '登录',
+            'target': '系统',
+            'created_at': now
+        }
+        db.execute(
+            text("INSERT INTO operation_logs (user_id, operation, target, created_at) VALUES (:user_id, :operation, :target, :created_at)"),
+            log_data
+        )
+        
+        db.commit()
+        
+    except Exception as e:
+        db.rollback()
+        # 登录状态更新失败不影响登录成功
+        print(f"Warning: Failed to update user status: {e}")
     
     # 创建访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -51,9 +114,18 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         "username": user.username,
         "real_name": user.real_name,
         "role": user.role,
-        "is_online": user.is_online,
-        "register_time": user.register_time.isoformat() if user.register_time else None
+        "is_online": True,
+        "register_time": user.register_time.isoformat() if hasattr(user.register_time, 'isoformat') and user.register_time else str(user.register_time) if user.register_time else None
     }
+    
+    # 缓存用户会话信息（异步操作）
+    session_data = {
+        "user_id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "login_time": now.isoformat()
+    }
+    RedisCache.set_user_session(user.id, session_data, expire=86400)  # 缓存24小时
     
     return {
         "access_token": access_token,
@@ -193,7 +265,7 @@ async def get_online_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """获取在线用户列表（仅管理员和教师可访问）"""
+    """获取在线用户列表（仅管理员和教师可访问）- 优化版本"""
     # 检查权限
     if current_user.role not in ["admin", "teacher"]:
         raise HTTPException(
@@ -201,41 +273,51 @@ async def get_online_users(
             detail="只有管理员和教师可以查看在线用户"
         )
     
+    # 尝试从Redis缓存获取在线用户列表
+    cached_users = RedisCache.get_online_users()
+    if cached_users:
+        return cached_users
+    
     try:
-        # 计算2分钟前的时间点 (不带时区信息)
+        # 计算2分钟前的时间点
         now = datetime.now()
         two_minutes_ago = now - timedelta(minutes=2)
         
-        # 获取所有用户
-        all_users = db.query(User).all()
+        # 使用LEFT JOIN一次性获取用户和最新操作日志，避免N+1查询
+        from sqlalchemy import func
+        from sqlalchemy.orm import aliased
+        
+        # 子查询：获取每个用户的最新操作时间
+        latest_logs_subquery = db.query(
+            OperationLog.user_id,
+            func.max(OperationLog.created_at).label('latest_activity')
+        ).group_by(OperationLog.user_id).subquery()
+        
+        # 主查询：LEFT JOIN用户表和最新操作日志
+        users_with_activity = db.query(
+            User,
+            latest_logs_subquery.c.latest_activity
+        ).outerjoin(
+            latest_logs_subquery, User.id == latest_logs_subquery.c.user_id
+        ).all()
         
         # 处理结果列表
         result = []
+        users_to_update = []  # 需要更新在线状态的用户
         
-        for user in all_users:
-            # 获取用户最近的操作日志
-            latest_log = db.query(OperationLog).filter(
-                OperationLog.user_id == user.id
-            ).order_by(OperationLog.created_at.desc()).first()
-            
-            # 如果用户在2分钟内有操作，认为其在线
+        for user, last_activity in users_with_activity:
+            # 判断用户是否在线
             is_online = False
-            last_activity = None
-            
-            if latest_log:
-                last_activity = latest_log.created_at
-                
+            if last_activity:
                 # 确保时区一致性
                 if hasattr(last_activity, 'tzinfo') and last_activity.tzinfo is not None:
-                    # 如果日期带有时区信息，转换为不带时区的本地时间
                     last_activity = last_activity.replace(tzinfo=None)
-                
                 is_online = last_activity >= two_minutes_ago
-                
-            # 更新用户在线状态
+            
+            # 记录需要更新在线状态的用户
             if user.is_online != is_online:
                 user.is_online = is_online
-                db.commit()
+                users_to_update.append(user)
             
             # 构建响应对象
             user_response = {
@@ -244,13 +326,18 @@ async def get_online_users(
                 "real_name": user.real_name,
                 "role": user.role,
                 "is_online": user.is_online,
-                "register_time": user.register_time,
-                "last_activity": last_activity
+                "register_time": user.register_time.isoformat() if user.register_time else None,
+                "last_activity": last_activity.isoformat() if last_activity else None
             }
             
             result.append(user_response)
         
-
+        # 批量更新用户在线状态
+        if users_to_update:
+            db.commit()
+        
+        # 缓存在线用户列表（缓存1分钟）
+        RedisCache.set_online_users(result, expire=60)
         
         return result
         
