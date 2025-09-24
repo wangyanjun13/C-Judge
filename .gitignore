@@ -20,8 +20,15 @@
 /backend/*.sqlite3
 /backend/题库/
 /backend/题库/**
+/docker/backups/
+backups/*
+logs/*
+docker/judge-1.6.1.tar
+docker/postgres-14-alpine.tar
+docker/python-3.9.tar
+docker/node-18-alpine.tar
+docker/redis-alpine.tar
 
-# 编辑器相关
 .idea/
 .vscode/
 *.suo
@@ -59,7 +66,4 @@
 student_list.txt
 devcpp-4.9.9.2_setup.exe
 
-*.tar
-*.exe
-*.mp4
-docker/*.tar
+git push --force --no-verify origin prod
