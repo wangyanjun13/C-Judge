@@ -59,3 +59,7 @@
 student_list.txt
 devcpp-4.9.9.2_setup.exe
 
+*.tar
+*.exe
+*.mp4
+docker/*.tar
