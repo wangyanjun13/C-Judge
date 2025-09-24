@@ -19,7 +19,7 @@
 /backend/*.db
 /backend/*.sqlite3
 /backend/题库/
-/backend/题库/**
+/backend/题库/*
 /docker/backups/
 backups/*
 logs/*
@@ -66,6 +66,7 @@ docker/redis-alpine.tar
 student_list.txt
 devcpp-4.9.9.2_setup.exe
 
-git push --force --no-verify origin prod*.mp4
-*.zip
-*.avi
+git push --force --no-verify origin prod*.tar
+*.exe
+*.mp4
+docker/*.tar
