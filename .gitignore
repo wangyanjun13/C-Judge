@@ -56,4 +56,6 @@
 .env.development.local
 .env.test.local
 .env.production.local
+student_list.txt
+devcpp-4.9.9.2_setup.exe
 
