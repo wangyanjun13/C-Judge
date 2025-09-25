@@ -249,7 +249,7 @@
                         </label>
                         <textarea 
                           v-model="testcase.input" 
-                          placeholder="请输入测试数据..."
+                          placeholder="请输入测试数据（可为空，适用于无输入题目）..."
                           rows="4"
                           class="io-input"
                           @input="validateTestcase(index)"
@@ -970,13 +970,11 @@ const validateDescription = (description) => {
 
 // 验证测试用例
 const validateTestcaseData = (input, output) => {
-  if (!input || input.trim() === '') {
-    return '输入数据不能为空';
-  }
+  // 允许输入为空，但输出不能为空
   if (!output || output.trim() === '') {
     return '输出数据不能为空';
   }
-  if (input.length > LIMITS.testcase_input) {
+  if (input && input.length > LIMITS.testcase_input) {
     return `输入数据不能超过${LIMITS.testcase_input}个字符`;
   }
   if (output.length > LIMITS.testcase_output) {
@@ -1036,7 +1034,7 @@ const isFormValid = computed(() => {
          problemForm.value.chineseName && 
          problemForm.value.description && 
          problemForm.value.testcases.length > 0 &&
-         problemForm.value.testcases.every(tc => tc.input && tc.output) &&
+         problemForm.value.testcases.every(tc => tc.output && tc.output.trim() !== '') &&
          Object.keys(errors.value).every(key => !errors.value[key]);
 });
 
