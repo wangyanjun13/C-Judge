@@ -991,11 +991,8 @@ const validateTestcaseData = (input, output) => {
   if (input && input.length > LIMITS.testcase_input) {
     return `输入数据不能超过${LIMITS.testcase_input}个字符`;
   }
-  // 输出不能为空
-  if (!output || output.trim() === '') {
-    return '输出数据不能为空';
-  }
-  if (output.length > LIMITS.testcase_output) {
+  // 输出也可以为空，但如果有输出则检查长度
+  if (output && output.length > LIMITS.testcase_output) {
     return `输出数据不能超过${LIMITS.testcase_output}个字符`;
   }
   return null;
