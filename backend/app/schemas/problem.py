@@ -44,8 +44,8 @@ class ProblemDetail(BaseModel):
 
 class TestCase(BaseModel):
     """测试用例模型"""
-    input: str
-    output: str
+    input: str = ""  # 允许为空字符串
+    output: str = ""  # 允许为空字符串
 
 class CustomProblemCreate(BaseModel):
     """自定义题目创建模型"""

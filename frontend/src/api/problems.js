@@ -163,12 +163,10 @@ export const createCustomProblem = async (problemData) => {
       throw new Error('至少需要一个测试用例');
     }
     
-    // 验证测试用例
+    // 验证测试用例（允许输入和输出都为空）
     for (let i = 0; i < problemData.testcases.length; i++) {
       const testcase = problemData.testcases[i];
-      if (!testcase.input || !testcase.output) {
-        throw new Error(`第${i + 1}个测试用例的输入和输出都不能为空`);
-      }
+      // 不再强制要求输入和输出非空，允许创建像"Hello World"这样的题目
     }
     
     // 构造请求数据

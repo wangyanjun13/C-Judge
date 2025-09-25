@@ -618,16 +618,13 @@ class ProblemService:
             return {"valid": False, "message": "测试用例数量不能超过20个"}
         
         for i, testcase in enumerate(problem_data.testcases):
-            if not testcase.input or not testcase.input.strip():
-                return {"valid": False, "message": f"第{i+1}个测试用例的输入不能为空"}
-            
-            if not testcase.output or not testcase.output.strip():
-                return {"valid": False, "message": f"第{i+1}个测试用例的输出不能为空"}
-            
-            if len(testcase.input) > 2000:
+            # 允许输入和输出都为空
+            # 只有当输入不为空时才检查长度
+            if testcase.input and len(testcase.input) > 2000:
                 return {"valid": False, "message": f"第{i+1}个测试用例的输入不能超过2000个字符"}
             
-            if len(testcase.output) > 2000:
+            # 只有当输出不为空时才检查长度
+            if testcase.output and len(testcase.output) > 2000:
                 return {"valid": False, "message": f"第{i+1}个测试用例的输出不能超过2000个字符"}
         
         return {"valid": True, "message": "验证通过"}
