@@ -667,6 +667,10 @@ class ProblemService:
     def _create_problem_html(problem_dir: str, name: str, description: str, chinese_name: str):
         """创建题目HTML文件"""
         
+        print(f"=== 开始创建HTML文件 ===")
+        print(f"题目名称: {name}")
+        print(f"描述内容: {repr(description)}")
+        
         # 解析描述中的结构化信息
         parsed_sections = ProblemService._parse_description(description)
         
@@ -679,8 +683,8 @@ class ProblemService:
         
         html_path = os.path.join(problem_dir, f"{name}.htm")
         
-        # 使用GB2312编码写入文件以保持兼容性
-        with open(html_path, "w", encoding="gb2312") as f:
+        # 使用UTF-8编码写入文件以保持兼容性
+        with open(html_path, "w", encoding="utf-8") as f:
             f.write(html_content)
         
         logger.info(f"创建HTML文件: {html_path}")
@@ -696,15 +700,15 @@ class ProblemService:
         current_section = 'description'
         content = []
         
-        # 常见的章节标识符
+        # 常见的章节标识符 - 按优先级排序，更具体的模式在前
         section_patterns = {
-            'description': r'^(题目描述|问题描述|描述)[:：]?',
-            'input_format': r'^(输入格式?|输入)[:：]?',
-            'output_format': r'^(输出格式?|输出)[:：]?',
-            'sample_input': r'^(输入示例|样例输入|输入样例)[:：]?',
-            'sample_output': r'^(输出示例|样例输出|输出样例)[:：]?',
-            'data_range': r'^(数据范围|约束条件|限制条件)[:：]?',
-            'note': r'^(注意|备注|说明)[:：]?'
+            'sample_input': r'^(输入示例)[:：]?',
+            'sample_output': r'^(输出示例)[:：]?',
+            'input_format': r'^(输入)[:：]?',
+            'output_format': r'^(输出)[:：]?',
+            'description': r'^(题目描述)[:：]?',
+            'data_range': r'^(数据范围)[:：]?',
+            'note': r'^(注意)[:：]?'
         }
         
         import re
@@ -740,6 +744,12 @@ class ProblemService:
         if content:
             sections[current_section] = '\n'.join(content).strip()
         
+        # 调试日志：显示解析结果
+        print(f"=== 解析结果 ===")
+        for key, value in sections.items():
+            print(f"{key}: {repr(value)}")
+        print(f"================")
+        
         return sections
 
     @staticmethod
@@ -760,7 +770,7 @@ class ProblemService:
             if not text:
                 return ''
             return (html.escape(text)
-                   .replace('\n', '</br>'))
+                   .replace('\n', '</br>　　'))
         
         # 转义不带换行的文本
         def escape_simple(text):
@@ -771,7 +781,7 @@ class ProblemService:
         html_template = f"""<!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=gb2312" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>题目</title>
     <style type="text/css">
         .SimSun
@@ -810,6 +820,7 @@ class ProblemService:
             line-height: 22px;
             margin-left: 20px;
             margin-right: 20px;
+            text-indent: 2em;
         }}
         .note-text {{
             color: #FF0000;
@@ -820,6 +831,7 @@ class ProblemService:
             padding: 5px;
             border: 1px solid #ddd;
             margin: 5px 0;
+            text-indent: 0;
         }}
     </style>
 </head>
@@ -832,43 +844,43 @@ class ProblemService:
             html_template += f"""
         
         <p class="section-title">题目描述</p>
-        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(description)}</p>"""
+        <p class="SimSun content">{escape_html(description)}</p>"""
         
         if input_format:
             html_template += f"""
         
         <p class="section-title">输入</p>
-        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(input_format)}</p>"""
+        <p class="SimSun content">{escape_html(input_format)}</p>"""
         
         if output_format:
             html_template += f"""
         
         <p class="section-title">输出</p>
-        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(output_format)}</p>"""
+        <p class="SimSun content">{escape_html(output_format)}</p>"""
         
         if sample_input:
             html_template += f"""
         
         <p class="section-title">输入示例</p>
-        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_simple(sample_input)}</p>"""
+        <p class="SimSun content">{escape_html(sample_input)}</p>"""
         
         if sample_output:
             html_template += f"""
         
         <p class="section-title">输出示例</p>
-        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_simple(sample_output)}</p>"""
+        <p class="SimSun content">{escape_html(sample_output)}</p>"""
         
         if data_range:
             html_template += f"""
         
         <p class="section-title">数据范围</p>
-        <p class="SimSun content">&nbsp;&nbsp;&nbsp;{escape_html(data_range)}</p>"""
+        <p class="SimSun content">{escape_html(data_range)}</p>"""
         
         if note:
             html_template += f"""
         
         <p class="section-title">注意</p>
-        <p class="SimSun content">&nbsp;&nbsp;&nbsp;<span class="note-text">{escape_html(note)}</span></p>"""
+        <p class="SimSun content"><span class="note-text">{escape_html(note)}</span></p>"""
         
         html_template += """
     </div>

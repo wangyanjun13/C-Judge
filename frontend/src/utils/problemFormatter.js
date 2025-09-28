@@ -44,7 +44,7 @@ export function generateProblemHTML(problemData) {
   // 格式化文本，保留换行
   const formatText = (text) => {
     if (!text) return '';
-    return escapeHtml(text).replace(/\n/g, '</br>');
+    return escapeHtml(text).replace(/\n/g, '</br>　　');
   };
 
   const html = `<!DOCTYPE html>
@@ -88,6 +88,7 @@ export function generateProblemHTML(problemData) {
             line-height: 22px;
             margin-left: 20px;
             margin-right: 20px;
+            text-indent: 2em;
         }
         .note-text {
             color: #FF0000;
@@ -98,6 +99,7 @@ export function generateProblemHTML(problemData) {
             padding: 5px;
             border: 1px solid #ddd;
             margin: 5px 0;
+            text-indent: 0;
         }
     </style>
 </head>
@@ -164,14 +166,14 @@ export function parseDescription(description) {
   let currentSection = 'description';
   let content = [];
 
-  // 常见的章节标识符
+  // 常见的章节标识符 - 按优先级排序，更具体的模式在前
   const sectionPatterns = {
-    description: /^(题目描述|问题描述|描述)[:：]?/i,
-    inputFormat: /^(输入格式?|输入)[:：]?/i,
-    outputFormat: /^(输出格式?|输出)[:：]?/i,
-    sampleInput: /^(输入示例|样例输入|输入样例)[:：]?/i,
-    sampleOutput: /^(输出示例|样例输出|输出样例)[:：]?/i,
-    dataRange: /^(数据范围|约束条件|限制条件)[:：]?/i,
+    sampleInput: /^(输入示例)[:：]?/i,
+    sampleOutput: /^(输出示例)[:：]?/i,
+    inputFormat: /^(输入)[:：]?/i,
+    outputFormat: /^(输出)[:：]?/i,
+    description: /^(题目描述)[:：]?/i,
+    dataRange: /^(数据范围)[:：]?/i,
     note: /^(注意|备注|说明)[:：]?/i
   };
 
