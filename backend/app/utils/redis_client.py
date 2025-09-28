@@ -15,16 +15,16 @@ class DateTimeEncoder(json.JSONEncoder):
 # Redis连接配置
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
-# 创建Redis连接池 - 高并发优化配置
+# 创建Redis连接池 - 4核8G服务器高并发优化配置
 redis_pool = redis.ConnectionPool.from_url(
     REDIS_URL,
-    max_connections=20,        # 减少连接池大小，降低资源消耗
+    max_connections=100,       # 增加连接池大小以支持100+并发
     retry_on_timeout=True,
     socket_keepalive=True,
     socket_keepalive_options={},
-    health_check_interval=60,  # 增加健康检查间隔，减少CPU消耗
-    socket_connect_timeout=3,  # 减少连接超时时间
-    socket_timeout=3,          # 减少操作超时时间
+    health_check_interval=30,  # 减少健康检查间隔，提高响应速度
+    socket_connect_timeout=5,  # 增加连接超时时间
+    socket_timeout=5,          # 增加操作超时时间
     decode_responses=True,
     retry_on_error=[redis.ConnectionError, redis.TimeoutError]
 )

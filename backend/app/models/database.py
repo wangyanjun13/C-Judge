@@ -9,17 +9,17 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://cjudge:password@db:5432/c
 # 创建数据库引擎
 # engine = create_engine(DATABASE_URL)
 
-# 创建数据库引擎 - 高并发优化配置
+# 创建数据库引擎 - 4核8G服务器高并发优化配置
 engine = create_engine(
     DATABASE_URL,
-    pool_size=20,          # 增加连接池大小以支持更高并发
-    max_overflow=30,       # 增加溢出连接数
-    pool_timeout=30,       # 增加获取连接超时时间
-    pool_recycle=3600,     # 连接回收时间（1小时）
+    pool_size=50,          # 增加连接池大小以支持100+并发
+    max_overflow=100,      # 增加溢出连接数，支持突发流量
+    pool_timeout=60,       # 增加获取连接超时时间
+    pool_recycle=1800,     # 连接回收时间（30分钟）
     pool_pre_ping=True,    # 连接前ping检查
     echo=False,            # 关闭SQL日志
     connect_args={
-        "connect_timeout": 30,  # 增加连接超时时间
+        "connect_timeout": 60,  # 增加连接超时时间
         "application_name": "cjudge_backend",
         "options": "-c default_transaction_isolation=read\\ committed"  # 优化事务隔离级别
     }
